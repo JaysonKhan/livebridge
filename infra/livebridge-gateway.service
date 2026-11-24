@@ -1,0 +1,29 @@
+# systemd unit for the owner's server, following its conventions (plain systemd service, /var/www/<name>, .env file).
+# Install:  sudo cp infra/livebridge-gateway.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#           sudo systemctl enable --now livebridge-gateway
+[Unit]
+Description=LiveBridge realtime translation gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=deploy
+WorkingDirectory=/var/www/livebridge
+EnvironmentFile=/var/www/livebridge/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node services/gateway/src/main.ts
+Restart=on-failure
+RestartSec=3
+# Sessions are in memory; give active sockets a moment to close cleanly on restart.
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

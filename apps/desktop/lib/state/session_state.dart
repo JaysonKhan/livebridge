@@ -1,0 +1,246 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../bridge/live_bridge.dart';
+import '../bridge/models.dart';
+import 'providers.dart';
+import 'setup_state.dart';
+
+const Object _keep = Object();
+const int _maxTurnsPerLane = 200;
+
+/// One spoken turn in a caption lane: the original text and its translation.
+class CaptionTurn {
+  const CaptionTurn({
+    required this.id,
+    this.original = '',
+    this.originalFinal = false,
+    this.translation = '',
+    this.translationFinal = false,
+  });
+
+  final int id;
+  final String original;
+  final bool originalFinal;
+  final String translation;
+  final bool translationFinal;
+
+  bool get isLive => !(originalFinal && translationFinal);
+
+  CaptionTurn copyWith({String? original, bool? originalFinal, String? translation, bool? translationFinal}) =>
+      CaptionTurn(
+        id: id,
+        original: original ?? this.original,
+        originalFinal: originalFinal ?? this.originalFinal,
+        translation: translation ?? this.translation,
+        translationFinal: translationFinal ?? this.translationFinal,
+      );
+}
+
+/// Partial replaces in place, final commits, translation deltas append and the translation final replaces.
+List<CaptionTurn> applyCaption(List<CaptionTurn> turns, CaptionEvent e) {
+  final i = turns.indexWhere((t) => t.id == e.turnId);
+  final cur = i >= 0 ? turns[i] : CaptionTurn(id: e.turnId);
+  final next = switch (e.kind) {
+    CaptionKind.partial => cur.originalFinal ? cur : cur.copyWith(original: e.text),
+    CaptionKind.finalText => cur.copyWith(original: e.text, originalFinal: true),
+    CaptionKind.translationDelta => cur.translationFinal ? cur : cur.copyWith(translation: cur.translation + e.text),
+    CaptionKind.translationFinal => cur.copyWith(translation: e.text, translationFinal: true),
+  };
+  final list = [...turns];
+  if (i >= 0) {
+    list[i] = next;
+  } else {
+    list.add(next);
+  }
+  return list.length > _maxTurnsPerLane ? list.sublist(list.length - _maxTurnsPerLane) : list;
+}
+
+class SessionState {
+  const SessionState({
+    this.engine = EngineState.idle,
+    this.outReady = false,
+    this.inReady = false,
+    this.capturing = false,
+    this.mock = false,
+    this.bypass = false,
+    this.outgoingMuted = false,
+    this.incomingAudioMuted = false,
+    this.message,
+    this.pttHeld = false,
+    this.outTurns = const [],
+    this.inTurns = const [],
+    this.metrics,
+    this.meters,
+    this.error,
+  });
+
+  final EngineState engine;
+  final bool outReady;
+  final bool inReady;
+  final bool capturing;
+  final bool mock;
+  final bool bypass;
+  final bool outgoingMuted;
+  final bool incomingAudioMuted;
+  final String? message;
+  final bool pttHeld;
+  final List<CaptionTurn> outTurns;
+  final List<CaptionTurn> inTurns;
+  final MetricsEvent? metrics;
+  final MetersEvent? meters;
+  final ErrorEvent? error;
+
+  /// A session exists (anything but idle).
+  bool get running => engine != EngineState.idle;
+
+  /// The engine accepts push-to-talk.
+  bool get canPtt => engine == EngineState.ready || engine == EngineState.active;
+
+  SessionState copyWith({
+    EngineState? engine,
+    bool? outReady,
+    bool? inReady,
+    bool? capturing,
+    bool? mock,
+    bool? bypass,
+    bool? outgoingMuted,
+    bool? incomingAudioMuted,
+    Object? message = _keep,
+    bool? pttHeld,
+    List<CaptionTurn>? outTurns,
+    List<CaptionTurn>? inTurns,
+    Object? metrics = _keep,
+    Object? meters = _keep,
+    Object? error = _keep,
+  }) => SessionState(
+    engine: engine ?? this.engine,
+    outReady: outReady ?? this.outReady,
+    inReady: inReady ?? this.inReady,
+    capturing: capturing ?? this.capturing,
+    mock: mock ?? this.mock,
+    bypass: bypass ?? this.bypass,
+    outgoingMuted: outgoingMuted ?? this.outgoingMuted,
+    incomingAudioMuted: incomingAudioMuted ?? this.incomingAudioMuted,
+    message: identical(message, _keep) ? this.message : message as String?,
+    pttHeld: pttHeld ?? this.pttHeld,
+    outTurns: outTurns ?? this.outTurns,
+    inTurns: inTurns ?? this.inTurns,
+    metrics: identical(metrics, _keep) ? this.metrics : metrics as MetricsEvent?,
+    meters: identical(meters, _keep) ? this.meters : meters as MetersEvent?,
+    error: identical(error, _keep) ? this.error : error as ErrorEvent?,
+  );
+}
+
+class SessionNotifier extends Notifier<SessionState> {
+  LiveBridge get _bridge => ref.read(bridgeProvider);
+
+  @override
+  SessionState build() {
+    final sub = ref.watch(bridgeProvider).events.listen(_onEvent);
+    ref.onDispose(sub.cancel);
+    return const SessionState();
+  }
+
+  void _onEvent(BridgeEvent e) {
+    switch (e) {
+      case final StateEvent s:
+        state = state.copyWith(
+          engine: s.state,
+          outReady: s.outReady,
+          inReady: s.inReady,
+          capturing: s.capturing,
+          mock: s.mock,
+          bypass: s.bypass,
+          outgoingMuted: s.outgoingMuted,
+          incomingAudioMuted: s.incomingAudioMuted,
+          message: s.message,
+          pttHeld: s.state == EngineState.ready || s.state == EngineState.active ? state.pttHeld : false,
+        );
+      case final CaptionEvent c:
+        state = c.direction == Direction.out
+            ? state.copyWith(outTurns: applyCaption(state.outTurns, c))
+            : state.copyWith(inTurns: applyCaption(state.inTurns, c));
+      case final MetersEvent m:
+        state = state.copyWith(meters: m);
+      case final MetricsEvent m:
+        state = state.copyWith(metrics: m);
+      case final ErrorEvent err:
+        state = err.fatal ? _idleWith(error: err) : state.copyWith(error: err);
+      case DevicesChangedEvent():
+        unawaited(ref.read(setupProvider.notifier).refreshDevices());
+    }
+  }
+
+  /// Back to idle, keeping captions so the owner can still read them.
+  SessionState _idleWith({ErrorEvent? error}) =>
+      SessionState(outTurns: state.outTurns, inTurns: state.inTurns, metrics: state.metrics, error: error);
+
+  void reportError(ErrorEvent e) => state = state.copyWith(error: e);
+
+  void reportException(Exception e, String method) => reportError(
+    e is PlatformException
+        ? ErrorEvent(code: e.code, message: e.message ?? '$method failed')
+        : ErrorEvent(code: method, message: e.toString()),
+  );
+
+  void dismissError() => state = state.copyWith(error: null);
+
+  void clearMeters() => state = state.copyWith(meters: null);
+
+  /// Runs a bridge call, turning a failure into an error-strip entry.
+  Future<void> guard(String method, Future<void> Function() call) async {
+    try {
+      await call();
+    } on Exception catch (e) {
+      if (ref.mounted) reportException(e, method);
+    }
+  }
+
+  Future<void> start(StartConfig config) async {
+    state = SessionState(engine: EngineState.connecting);
+    try {
+      await _bridge.stopMeters();
+      await _bridge.saveSettings(config);
+      await _bridge.start(config);
+    } on Exception catch (e) {
+      if (!ref.mounted) return;
+      state = _idleWith();
+      reportException(e, 'start');
+    }
+  }
+
+  Future<void> stop() => guard('stop', _bridge.stop);
+
+  Future<void> panic() => guard('panic', _bridge.panic);
+
+  Future<void> pttDown() async {
+    if (state.pttHeld || !state.canPtt || ref.read(setupProvider).outCommit != OutCommit.manual) return;
+    state = state.copyWith(pttHeld: true);
+    await guard('pttDown', _bridge.pttDown);
+  }
+
+  Future<void> pttUp() async {
+    if (!state.pttHeld) return;
+    state = state.copyWith(pttHeld: false);
+    await guard('pttUp', _bridge.pttUp);
+  }
+
+  Future<void> setOutgoingMuted(bool muted) => guard('setOutgoingMuted', () => _bridge.setOutgoingMuted(muted));
+
+  Future<void> setIncomingAudioMuted(bool muted) =>
+      guard('setIncomingAudioMuted', () => _bridge.setIncomingAudioMuted(muted));
+
+  Future<void> setBypass(bool enabled) => guard('setBypass', () => _bridge.setBypass(enabled));
+}
+
+final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);
+
+/// Push-to-talk works only when the engine is ready/active and the outgoing turn mode is push-to-talk.
+final pttEnabledProvider = Provider<bool>((ref) {
+  final canPtt = ref.watch(sessionProvider.select((s) => s.canPtt));
+  final manual = ref.watch(setupProvider.select((s) => s.outCommit == OutCommit.manual));
+  return canPtt && manual;
+});

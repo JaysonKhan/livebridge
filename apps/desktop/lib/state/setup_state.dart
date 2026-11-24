@@ -1,0 +1,225 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../bridge/models.dart';
+import 'providers.dart';
+import 'session_state.dart';
+
+const Object _keep = Object();
+
+class SetupState {
+  const SetupState({
+    this.devices = const [],
+    this.processes = const [],
+    this.micUid,
+    this.headphonesUid,
+    this.sourcePids = const {},
+    this.targetLang = TargetLang.en,
+    this.mode = SessionMode.captions,
+    this.outCommit = OutCommit.manual,
+    this.gatewayUrl = 'http://127.0.0.1:8201',
+    this.accessToken = '',
+    this.translationModel = '',
+    this.micPermission = 'undetermined',
+    this.deviceNotice,
+    this.captionFontSize = 18,
+    this.showOriginal = true,
+    this.showTranslated = true,
+  });
+
+  final List<AudioDevice> devices;
+  final List<AudioProcess> processes;
+  final String? micUid;
+  final String? headphonesUid;
+  final Set<int> sourcePids;
+  final TargetLang targetLang;
+  final SessionMode mode;
+  final OutCommit outCommit;
+  final String gatewayUrl;
+  final String accessToken;
+  final String translationModel;
+  final String micPermission;
+  final String? deviceNotice;
+  final double captionFontSize;
+  final bool showOriginal;
+  final bool showTranslated;
+
+  SetupState copyWith({
+    List<AudioDevice>? devices,
+    List<AudioProcess>? processes,
+    Object? micUid = _keep,
+    Object? headphonesUid = _keep,
+    Set<int>? sourcePids,
+    TargetLang? targetLang,
+    SessionMode? mode,
+    OutCommit? outCommit,
+    String? gatewayUrl,
+    String? accessToken,
+    String? translationModel,
+    String? micPermission,
+    Object? deviceNotice = _keep,
+    double? captionFontSize,
+    bool? showOriginal,
+    bool? showTranslated,
+  }) => SetupState(
+    devices: devices ?? this.devices,
+    processes: processes ?? this.processes,
+    micUid: identical(micUid, _keep) ? this.micUid : micUid as String?,
+    headphonesUid: identical(headphonesUid, _keep) ? this.headphonesUid : headphonesUid as String?,
+    sourcePids: sourcePids ?? this.sourcePids,
+    targetLang: targetLang ?? this.targetLang,
+    mode: mode ?? this.mode,
+    outCommit: outCommit ?? this.outCommit,
+    gatewayUrl: gatewayUrl ?? this.gatewayUrl,
+    accessToken: accessToken ?? this.accessToken,
+    translationModel: translationModel ?? this.translationModel,
+    micPermission: micPermission ?? this.micPermission,
+    deviceNotice: identical(deviceNotice, _keep) ? this.deviceNotice : deviceNotice as String?,
+    captionFontSize: captionFontSize ?? this.captionFontSize,
+    showOriginal: showOriginal ?? this.showOriginal,
+    showTranslated: showTranslated ?? this.showTranslated,
+  );
+
+  /// Physical microphones (anything with input channels; a virtual one is refused by the route check).
+  List<AudioDevice> get inputDevices => devices.where((d) => d.inputChannels > 0).toList();
+
+  /// Physical headphones: outputs, excluding virtual devices.
+  List<AudioDevice> get outputDevices => devices.where((d) => d.outputChannels > 0 && !d.isVirtual).toList();
+
+  /// The BlackHole device, preferring the 2ch variant.
+  AudioDevice? get virtualMic {
+    final all = devices.where((d) => d.isBlackHole).toList();
+    return all.where((d) => d.name.toLowerCase().contains('2ch')).firstOrNull ?? all.firstOrNull;
+  }
+
+  AudioDevice? deviceByUid(String? uid) => devices.where((d) => d.uid == uid).firstOrNull;
+
+  /// Builds the `start` config. Only valid when the route check has no blockers.
+  StartConfig toConfig() => StartConfig(
+    gatewayUrl: gatewayUrl.trim(),
+    accessToken: accessToken.trim(),
+    micUid: micUid!,
+    headphonesUid: headphonesUid!,
+    virtualMicUid: mode == SessionMode.bidirectional ? virtualMic?.uid : null,
+    sourcePids: (sourcePids.toList()..sort()),
+    targetLang: targetLang,
+    mode: mode,
+    outCommit: outCommit,
+    translationModel: translationModel.trim().isEmpty ? null : translationModel.trim(),
+  );
+}
+
+class SetupNotifier extends Notifier<SetupState> {
+  @override
+  SetupState build() {
+    Future.microtask(load);
+    return const SetupState();
+  }
+
+  Future<void> load() async {
+    final bridge = ref.read(bridgeProvider);
+    try {
+      final saved = await bridge.loadSettings();
+      final devices = await bridge.listDevices();
+      final processes = await bridge.listAudioProcesses();
+      final permission = await bridge.microphonePermission();
+      if (!ref.mounted) return;
+
+      final base = state.copyWith(devices: devices, processes: processes, micPermission: permission);
+      final savedMic = saved['micUid'] as String?;
+      final savedPhones = saved['headphonesUid'] as String?;
+      final mic =
+          base.inputDevices.where((d) => d.uid == savedMic).firstOrNull ??
+          base.inputDevices.where((d) => d.isDefaultInput && !d.isVirtual).firstOrNull;
+      final phones =
+          base.outputDevices.where((d) => d.uid == savedPhones).firstOrNull ??
+          base.outputDevices.where((d) => d.isDefaultOutput).firstOrNull;
+      final livePids = processes.map((p) => p.pid).toSet();
+      final savedPids = (saved['sourcePids'] as List?)?.whereType<int>() ?? const <int>[];
+      state = base.copyWith(
+        micUid: mic?.uid,
+        headphonesUid: phones?.uid,
+        sourcePids: savedPids.where(livePids.contains).toSet(),
+        gatewayUrl: saved['gatewayUrl'] as String?,
+        accessToken: saved['accessToken'] as String?,
+        translationModel: saved['translationModel'] as String?,
+        targetLang: parseWire(TargetLang.values, saved['targetLang']),
+        mode: parseWire(SessionMode.values, saved['mode']),
+        outCommit: parseWire(OutCommit.values, saved['outCommit']),
+      );
+    } on Exception catch (e) {
+      ref.read(sessionProvider.notifier).reportException(e, 'loadSettings');
+    }
+  }
+
+  /// Re-queries devices (after `devicesChanged`). A selected device that vanished is cleared and reported.
+  Future<void> refreshDevices() async {
+    try {
+      final devices = await ref.read(bridgeProvider).listDevices();
+      if (!ref.mounted) return;
+      final old = state;
+      final notices = <String>[];
+      var next = old.copyWith(devices: devices);
+      if (old.micUid != null && !next.inputDevices.any((d) => d.uid == old.micUid)) {
+        notices.add(
+          'Microphone "${old.deviceByUid(old.micUid)?.name ?? old.micUid}" is no longer available. '
+          'Choose another microphone.',
+        );
+        next = next.copyWith(micUid: null);
+      }
+      if (old.headphonesUid != null && !devices.any((d) => d.uid == old.headphonesUid && d.outputChannels > 0)) {
+        notices.add(
+          'Headphones "${old.deviceByUid(old.headphonesUid)?.name ?? old.headphonesUid}" are no longer '
+          'available. Choose other headphones.',
+        );
+        next = next.copyWith(headphonesUid: null);
+      }
+      state = notices.isEmpty ? next : next.copyWith(deviceNotice: notices.join('\n'));
+    } on Exception catch (e) {
+      ref.read(sessionProvider.notifier).reportException(e, 'listDevices');
+    }
+  }
+
+  Future<void> refreshProcesses() async {
+    try {
+      final processes = await ref.read(bridgeProvider).listAudioProcesses();
+      if (!ref.mounted) return;
+      final live = processes.map((p) => p.pid).toSet();
+      state = state.copyWith(processes: processes, sourcePids: state.sourcePids.where(live.contains).toSet());
+    } on Exception catch (e) {
+      ref.read(sessionProvider.notifier).reportException(e, 'listAudioProcesses');
+    }
+  }
+
+  Future<void> refreshMicPermission({bool request = false}) async {
+    final bridge = ref.read(bridgeProvider);
+    try {
+      if (request) await bridge.requestMicrophonePermission();
+      final permission = await bridge.microphonePermission();
+      if (ref.mounted) state = state.copyWith(micPermission: permission);
+    } on Exception catch (e) {
+      ref.read(sessionProvider.notifier).reportException(e, 'microphonePermission');
+    }
+  }
+
+  void toggleSource(int pid, bool selected) {
+    final next = {...state.sourcePids};
+    selected ? next.add(pid) : next.remove(pid);
+    state = state.copyWith(sourcePids: next);
+  }
+
+  void setMic(String? uid) => state = state.copyWith(micUid: uid);
+  void setHeadphones(String? uid) => state = state.copyWith(headphonesUid: uid);
+  void setTargetLang(TargetLang v) => state = state.copyWith(targetLang: v);
+  void setMode(SessionMode v) => state = state.copyWith(mode: v);
+  void setOutCommit(OutCommit v) => state = state.copyWith(outCommit: v);
+  void setGatewayUrl(String v) => state = state.copyWith(gatewayUrl: v);
+  void setAccessToken(String v) => state = state.copyWith(accessToken: v);
+  void setTranslationModel(String v) => state = state.copyWith(translationModel: v);
+  void dismissNotice() => state = state.copyWith(deviceNotice: null);
+  void setShowOriginal(bool v) => state = state.copyWith(showOriginal: v);
+  void setShowTranslated(bool v) => state = state.copyWith(showTranslated: v);
+  void changeFontSize(double delta) =>
+      state = state.copyWith(captionFontSize: (state.captionFontSize + delta).clamp(12, 40).toDouble());
+}
+
+final setupProvider = NotifierProvider<SetupNotifier, SetupState>(SetupNotifier.new);

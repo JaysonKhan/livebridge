@@ -1,0 +1,23 @@
+{
+  "name": "livebridge",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test 'packages/protocol/test/*.test.ts' 'services/gateway/test/*.test.ts' 'tests/integration/*.test.ts'",
+    "gateway": "node services/gateway/src/main.ts",
+    "fixtures": "node packages/protocol/scripts/make-fixtures.ts",
+    "probe": "node services/gateway/scripts/probe.ts",
+    "bench": "node services/gateway/scripts/bench.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.0"
+  }
+}

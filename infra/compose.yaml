@@ -1,0 +1,17 @@
+# Local, reproducible gateway:  docker compose -f infra/compose.yaml up --build
+# Reads ../.env (never baked into the image). Bound to localhost only; put a TLS reverse proxy in front for remote use.
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    env_file: ../.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8201
+    ports:
+      - "127.0.0.1:8201:8201"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

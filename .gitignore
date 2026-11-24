@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.example
+node_modules/
+*.log
+.DS_Store
+
+# Swift
+.build/
+*.xcuserstate
+xcuserdata/
+
+# Probe / benchmark output can contain provider responses
+/tmp/
+/bench-out/
+
+# Benchmark speech cache: synthesized on demand by `npm run bench`, not source
+/tests/fixtures/audio/

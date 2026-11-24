@@ -1,0 +1,324 @@
+/// Typed models for the Flutter <-> Swift bridge (see docs/bridge-contract.md).
+library;
+
+abstract interface class Wire {
+  String get wire;
+}
+
+T? parseWire<T extends Wire>(List<T> values, Object? raw) {
+  for (final v in values) {
+    if (v.wire == raw) return v;
+  }
+  return null;
+}
+
+enum EngineState implements Wire {
+  idle('idle'),
+  connecting('connecting'),
+  ready('ready'),
+  active('active'),
+  degraded('degraded'),
+  stopping('stopping');
+
+  const EngineState(this.wire);
+  @override
+  final String wire;
+}
+
+/// Which side of the conversation a caption belongs to.
+enum Direction implements Wire {
+  /// The owner speaking to the remote participant.
+  out('out'),
+
+  /// The remote participant speaking to the owner.
+  incoming('in');
+
+  const Direction(this.wire);
+  @override
+  final String wire;
+}
+
+enum CaptionKind implements Wire {
+  partial('partial'),
+  finalText('final'),
+  translationDelta('translationDelta'),
+  translationFinal('translationFinal');
+
+  const CaptionKind(this.wire);
+  @override
+  final String wire;
+}
+
+enum TargetLang implements Wire {
+  en('en'),
+  ru('ru');
+
+  const TargetLang(this.wire);
+  @override
+  final String wire;
+}
+
+enum SessionMode implements Wire {
+  captions('captions'),
+  incoming('incoming'),
+  bidirectional('bidirectional');
+
+  const SessionMode(this.wire);
+  @override
+  final String wire;
+}
+
+enum OutCommit implements Wire {
+  manual('manual'),
+  vad('vad'),
+  turnPrediction('turn_prediction');
+
+  const OutCommit(this.wire);
+  @override
+  final String wire;
+}
+
+class AudioDevice {
+  const AudioDevice({
+    required this.uid,
+    required this.name,
+    this.inputChannels = 0,
+    this.outputChannels = 0,
+    this.sampleRate = 48000,
+    this.transport = 'other',
+    this.isDefaultInput = false,
+    this.isDefaultOutput = false,
+  });
+
+  factory AudioDevice.fromMap(Map<Object?, Object?> m) => AudioDevice(
+    uid: m['uid'] as String,
+    name: m['name'] as String? ?? '',
+    inputChannels: (m['inputChannels'] as num?)?.toInt() ?? 0,
+    outputChannels: (m['outputChannels'] as num?)?.toInt() ?? 0,
+    sampleRate: (m['sampleRate'] as num?)?.toDouble() ?? 0,
+    transport: m['transport'] as String? ?? 'other',
+    isDefaultInput: m['isDefaultInput'] as bool? ?? false,
+    isDefaultOutput: m['isDefaultOutput'] as bool? ?? false,
+  );
+
+  final String uid;
+  final String name;
+  final int inputChannels;
+  final int outputChannels;
+  final double sampleRate;
+  final String transport;
+  final bool isDefaultInput;
+  final bool isDefaultOutput;
+
+  bool get isBlackHole => name.toLowerCase().contains('blackhole');
+  bool get isVirtual => transport == 'virtual' || isBlackHole;
+}
+
+class AudioProcess {
+  const AudioProcess({required this.pid, required this.name, this.bundleId = '', this.isPlaying = false});
+
+  factory AudioProcess.fromMap(Map<Object?, Object?> m) => AudioProcess(
+    pid: (m['pid'] as num).toInt(),
+    name: m['name'] as String? ?? '',
+    bundleId: m['bundleId'] as String? ?? '',
+    isPlaying: m['isPlaying'] as bool? ?? false,
+  );
+
+  final int pid;
+  final String name;
+  final String bundleId;
+  final bool isPlaying;
+}
+
+class StartConfig {
+  const StartConfig({
+    required this.gatewayUrl,
+    required this.accessToken,
+    required this.micUid,
+    required this.headphonesUid,
+    required this.virtualMicUid,
+    required this.sourcePids,
+    required this.targetLang,
+    required this.mode,
+    required this.outCommit,
+    required this.translationModel,
+  });
+
+  final String gatewayUrl;
+  final String accessToken;
+  final String micUid;
+  final String headphonesUid;
+  final String? virtualMicUid;
+  final List<int> sourcePids;
+  final TargetLang targetLang;
+  final SessionMode mode;
+  final OutCommit outCommit;
+  final String? translationModel;
+
+  Map<String, Object?> toMap() => {
+    'gatewayUrl': gatewayUrl,
+    'accessToken': accessToken,
+    'micUid': micUid,
+    'headphonesUid': headphonesUid,
+    'virtualMicUid': virtualMicUid,
+    'sourcePids': sourcePids,
+    'targetLang': targetLang.wire,
+    'mode': mode.wire,
+    'outCommit': outCommit.wire,
+    'translationModel': translationModel,
+  };
+}
+
+sealed class BridgeEvent {
+  const BridgeEvent();
+
+  /// Parses an event map from the EventChannel. Unknown or malformed events return null.
+  static BridgeEvent? fromMap(Map<Object?, Object?> m) {
+    try {
+      return _parse(m);
+    } on TypeError {
+      return null;
+    }
+  }
+
+  static BridgeEvent? _parse(Map<Object?, Object?> m) {
+    switch (m['type']) {
+      case 'state':
+        final state = parseWire(EngineState.values, m['state']);
+        if (state == null) return null;
+        return StateEvent(
+          state: state,
+          outReady: m['outReady'] as bool? ?? false,
+          inReady: m['inReady'] as bool? ?? false,
+          capturing: m['capturing'] as bool? ?? false,
+          mock: m['mock'] as bool? ?? false,
+          bypass: m['bypass'] as bool? ?? false,
+          outgoingMuted: m['outgoingMuted'] as bool? ?? false,
+          incomingAudioMuted: m['incomingAudioMuted'] as bool? ?? false,
+          message: m['message'] as String?,
+        );
+      case 'caption':
+        final direction = parseWire(Direction.values, m['direction']);
+        final kind = parseWire(CaptionKind.values, m['kind']);
+        if (direction == null || kind == null) return null;
+        return CaptionEvent(
+          direction: direction,
+          turnId: (m['turnId'] as num).toInt(),
+          kind: kind,
+          text: m['text'] as String? ?? '',
+        );
+      case 'meters':
+        return MetersEvent(
+          mic: (m['mic'] as num?)?.toDouble() ?? -120,
+          source: (m['source'] as num?)?.toDouble() ?? -120,
+          outQueueMs: (m['outQueueMs'] as num?)?.toDouble() ?? 0,
+          inQueueMs: (m['inQueueMs'] as num?)?.toDouble() ?? 0,
+        );
+      case 'metrics':
+        final direction = parseWire(Direction.values, m['direction']);
+        if (direction == null) return null;
+        int? i(String k) => (m[k] as num?)?.toInt();
+        return MetricsEvent(
+          direction: direction,
+          turnId: i('turnId') ?? 0,
+          e2eMs: i('e2eMs'),
+          sttCommitMs: i('sttCommitMs'),
+          translateFirstMs: i('translateFirstMs'),
+          translateTotalMs: i('translateTotalMs'),
+          ttsFirstAudioMs: i('ttsFirstAudioMs'),
+          ttsTotalMs: i('ttsTotalMs'),
+          audioMs: i('audioMs'),
+        );
+      case 'error':
+        return ErrorEvent(
+          code: m['code'] as String? ?? 'unknown',
+          message: m['message'] as String? ?? '',
+          direction: m['direction'] as String?,
+          fatal: m['fatal'] as bool? ?? false,
+        );
+      case 'devicesChanged':
+        return const DevicesChangedEvent();
+    }
+    return null;
+  }
+}
+
+final class StateEvent extends BridgeEvent {
+  const StateEvent({
+    required this.state,
+    this.outReady = false,
+    this.inReady = false,
+    this.capturing = false,
+    this.mock = false,
+    this.bypass = false,
+    this.outgoingMuted = false,
+    this.incomingAudioMuted = false,
+    this.message,
+  });
+
+  final EngineState state;
+  final bool outReady;
+  final bool inReady;
+  final bool capturing;
+  final bool mock;
+  final bool bypass;
+  final bool outgoingMuted;
+  final bool incomingAudioMuted;
+  final String? message;
+}
+
+final class CaptionEvent extends BridgeEvent {
+  const CaptionEvent({required this.direction, required this.turnId, required this.kind, required this.text});
+
+  final Direction direction;
+  final int turnId;
+  final CaptionKind kind;
+  final String text;
+}
+
+final class MetersEvent extends BridgeEvent {
+  const MetersEvent({this.mic = -120, this.source = -120, this.outQueueMs = 0, this.inQueueMs = 0});
+
+  /// dBFS, -120 = silence.
+  final double mic;
+  final double source;
+  final double outQueueMs;
+  final double inQueueMs;
+}
+
+final class MetricsEvent extends BridgeEvent {
+  const MetricsEvent({
+    required this.direction,
+    this.turnId = 0,
+    this.e2eMs,
+    this.sttCommitMs,
+    this.translateFirstMs,
+    this.translateTotalMs,
+    this.ttsFirstAudioMs,
+    this.ttsTotalMs,
+    this.audioMs,
+  });
+
+  final Direction direction;
+  final int turnId;
+  final int? e2eMs;
+  final int? sttCommitMs;
+  final int? translateFirstMs;
+  final int? translateTotalMs;
+  final int? ttsFirstAudioMs;
+  final int? ttsTotalMs;
+  final int? audioMs;
+}
+
+final class ErrorEvent extends BridgeEvent {
+  const ErrorEvent({required this.code, required this.message, this.direction, this.fatal = false});
+
+  final String code;
+  final String message;
+  final String? direction;
+  final bool fatal;
+}
+
+final class DevicesChangedEvent extends BridgeEvent {
+  const DevicesChangedEvent();
+}
