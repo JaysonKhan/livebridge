@@ -256,6 +256,12 @@ abstract class AppLocalizations {
   /// **'The virtual microphone (BlackHole 2ch) was not found.'**
   String get errNoVirtualMic;
 
+  /// No description provided for @errNoVirtualMicWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'The virtual microphone (VB-CABLE) was not found.'**
+  String get errNoVirtualMicWindows;
+
   /// No description provided for @errNoHeadphones.
   ///
   /// In en, this message translates to:
@@ -286,6 +292,12 @@ abstract class AppLocalizations {
   /// **'Unsafe route: the microphone is the same device as the virtual microphone ({device}). Choose your physical microphone.'**
   String blockMicIsVirtual(String device);
 
+  /// No description provided for @blockMicIsCable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsafe route: the microphone is a virtual cable ({device}), so the translation would come back into the call. Choose your physical microphone.'**
+  String blockMicIsCable(String device);
+
   /// No description provided for @blockChooseHeadphones.
   ///
   /// In en, this message translates to:
@@ -303,6 +315,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bidirectional speech needs a virtual microphone (BlackHole 2ch), which is not installed.'**
   String get blockBidirectionalNeedsVirtual;
+
+  /// No description provided for @blockBidirectionalNeedsVirtualWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Bidirectional speech needs a virtual microphone (VB-CABLE), which is not installed.'**
+  String get blockBidirectionalNeedsVirtualWindows;
 
   /// No description provided for @blockIncomingNeedsSource.
   ///
@@ -460,6 +478,12 @@ abstract class AppLocalizations {
   /// **'Virtual microphone: {name} found'**
   String virtualMicFound(String name);
 
+  /// No description provided for @virtualMicFoundWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Virtual microphone: {name} found. In the meeting app, choose CABLE Output as the microphone.'**
+  String virtualMicFoundWindows(String name);
+
   /// No description provided for @blackHoleMissingNotice.
   ///
   /// In en, this message translates to:
@@ -471,6 +495,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Install it with: {command}'**
   String blackHoleInstallWith(String command);
+
+  /// No description provided for @vbCableMissingNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'VB-CABLE not installed — outgoing speech unavailable; captions still work'**
+  String get vbCableMissingNotice;
+
+  /// No description provided for @vbCableDownloadFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Download it free from: {url}'**
+  String vbCableDownloadFrom(String url);
 
   /// No description provided for @sectionMeetingSource.
   ///
@@ -616,6 +652,12 @@ abstract class AppLocalizations {
   /// **'Each test plays one quiet tone. Leave any call that uses BlackHole 2ch before testing.'**
   String get testToneNote;
 
+  /// No description provided for @testToneNoteWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Each test plays one quiet tone. Leave any call that uses CABLE Output before testing.'**
+  String get testToneNoteWindows;
+
   /// No description provided for @micPermission.
   ///
   /// In en, this message translates to:
@@ -645,6 +687,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Request'**
   String get permissionRequest;
+
+  /// No description provided for @micPrivacyWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'On Windows, microphone access for desktop apps is a system setting. If the microphone level stays silent, turn on \"Let desktop apps access your microphone\" in Settings → Privacy & security → Microphone.'**
+  String get micPrivacyWindows;
 
   /// No description provided for @routingTitle.
   ///
@@ -676,6 +724,12 @@ abstract class AppLocalizations {
   /// **'Microphone: BlackHole 2ch.'**
   String get routingZoom2;
 
+  /// No description provided for @routingZoom2Windows.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone: CABLE Output (VB-Audio Virtual Cable).'**
+  String get routingZoom2Windows;
+
   /// No description provided for @routingZoom3.
   ///
   /// In en, this message translates to:
@@ -705,6 +759,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Microphone: BlackHole 2ch. Speaker: your headphones.'**
   String get routingWeb2;
+
+  /// No description provided for @routingWeb2Windows.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone: CABLE Output (VB-Audio Virtual Cable). Speaker: your headphones.'**
+  String get routingWeb2Windows;
 
   /// No description provided for @routingWeb3.
   ///
@@ -753,6 +813,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Install the virtual microphone: {command}'**
   String routingInstallVirtual(String command);
+
+  /// No description provided for @routingInstallVirtualWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Install the virtual microphone VB-CABLE (free): {url}'**
+  String routingInstallVirtualWindows(String url);
 
   /// No description provided for @consentTitle.
   ///
@@ -1198,11 +1264,23 @@ abstract class AppLocalizations {
   /// **'The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this Mac.'**
   String get analyticsPrivacy;
 
+  /// No description provided for @analyticsPrivacyWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this computer.'**
+  String get analyticsPrivacyWindows;
+
   /// No description provided for @analyticsEnabled.
   ///
   /// In en, this message translates to:
   /// **'Record analytics on this Mac'**
   String get analyticsEnabled;
+
+  /// No description provided for @analyticsEnabledWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Record analytics on this computer'**
+  String get analyticsEnabledWindows;
 
   /// No description provided for @analyticsSessions.
   ///
@@ -1360,6 +1438,12 @@ abstract class AppLocalizations {
   /// **'This deletes all recorded numbers on this Mac. It cannot be undone.'**
   String get analyticsClearBody;
 
+  /// No description provided for @analyticsClearBodyWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'This deletes all recorded numbers on this computer. It cannot be undone.'**
+  String get analyticsClearBodyWindows;
+
   /// No description provided for @copy.
   ///
   /// In en, this message translates to:
@@ -1389,6 +1473,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the macOS version, the interface language and a random install ID.'**
   String get telemetryDialogSent;
+
+  /// No description provided for @telemetryDialogSentWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the Windows version, the interface language and a random install ID.'**
+  String get telemetryDialogSentWindows;
 
   /// No description provided for @telemetryDialogNever.
   ///

@@ -127,8 +127,14 @@ class AudioDevice {
   final bool isDefaultInput;
   final bool isDefaultOutput;
 
-  bool get isBlackHole => name.toLowerCase().contains('blackhole');
-  bool get isVirtual => transport == 'virtual' || isBlackHole;
+  /// One end of a virtual audio cable: whatever is played into it comes out as a microphone. BlackHole on macOS is
+  /// one device with both sides; VB-CABLE on Windows is two: "CABLE Input" (played into) and "CABLE Output" (recorded).
+  bool get isVirtualCable {
+    final n = name.toLowerCase();
+    return n.contains('blackhole') || (n.contains('vb-audio') && n.contains('cable'));
+  }
+
+  bool get isVirtual => transport == 'virtual' || isVirtualCable;
 }
 
 class AudioProcess {

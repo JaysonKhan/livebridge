@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../bridge/languages.dart';
 import '../bridge/models.dart';
+import '../state/host_platform.dart';
 import 'app_localizations.dart';
 
 extension L10nContext on BuildContext {
@@ -52,7 +53,7 @@ extension AppLocalizationsLabels on AppLocalizations {
   };
 
   /// A localized message for a known engine/gateway error code, or null (the caller then shows the raw message).
-  String? errorMessage(String code) => switch (code) {
+  String? errorMessage(String code, HostPlatform platform) => switch (code) {
     'provider_unavailable' => errProviderUnavailable,
     'translation_failed' => errTranslationFailed,
     'translation_rejected' => errTranslationRejected,
@@ -67,7 +68,7 @@ extension AppLocalizationsLabels on AppLocalizations {
     'unauthorized' => errUnauthorized,
     'session_limit' => errSessionLimit,
     'session_expired' => errSessionExpired,
-    'no_virtual_mic' => errNoVirtualMic,
+    'no_virtual_mic' => platform == HostPlatform.windows ? errNoVirtualMicWindows : errNoVirtualMic,
     'no_headphones' => errNoHeadphones,
     'no_microphone' => errNoMicrophone,
     'unsafe_route' => errUnsafeRoute,

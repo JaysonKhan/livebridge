@@ -91,6 +91,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get errNoVirtualMic => 'Virtual mikrofon (BlackHole 2ch) topilmadi.';
 
   @override
+  String get errNoVirtualMicWindows => 'Virtual mikrofon (VB-CABLE) topilmadi.';
+
+  @override
   String get errNoHeadphones => 'Tanlangan naushnik topilmadi.';
 
   @override
@@ -108,6 +111,11 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
+  String blockMicIsCable(String device) {
+    return 'Xavfli yo\'nalish: mikrofon virtual kabel ($device), tarjima qo\'ng\'iroqqa qaytib keladi. Haqiqiy mikrofoningizni tanlang.';
+  }
+
+  @override
   String get blockChooseHeadphones => 'Naushnikni tanlang.';
 
   @override
@@ -118,6 +126,10 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get blockBidirectionalNeedsVirtual =>
       'Ikki tomonlama ovoz uchun virtual mikrofon (BlackHole 2ch) kerak, u o\'rnatilmagan.';
+
+  @override
+  String get blockBidirectionalNeedsVirtualWindows =>
+      'Ikki tomonlama ovoz uchun virtual mikrofon (VB-CABLE) kerak, u o\'rnatilmagan.';
 
   @override
   String get blockIncomingNeedsSource => 'Kiruvchi ovoz uchun kamida bitta uchrashuv manbai kerak.';
@@ -206,12 +218,25 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
+  String virtualMicFoundWindows(String name) {
+    return 'Virtual mikrofon: $name topildi. Uchrashuv ilovasida mikrofon sifatida CABLE Output\'ni tanlang.';
+  }
+
+  @override
   String get blackHoleMissingNotice =>
       'BlackHole 2ch o\'rnatilmagan — chiquvchi ovoz mavjud emas, subtitrlar ishlayveradi';
 
   @override
   String blackHoleInstallWith(String command) {
     return 'O\'rnatish: $command';
+  }
+
+  @override
+  String get vbCableMissingNotice => 'VB-CABLE o\'rnatilmagan — chiquvchi ovoz mavjud emas, subtitrlar ishlayveradi';
+
+  @override
+  String vbCableDownloadFrom(String url) {
+    return 'Bepul yuklab olish: $url';
   }
 
   @override
@@ -291,6 +316,10 @@ class AppLocalizationsUz extends AppLocalizations {
       'Har bir sinov bitta sokin ovoz chiqaradi. Sinashdan oldin BlackHole 2ch ishlatayotgan qo\'ng\'iroqdan chiqing.';
 
   @override
+  String get testToneNoteWindows =>
+      'Har bir sinov bitta sokin ovoz chiqaradi. Sinashdan oldin CABLE Output ishlatayotgan qo\'ng\'iroqdan chiqing.';
+
+  @override
   String micPermission(String status) {
     return 'Mikrofon ruxsati: $status';
   }
@@ -308,6 +337,10 @@ class AppLocalizationsUz extends AppLocalizations {
   String get permissionRequest => 'So\'rash';
 
   @override
+  String get micPrivacyWindows =>
+      'Windows\'da kompyuter ilovalarining mikrofonga kirishi tizim sozlamasi bilan boshqariladi. Mikrofon darajasi jim tursa, Settings → Privacy & security → Microphone bo\'limida «Let desktop apps access your microphone» sozlamasini yoqing.';
+
+  @override
   String get routingTitle => 'Yo\'naltirish ko\'rsatmalari';
 
   @override
@@ -323,6 +356,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get routingZoom2 => 'Mikrofon: BlackHole 2ch.';
 
   @override
+  String get routingZoom2Windows => 'Mikrofon: CABLE Output (VB-Audio Virtual Cable).';
+
+  @override
   String get routingZoom3 => 'Karnay: naushnigingiz.';
 
   @override
@@ -336,6 +372,9 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get routingWeb2 => 'Mikrofon: BlackHole 2ch. Karnay: naushnigingiz.';
+
+  @override
+  String get routingWeb2Windows => 'Mikrofon: CABLE Output (VB-Audio Virtual Cable). Karnay: naushnigingiz.';
 
   @override
   String get routingWeb3 => 'Alohida brauzer oynasidan foydalaning va ovoz chiqaradigan boshqa yorliqlarni yoping.';
@@ -361,6 +400,11 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String routingInstallVirtual(String command) {
     return 'Virtual mikrofonni o\'rnatish: $command';
+  }
+
+  @override
+  String routingInstallVirtualWindows(String url) {
+    return 'Virtual mikrofon VB-CABLE\'ni o\'rnatish (bepul): $url';
   }
 
   @override
@@ -621,7 +665,14 @@ class AppLocalizationsUz extends AppLocalizations {
       'Jurnalda faqat raqamlar bor: vaqtlar, sonlar, xato kodlari va baholaringiz. Unda suhbat matni yo\'q va u shu Mac\'dan chiqmaydi.';
 
   @override
+  String get analyticsPrivacyWindows =>
+      'Jurnalda faqat raqamlar bor: vaqtlar, sonlar, xato kodlari va baholaringiz. Unda suhbat matni yo\'q va u shu kompyuterdan chiqmaydi.';
+
+  @override
   String get analyticsEnabled => 'Analitikani shu Mac\'da yozib borish';
+
+  @override
+  String get analyticsEnabledWindows => 'Analitikani shu kompyuterda yozib borish';
 
   @override
   String analyticsSessions(int count) {
@@ -722,6 +773,10 @@ class AppLocalizationsUz extends AppLocalizations {
   String get analyticsClearBody => 'Bu Mac\'dagi barcha yozilgan raqamlar o\'chiriladi. Buni qaytarib bo\'lmaydi.';
 
   @override
+  String get analyticsClearBodyWindows =>
+      'Bu kompyuterdagi barcha yozilgan raqamlar o\'chiriladi. Buni qaytarib bo\'lmaydi.';
+
+  @override
   String get copy => 'Nusxalash';
 
   @override
@@ -736,6 +791,10 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get telemetryDialogSent =>
       'Yuboriladi: vaqtlar, sonlar, xato kodlari, matn uzunligi (belgilarda), yoqdi/yoqmadi baholaringiz, ilova versiyasi, macOS versiyasi, interfeys tili va tasodifiy o\'rnatish ID\'si.';
+
+  @override
+  String get telemetryDialogSentWindows =>
+      'Yuboriladi: vaqtlar, sonlar, xato kodlari, matn uzunligi (belgilarda), yoqdi/yoqmadi baholaringiz, ilova versiyasi, Windows versiyasi, interfeys tili va tasodifiy o\'rnatish ID\'si.';
 
   @override
   String get telemetryDialogNever =>

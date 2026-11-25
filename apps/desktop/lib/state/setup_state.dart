@@ -117,10 +117,14 @@ class SetupState {
   /// Physical headphones: outputs, excluding virtual devices.
   List<AudioDevice> get outputDevices => devices.where((d) => d.outputChannels > 0 && !d.isVirtual).toList();
 
-  /// The BlackHole device, preferring the 2ch variant.
+  /// The virtual cable the translated speech is played into, so it needs output channels: VB-CABLE's "CABLE Input"
+  /// on Windows, BlackHole on macOS (preferring the 2ch variant).
   AudioDevice? get virtualMic {
-    final all = devices.where((d) => d.isBlackHole).toList();
-    return all.where((d) => d.name.toLowerCase().contains('2ch')).firstOrNull ?? all.firstOrNull;
+    final cables = devices.where((d) => d.isVirtualCable && d.outputChannels > 0).toList();
+    bool named(AudioDevice d, String part) => d.name.toLowerCase().contains(part);
+    return cables.where((d) => named(d, 'cable input')).firstOrNull ??
+        cables.where((d) => named(d, '2ch')).firstOrNull ??
+        cables.firstOrNull;
   }
 
   AudioDevice? deviceByUid(String? uid) => devices.where((d) => d.uid == uid).firstOrNull;

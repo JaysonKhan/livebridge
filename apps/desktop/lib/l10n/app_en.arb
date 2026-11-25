@@ -27,12 +27,21 @@
   "errSessionLimit": "The gateway's session limit is reached. Try again later.",
   "errSessionExpired": "The session expired. Start a new one.",
   "errNoVirtualMic": "The virtual microphone (BlackHole 2ch) was not found.",
+  "errNoVirtualMicWindows": "The virtual microphone (VB-CABLE) was not found.",
   "errNoHeadphones": "The selected headphones were not found.",
   "errNoMicrophone": "The selected microphone was not found.",
   "errUnsafeRoute": "Unsafe audio route refused: the microphone or headphones are a virtual device.",
   "blockChooseMic": "Choose a microphone.",
   "blockMicIsVirtual": "Unsafe route: the microphone is the same device as the virtual microphone ({device}). Choose your physical microphone.",
   "@blockMicIsVirtual": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "blockMicIsCable": "Unsafe route: the microphone is a virtual cable ({device}), so the translation would come back into the call. Choose your physical microphone.",
+  "@blockMicIsCable": {
     "placeholders": {
       "device": {
         "type": "String"
@@ -49,6 +58,7 @@
     }
   },
   "blockBidirectionalNeedsVirtual": "Bidirectional speech needs a virtual microphone (BlackHole 2ch), which is not installed.",
+  "blockBidirectionalNeedsVirtualWindows": "Bidirectional speech needs a virtual microphone (VB-CABLE), which is not installed.",
   "blockIncomingNeedsSource": "Incoming audio needs at least one meeting source.",
   "blockSameLanguages": "Choose two different languages.",
   "blockEnterGateway": "Enter the gateway URL.",
@@ -96,11 +106,28 @@
       }
     }
   },
+  "virtualMicFoundWindows": "Virtual microphone: {name} found. In the meeting app, choose CABLE Output as the microphone.",
+  "@virtualMicFoundWindows": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "blackHoleMissingNotice": "BlackHole 2ch not installed — outgoing speech unavailable; captions still work",
   "blackHoleInstallWith": "Install it with: {command}",
   "@blackHoleInstallWith": {
     "placeholders": {
       "command": {
+        "type": "String"
+      }
+    }
+  },
+  "vbCableMissingNotice": "VB-CABLE not installed — outgoing speech unavailable; captions still work",
+  "vbCableDownloadFrom": "Download it free from: {url}",
+  "@vbCableDownloadFrom": {
+    "placeholders": {
+      "url": {
         "type": "String"
       }
     }
@@ -136,6 +163,7 @@
   "testHeadphones": "Test headphones",
   "testVirtualMic": "Test virtual mic",
   "testToneNote": "Each test plays one quiet tone. Leave any call that uses BlackHole 2ch before testing.",
+  "testToneNoteWindows": "Each test plays one quiet tone. Leave any call that uses CABLE Output before testing.",
   "micPermission": "Microphone permission: {status}",
   "@micPermission": {
     "placeholders": {
@@ -148,16 +176,19 @@
   "permissionDenied": "denied",
   "permissionUndetermined": "not asked yet",
   "permissionRequest": "Request",
+  "micPrivacyWindows": "On Windows, microphone access for desktop apps is a system setting. If the microphone level stays silent, turn on \"Let desktop apps access your microphone\" in Settings → Privacy & security → Microphone.",
   "routingTitle": "Routing instructions",
   "routingSubtitle": "How to set up Zoom, Meet and Upwork",
   "routingZoomDesktopTitle": "Zoom Desktop",
   "routingZoom1": "Open Zoom → Settings → Audio.",
   "routingZoom2": "Microphone: BlackHole 2ch.",
+  "routingZoom2Windows": "Microphone: CABLE Output (VB-Audio Virtual Cable).",
   "routingZoom3": "Speaker: your headphones.",
   "routingZoom4": "Start the session here before you speak.",
   "routingWebTitle": "Zoom Web / Google Meet",
   "routingWeb1": "Open the browser's audio settings for the call.",
   "routingWeb2": "Microphone: BlackHole 2ch. Speaker: your headphones.",
+  "routingWeb2Windows": "Microphone: CABLE Output (VB-Audio Virtual Cable). Speaker: your headphones.",
   "routingWeb3": "Use a dedicated browser window and close other tabs that play audio.",
   "routingUpworkTitle": "Upwork",
   "routingUpwork1": "Start the call from Upwork Messages.",
@@ -169,6 +200,14 @@
   "@routingInstallVirtual": {
     "placeholders": {
       "command": {
+        "type": "String"
+      }
+    }
+  },
+  "routingInstallVirtualWindows": "Install the virtual microphone VB-CABLE (free): {url}",
+  "@routingInstallVirtualWindows": {
+    "placeholders": {
+      "url": {
         "type": "String"
       }
     }
@@ -359,7 +398,9 @@
   "analyticsTitle": "Analytics",
   "analyticsSubtitle": "Numbers about your sessions — never the words",
   "analyticsPrivacy": "The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this Mac.",
+  "analyticsPrivacyWindows": "The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this computer.",
   "analyticsEnabled": "Record analytics on this Mac",
+  "analyticsEnabledWindows": "Record analytics on this computer",
   "analyticsSessions": "Sessions: {count}",
   "@analyticsSessions": {
     "placeholders": {
@@ -456,11 +497,13 @@
   "analyticsClearLog": "Clear log",
   "analyticsClearTitle": "Clear the analytics log?",
   "analyticsClearBody": "This deletes all recorded numbers on this Mac. It cannot be undone.",
+  "analyticsClearBodyWindows": "This deletes all recorded numbers on this computer. It cannot be undone.",
   "copy": "Copy",
   "telemetryTitle": "Share anonymous statistics with the developer",
   "telemetryNeedsAnalytics": "Turn on analytics recording above first — sharing uploads that log.",
   "telemetryDialogTitle": "Share anonymous statistics?",
   "telemetryDialogSent": "Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the macOS version, the interface language and a random install ID.",
+  "telemetryDialogSentWindows": "Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the Windows version, the interface language and a random install ID.",
   "telemetryDialogNever": "Never sent: what was said, translations, audio, device names, the gateway address or keys.",
   "telemetryDialogWhere": "Goes to: the developer's site, jaysonkhan.com.",
   "telemetryDialogOff": "You can switch this off at any time.",

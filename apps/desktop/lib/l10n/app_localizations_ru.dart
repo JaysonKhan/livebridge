@@ -91,6 +91,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errNoVirtualMic => 'Виртуальный микрофон (BlackHole 2ch) не найден.';
 
   @override
+  String get errNoVirtualMicWindows => 'Виртуальный микрофон (VB-CABLE) не найден.';
+
+  @override
   String get errNoHeadphones => 'Выбранные наушники не найдены.';
 
   @override
@@ -109,6 +112,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String blockMicIsCable(String device) {
+    return 'Небезопасный маршрут: микрофон — виртуальный кабель ($device), перевод вернётся обратно в звонок. Выберите физический микрофон.';
+  }
+
+  @override
   String get blockChooseHeadphones => 'Выберите наушники.';
 
   @override
@@ -119,6 +127,10 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get blockBidirectionalNeedsVirtual =>
       'Для двусторонней озвучки нужен виртуальный микрофон (BlackHole 2ch), он не установлен.';
+
+  @override
+  String get blockBidirectionalNeedsVirtualWindows =>
+      'Для двусторонней озвучки нужен виртуальный микрофон (VB-CABLE), он не установлен.';
 
   @override
   String get blockIncomingNeedsSource => 'Для входящего звука нужен хотя бы один источник встречи.';
@@ -207,11 +219,24 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String virtualMicFoundWindows(String name) {
+    return 'Виртуальный микрофон: $name найден. В приложении встречи выберите микрофоном CABLE Output.';
+  }
+
+  @override
   String get blackHoleMissingNotice => 'BlackHole 2ch не установлен — исходящая озвучка недоступна, субтитры работают';
 
   @override
   String blackHoleInstallWith(String command) {
     return 'Установить: $command';
+  }
+
+  @override
+  String get vbCableMissingNotice => 'VB-CABLE не установлен — исходящая озвучка недоступна, субтитры работают';
+
+  @override
+  String vbCableDownloadFrom(String url) {
+    return 'Скачать бесплатно: $url';
   }
 
   @override
@@ -291,6 +316,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Каждая проверка воспроизводит один тихий сигнал. Перед проверкой выйдите из звонков, где используется BlackHole 2ch.';
 
   @override
+  String get testToneNoteWindows =>
+      'Каждая проверка воспроизводит один тихий сигнал. Перед проверкой выйдите из звонков, где используется CABLE Output.';
+
+  @override
   String micPermission(String status) {
     return 'Доступ к микрофону: $status';
   }
@@ -308,6 +337,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get permissionRequest => 'Запросить';
 
   @override
+  String get micPrivacyWindows =>
+      'В Windows доступ классических приложений к микрофону задаётся системной настройкой. Если уровень микрофона остаётся на нуле, включите «Разрешить классическим приложениям доступ к микрофону» в разделе Параметры → Конфиденциальность и защита → Микрофон.';
+
+  @override
   String get routingTitle => 'Инструкции по маршрутизации звука';
 
   @override
@@ -323,6 +356,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routingZoom2 => 'Микрофон: BlackHole 2ch.';
 
   @override
+  String get routingZoom2Windows => 'Микрофон: CABLE Output (VB-Audio Virtual Cable).';
+
+  @override
   String get routingZoom3 => 'Динамик: ваши наушники.';
 
   @override
@@ -336,6 +372,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get routingWeb2 => 'Микрофон: BlackHole 2ch. Динамик: ваши наушники.';
+
+  @override
+  String get routingWeb2Windows => 'Микрофон: CABLE Output (VB-Audio Virtual Cable). Динамик: ваши наушники.';
 
   @override
   String get routingWeb3 => 'Используйте отдельное окно браузера и закройте другие вкладки со звуком.';
@@ -361,6 +400,11 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String routingInstallVirtual(String command) {
     return 'Установка виртуального микрофона: $command';
+  }
+
+  @override
+  String routingInstallVirtualWindows(String url) {
+    return 'Установка виртуального микрофона VB-CABLE (бесплатно): $url';
   }
 
   @override
@@ -621,7 +665,14 @@ class AppLocalizationsRu extends AppLocalizations {
       'В журнале только цифры: время, счётчики, коды ошибок и ваши оценки. Текста бесед в нём нет, и он остаётся на этом Mac.';
 
   @override
+  String get analyticsPrivacyWindows =>
+      'В журнале только цифры: время, счётчики, коды ошибок и ваши оценки. Текста бесед в нём нет, и он остаётся на этом компьютере.';
+
+  @override
   String get analyticsEnabled => 'Вести аналитику на этом Mac';
+
+  @override
+  String get analyticsEnabledWindows => 'Вести аналитику на этом компьютере';
 
   @override
   String analyticsSessions(int count) {
@@ -722,6 +773,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get analyticsClearBody => 'Все записанные цифры на этом Mac будут удалены. Это нельзя отменить.';
 
   @override
+  String get analyticsClearBodyWindows => 'Все записанные цифры на этом компьютере будут удалены. Это нельзя отменить.';
+
+  @override
   String get copy => 'Копировать';
 
   @override
@@ -736,6 +790,10 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get telemetryDialogSent =>
       'Отправляется: тайминги, счётчики, коды ошибок, длина текста в символах, ваши оценки «палец вверх/вниз», версия приложения, версия macOS, язык интерфейса и случайный ID установки.';
+
+  @override
+  String get telemetryDialogSentWindows =>
+      'Отправляется: тайминги, счётчики, коды ошибок, длина текста в символах, ваши оценки «палец вверх/вниз», версия приложения, версия Windows, язык интерфейса и случайный ID установки.';
 
   @override
   String get telemetryDialogNever =>

@@ -91,6 +91,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errNoVirtualMic => 'The virtual microphone (BlackHole 2ch) was not found.';
 
   @override
+  String get errNoVirtualMicWindows => 'The virtual microphone (VB-CABLE) was not found.';
+
+  @override
   String get errNoHeadphones => 'The selected headphones were not found.';
 
   @override
@@ -108,6 +111,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String blockMicIsCable(String device) {
+    return 'Unsafe route: the microphone is a virtual cable ($device), so the translation would come back into the call. Choose your physical microphone.';
+  }
+
+  @override
   String get blockChooseHeadphones => 'Choose headphones.';
 
   @override
@@ -118,6 +126,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get blockBidirectionalNeedsVirtual =>
       'Bidirectional speech needs a virtual microphone (BlackHole 2ch), which is not installed.';
+
+  @override
+  String get blockBidirectionalNeedsVirtualWindows =>
+      'Bidirectional speech needs a virtual microphone (VB-CABLE), which is not installed.';
 
   @override
   String get blockIncomingNeedsSource => 'Incoming audio needs at least one meeting source.';
@@ -206,11 +218,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String virtualMicFoundWindows(String name) {
+    return 'Virtual microphone: $name found. In the meeting app, choose CABLE Output as the microphone.';
+  }
+
+  @override
   String get blackHoleMissingNotice => 'BlackHole 2ch not installed — outgoing speech unavailable; captions still work';
 
   @override
   String blackHoleInstallWith(String command) {
     return 'Install it with: $command';
+  }
+
+  @override
+  String get vbCableMissingNotice => 'VB-CABLE not installed — outgoing speech unavailable; captions still work';
+
+  @override
+  String vbCableDownloadFrom(String url) {
+    return 'Download it free from: $url';
   }
 
   @override
@@ -288,6 +313,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get testToneNote => 'Each test plays one quiet tone. Leave any call that uses BlackHole 2ch before testing.';
 
   @override
+  String get testToneNoteWindows =>
+      'Each test plays one quiet tone. Leave any call that uses CABLE Output before testing.';
+
+  @override
   String micPermission(String status) {
     return 'Microphone permission: $status';
   }
@@ -305,6 +334,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get permissionRequest => 'Request';
 
   @override
+  String get micPrivacyWindows =>
+      'On Windows, microphone access for desktop apps is a system setting. If the microphone level stays silent, turn on \"Let desktop apps access your microphone\" in Settings → Privacy & security → Microphone.';
+
+  @override
   String get routingTitle => 'Routing instructions';
 
   @override
@@ -320,6 +353,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routingZoom2 => 'Microphone: BlackHole 2ch.';
 
   @override
+  String get routingZoom2Windows => 'Microphone: CABLE Output (VB-Audio Virtual Cable).';
+
+  @override
   String get routingZoom3 => 'Speaker: your headphones.';
 
   @override
@@ -333,6 +369,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get routingWeb2 => 'Microphone: BlackHole 2ch. Speaker: your headphones.';
+
+  @override
+  String get routingWeb2Windows => 'Microphone: CABLE Output (VB-Audio Virtual Cable). Speaker: your headphones.';
 
   @override
   String get routingWeb3 => 'Use a dedicated browser window and close other tabs that play audio.';
@@ -358,6 +397,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String routingInstallVirtual(String command) {
     return 'Install the virtual microphone: $command';
+  }
+
+  @override
+  String routingInstallVirtualWindows(String url) {
+    return 'Install the virtual microphone VB-CABLE (free): $url';
   }
 
   @override
@@ -618,7 +662,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this Mac.';
 
   @override
+  String get analyticsPrivacyWindows =>
+      'The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this computer.';
+
+  @override
   String get analyticsEnabled => 'Record analytics on this Mac';
+
+  @override
+  String get analyticsEnabledWindows => 'Record analytics on this computer';
 
   @override
   String analyticsSessions(int count) {
@@ -719,6 +770,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get analyticsClearBody => 'This deletes all recorded numbers on this Mac. It cannot be undone.';
 
   @override
+  String get analyticsClearBodyWindows => 'This deletes all recorded numbers on this computer. It cannot be undone.';
+
+  @override
   String get copy => 'Copy';
 
   @override
@@ -733,6 +787,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get telemetryDialogSent =>
       'Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the macOS version, the interface language and a random install ID.';
+
+  @override
+  String get telemetryDialogSentWindows =>
+      'Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the Windows version, the interface language and a random install ID.';
 
   @override
   String get telemetryDialogNever =>

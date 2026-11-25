@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/live_bridge.dart';
 import '../l10n/labels.dart';
+import '../state/host_platform.dart';
 import '../state/providers.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
@@ -127,6 +128,7 @@ class _Tones extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final headphones = ref.watch(setupProvider.select((s) => s.headphonesUid));
     final virtualUid = ref.watch(setupProvider.select((s) => s.virtualMic?.uid));
+    final windows = ref.watch(hostPlatformProvider) == HostPlatform.windows;
     final session = ref.read(sessionProvider.notifier);
     final bridge = ref.read(bridgeProvider);
     final l = context.l10n;
@@ -150,7 +152,7 @@ class _Tones extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 4),
-        Text(l.testToneNote),
+        Text(windows ? l.testToneNoteWindows : l.testToneNote),
       ],
     );
   }
@@ -161,9 +163,20 @@ class _Permission extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    // Windows asks nothing of a desktop app (the status always reads granted); a system-wide switch decides.
+    if (ref.watch(hostPlatformProvider) == HostPlatform.windows) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline),
+          const SizedBox(width: 8),
+          Expanded(child: Text(l.micPrivacyWindows)),
+        ],
+      );
+    }
     final permission = ref.watch(setupProvider.select((s) => s.micPermission));
     final granted = permission == 'granted';
-    final l = context.l10n;
     return Row(
       children: [
         Icon(granted ? Icons.check_circle_outline : Icons.error_outline),

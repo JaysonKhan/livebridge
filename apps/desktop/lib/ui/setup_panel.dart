@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../bridge/languages.dart';
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
+import '../state/host_platform.dart';
 import '../state/providers.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
@@ -256,6 +257,7 @@ class _DevicesSection extends ConsumerWidget {
     final s = ref.watch(setupProvider);
     final notifier = ref.read(setupProvider.notifier);
     final virtualMic = s.virtualMic;
+    final windows = ref.watch(hostPlatformProvider) == HostPlatform.windows;
     final l = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return SectionCard(
@@ -284,7 +286,9 @@ class _DevicesSection extends ConsumerWidget {
               children: [
                 const Icon(Icons.check_circle_outline),
                 const SizedBox(width: 8),
-                Expanded(child: Text(l.virtualMicFound(virtualMic.name))),
+                Expanded(
+                  child: Text(windows ? l.virtualMicFoundWindows(virtualMic.name) : l.virtualMicFound(virtualMic.name)),
+                ),
               ],
             )
           else
@@ -302,12 +306,14 @@ class _DevicesSection extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          l.blackHoleMissingNotice,
+                          windows ? l.vbCableMissingNotice : l.blackHoleMissingNotice,
                           style: TextStyle(color: scheme.onTertiaryContainer, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         SelectableText(
-                          l.blackHoleInstallWith(blackHoleInstallHint),
+                          windows
+                              ? l.vbCableDownloadFrom(vbCableDownloadUrl)
+                              : l.blackHoleInstallWith(blackHoleInstallHint),
                           style: TextStyle(color: scheme.onTertiaryContainer),
                         ),
                       ],

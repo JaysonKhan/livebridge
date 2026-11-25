@@ -92,6 +92,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get errNoVirtualMic => 'Sanal mikrofon (BlackHole 2ch) bulunamadı.';
 
   @override
+  String get errNoVirtualMicWindows => 'Sanal mikrofon (VB-CABLE) bulunamadı.';
+
+  @override
   String get errNoHeadphones => 'Seçilen kulaklık bulunamadı.';
 
   @override
@@ -109,6 +112,11 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String blockMicIsCable(String device) {
+    return 'Güvenli olmayan yönlendirme: mikrofon sanal bir kablo ($device), çeviri görüşmeye geri döner. Fiziksel mikrofonunuzu seçin.';
+  }
+
+  @override
   String get blockChooseHeadphones => 'Kulaklık seçin.';
 
   @override
@@ -119,6 +127,10 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get blockBidirectionalNeedsVirtual =>
       'Çift yönlü ses için sanal mikrofon (BlackHole 2ch) gerekir, ancak kurulu değil.';
+
+  @override
+  String get blockBidirectionalNeedsVirtualWindows =>
+      'Çift yönlü ses için sanal mikrofon (VB-CABLE) gerekir, ancak kurulu değil.';
 
   @override
   String get blockIncomingNeedsSource => 'Gelen ses için en az bir toplantı kaynağı gerekir.';
@@ -207,12 +219,26 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String virtualMicFoundWindows(String name) {
+    return 'Sanal mikrofon: $name bulundu. Toplantı uygulamasında mikrofon olarak CABLE Output\'u seçin.';
+  }
+
+  @override
   String get blackHoleMissingNotice =>
       'BlackHole 2ch kurulu değil — giden ses kullanılamıyor, altyazılar çalışmaya devam ediyor';
 
   @override
   String blackHoleInstallWith(String command) {
     return 'Kurmak için: $command';
+  }
+
+  @override
+  String get vbCableMissingNotice =>
+      'VB-CABLE kurulu değil — giden ses kullanılamıyor, altyazılar çalışmaya devam ediyor';
+
+  @override
+  String vbCableDownloadFrom(String url) {
+    return 'Ücretsiz indirmek için: $url';
   }
 
   @override
@@ -291,6 +317,10 @@ class AppLocalizationsTr extends AppLocalizations {
       'Her test tek bir sessiz ton çalar. Test etmeden önce BlackHole 2ch kullanan görüşmelerden çıkın.';
 
   @override
+  String get testToneNoteWindows =>
+      'Her test tek bir sessiz ton çalar. Test etmeden önce CABLE Output kullanan görüşmelerden çıkın.';
+
+  @override
   String micPermission(String status) {
     return 'Mikrofon izni: $status';
   }
@@ -308,6 +338,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get permissionRequest => 'İste';
 
   @override
+  String get micPrivacyWindows =>
+      'Windows\'ta masaüstü uygulamalarının mikrofon erişimi bir sistem ayarıdır. Mikrofon seviyesi sessiz kalırsa Ayarlar → Gizlilik ve güvenlik → Mikrofon bölümünde \"Masaüstü uygulamalarının mikrofonunuza erişmesine izin verin\" seçeneğini açın.';
+
+  @override
   String get routingTitle => 'Ses yönlendirme talimatları';
 
   @override
@@ -323,6 +357,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get routingZoom2 => 'Mikrofon: BlackHole 2ch.';
 
   @override
+  String get routingZoom2Windows => 'Mikrofon: CABLE Output (VB-Audio Virtual Cable).';
+
+  @override
   String get routingZoom3 => 'Hoparlör: kulaklığınız.';
 
   @override
@@ -336,6 +373,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get routingWeb2 => 'Mikrofon: BlackHole 2ch. Hoparlör: kulaklığınız.';
+
+  @override
+  String get routingWeb2Windows => 'Mikrofon: CABLE Output (VB-Audio Virtual Cable). Hoparlör: kulaklığınız.';
 
   @override
   String get routingWeb3 => 'Ayrı bir tarayıcı penceresi kullanın ve ses çalan diğer sekmeleri kapatın.';
@@ -361,6 +401,11 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String routingInstallVirtual(String command) {
     return 'Sanal mikrofonu kurmak için: $command';
+  }
+
+  @override
+  String routingInstallVirtualWindows(String url) {
+    return 'Sanal mikrofon VB-CABLE\'ı kurmak için (ücretsiz): $url';
   }
 
   @override
@@ -621,7 +666,14 @@ class AppLocalizationsTr extends AppLocalizations {
       'Günlükte yalnızca sayılar var: süreler, sayaçlar, hata kodları ve puanlarınız. Konuşma metni içermez ve bu Mac\'ten dışarı çıkmaz.';
 
   @override
+  String get analyticsPrivacyWindows =>
+      'Günlükte yalnızca sayılar var: süreler, sayaçlar, hata kodları ve puanlarınız. Konuşma metni içermez ve bu bilgisayardan dışarı çıkmaz.';
+
+  @override
   String get analyticsEnabled => 'Analitiği bu Mac\'te kaydet';
+
+  @override
+  String get analyticsEnabledWindows => 'Analitiği bu bilgisayarda kaydet';
 
   @override
   String analyticsSessions(int count) {
@@ -722,6 +774,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get analyticsClearBody => 'Bu Mac\'teki tüm kayıtlı sayılar silinir. Bu işlem geri alınamaz.';
 
   @override
+  String get analyticsClearBodyWindows => 'Bu bilgisayardaki tüm kayıtlı sayılar silinir. Bu işlem geri alınamaz.';
+
+  @override
   String get copy => 'Kopyala';
 
   @override
@@ -736,6 +791,10 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get telemetryDialogSent =>
       'Gönderilenler: süreler, sayılar, hata kodları, metin uzunlukları (karakter olarak), beğendim/beğenmedim puanlarınız, uygulama sürümü, macOS sürümü, arayüz dili ve rastgele bir kurulum kimliği.';
+
+  @override
+  String get telemetryDialogSentWindows =>
+      'Gönderilenler: süreler, sayılar, hata kodları, metin uzunlukları (karakter olarak), beğendim/beğenmedim puanlarınız, uygulama sürümü, Windows sürümü, arayüz dili ve rastgele bir kurulum kimliği.';
 
   @override
   String get telemetryDialogNever =>

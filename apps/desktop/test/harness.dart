@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/l10n/app_localizations.dart';
+import 'package:livebridge/state/host_platform.dart';
 import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/ui/app.dart';
 import 'package:livebridge/ui/home_screen.dart';
@@ -16,12 +17,14 @@ late FakeLiveBridge fake;
 late WidgetTester tt;
 
 /// [forceLocale] pins the UI language (English by default so the assertions stay readable); pass null to let
-/// the saved setting and the system language decide.
+/// the saved setting and the system language decide. [platform] forces the macOS or Windows wording (by default the
+/// provider's own choice, which is macOS under `flutter test`).
 Future<ProviderContainer> pumpApp(
   WidgetTester tester, {
   FakeLiveBridge? bridge,
   Size size = const Size(1280, 2400),
   Locale? forceLocale = const Locale('en'),
+  HostPlatform? platform,
 }) async {
   tt = tester;
   fake = bridge ?? FakeLiveBridge();
@@ -32,7 +35,10 @@ Future<ProviderContainer> pumpApp(
   addTearDown(fake.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [bridgeProvider.overrideWithValue(fake)],
+      overrides: [
+        bridgeProvider.overrideWithValue(fake),
+        if (platform != null) hostPlatformProvider.overrideWithValue(platform),
+      ],
       child: LiveBridgeApp(forcedLocale: forceLocale),
     ),
   );

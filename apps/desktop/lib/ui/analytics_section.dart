@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
 import '../state/analytics_state.dart';
+import '../state/host_platform.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
 import '../state/time_format.dart';
@@ -72,7 +73,9 @@ class _AnalyticsBody extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.analyticsClearTitle),
-        content: Text(l.analyticsClearBody),
+        content: Text(
+          ref.read(hostPlatformProvider) == HostPlatform.windows ? l.analyticsClearBodyWindows : l.analyticsClearBody,
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l.delete)),
@@ -94,15 +97,16 @@ class _AnalyticsBody extends ConsumerWidget {
     final state = ref.watch(analyticsProvider);
     final notifier = ref.read(analyticsProvider.notifier);
     final s = state.summary;
+    final windows = ref.watch(hostPlatformProvider) == HostPlatform.windows;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l.analyticsPrivacy),
+        Text(windows ? l.analyticsPrivacyWindows : l.analyticsPrivacy),
         SwitchListTile(
           key: const Key('analytics-switch'),
           dense: true,
           contentPadding: EdgeInsets.zero,
-          title: Text(l.analyticsEnabled),
+          title: Text(windows ? l.analyticsEnabledWindows : l.analyticsEnabled),
           value: state.enabled,
           onChanged: notifier.setEnabled,
         ),
@@ -172,6 +176,9 @@ class _TelemetryBlock extends ConsumerWidget {
     final notifier = ref.read(analyticsProvider.notifier);
     if (!on) return notifier.setTelemetryEnabled(false);
     final l = context.l10n;
+    final sent = ref.read(hostPlatformProvider) == HostPlatform.windows
+        ? l.telemetryDialogSentWindows
+        : l.telemetryDialogSent;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -182,7 +189,7 @@ class _TelemetryBlock extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final line in [l.telemetryDialogSent, l.telemetryDialogNever, l.telemetryDialogWhere])
+              for (final line in [sent, l.telemetryDialogNever, l.telemetryDialogWhere])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(

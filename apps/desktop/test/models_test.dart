@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/state/session_state.dart';
+import 'package:livebridge/state/setup_state.dart';
 
 void main() {
   group('BridgeEvent.fromMap', () {
@@ -31,6 +32,49 @@ void main() {
       expect(BridgeEvent.fromMap({'type': 'nope'}), isNull);
       expect(BridgeEvent.fromMap({'type': 'state', 'state': 'weird'}), isNull);
       expect(BridgeEvent.fromMap({'type': 'caption', 'direction': 'out', 'kind': 'partial'}), isNull);
+    });
+  });
+
+  group('virtual cables', () {
+    const blackHole2 = AudioDevice(uid: 'bh2', name: 'BlackHole 2ch', inputChannels: 2, outputChannels: 2);
+    const blackHole16 = AudioDevice(uid: 'bh16', name: 'BlackHole 16ch', inputChannels: 16, outputChannels: 16);
+    const cableOutput = AudioDevice(
+      uid: 'co',
+      name: 'CABLE Output (VB-Audio Virtual Cable)',
+      inputChannels: 2,
+      transport: 'virtual',
+    );
+    const cableInput = AudioDevice(
+      uid: 'ci',
+      name: 'CABLE Input (VB-Audio Virtual Cable)',
+      outputChannels: 2,
+      transport: 'virtual',
+    );
+    const voicemeeter = AudioDevice(
+      uid: 'vm',
+      name: 'VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)',
+      outputChannels: 8,
+      transport: 'virtual',
+    );
+    const realtek = AudioDevice(uid: 'rt', name: 'Microphone (Realtek(R) Audio)', inputChannels: 2);
+
+    test('BlackHole and both VB-CABLE endpoints are cables; other virtual devices and real ones are not', () {
+      for (final d in [blackHole2, blackHole16, cableOutput, cableInput]) {
+        expect(d.isVirtualCable, isTrue, reason: d.name);
+        expect(d.isVirtual, isTrue, reason: d.name);
+      }
+      expect(voicemeeter.isVirtualCable, isFalse);
+      expect(voicemeeter.isVirtual, isTrue);
+      expect(realtek.isVirtualCable, isFalse);
+      expect(realtek.isVirtual, isFalse);
+    });
+
+    test('the virtual mic takes output: CABLE Input on Windows, BlackHole 2ch first on macOS', () {
+      expect(const SetupState(devices: [cableOutput, cableInput]).virtualMic?.uid, 'ci');
+      expect(const SetupState(devices: [cableOutput, realtek]).virtualMic, isNull);
+      expect(const SetupState(devices: [blackHole16, blackHole2]).virtualMic?.uid, 'bh2');
+      expect(const SetupState(devices: [blackHole16]).virtualMic?.uid, 'bh16');
+      expect(const SetupState(devices: [voicemeeter, realtek]).virtualMic, isNull);
     });
   });
 

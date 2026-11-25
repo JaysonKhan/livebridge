@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
+import '../state/host_platform.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
@@ -97,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               StatusBanner(
                 icon: Icons.error_outline,
                 text:
-                    '${error.code}: ${l.errorMessage(error.code) ?? error.message}'
+                    '${error.code}: ${l.errorMessage(error.code, ref.watch(hostPlatformProvider)) ?? error.message}'
                     '${error.fatal ? ' ${l.errorSessionEnded}' : ''}',
                 background: scheme.errorContainer,
                 foreground: scheme.onErrorContainer,
@@ -168,7 +169,7 @@ class _StartFooter extends ConsumerWidget {
     final engine = ref.watch(sessionProvider.select((s) => s.engine));
     final setup = ref.watch(setupProvider);
     final l = context.l10n;
-    final blockers = startBlockers(setup, l);
+    final blockers = startBlockers(setup, l, ref.watch(hostPlatformProvider));
     final running = engine != EngineState.idle;
     return Padding(
       padding: const EdgeInsets.all(12),
