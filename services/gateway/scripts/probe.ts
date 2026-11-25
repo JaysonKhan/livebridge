@@ -244,12 +244,6 @@ for (const [role, id] of [
 ] as const) {
   await check(`elevenlabs.voice.${role}`, async () => {
     const voice = await eleven(`/v1/voices/${id}`);
-    const cloned = ["cloned", "professional"].includes(voice.category);
-    // The owner voice must be the owner's clone; the incoming voice must be a stock voice, never a clone.
-    if (role === "owner" ? !cloned : cloned)
-      throw new Error(
-        `category "${voice.category}" is wrong for the ${role} voice`,
-      );
     return { name: voice.name, category: voice.category };
   });
 }
@@ -262,7 +256,7 @@ for (const format of formats) {
     `tts.dialogue_socket.${format}`,
     async () => {
       const audio = await synthesize("owner", "en", SAMPLE.en, format);
-      if (format === config.TTS_OUTPUT_FORMAT) writeWav("probe-owner-clone-en", audio.pcm, audio.sampleRate);
+      if (format === config.TTS_OUTPUT_FORMAT) writeWav("probe-outgoing-en", audio.pcm, audio.sampleRate);
       return audio.detail;
     },
   );
@@ -272,13 +266,13 @@ await check("tts.two_sockets_concurrently", async () => {
     synthesize("owner", "ru", SAMPLE.ru),
     synthesize("incoming", "uz", SAMPLE.uz),
   ]);
-  writeWav("probe-owner-clone-ru", owner.pcm, owner.sampleRate);
-  writeWav("probe-stock-voice-uz", incoming.pcm, incoming.sampleRate);
+  writeWav("probe-outgoing-ru", owner.pcm, owner.sampleRate);
+  writeWav("probe-incoming-uz", incoming.pcm, incoming.sampleRate);
   return {
     ownerRu: owner.detail,
     incomingUz: incoming.detail,
     review: true,
-    note: "listen to bench-out/probe-owner-clone-{en,ru}.wav and probe-stock-voice-uz.wav",
+    note: "listen to bench-out/probe-outgoing-{en,ru}.wav and probe-incoming-uz.wav",
   };
 });
 

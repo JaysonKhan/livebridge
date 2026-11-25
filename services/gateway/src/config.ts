@@ -6,6 +6,12 @@ const csv = (s: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+/**
+ * "JaysonKhan - Natural Uzbek Voice": the project author's own voice, published by the author in the ElevenLabs
+ * Voice Library. Used for both directions unless .env names other voices.
+ */
+export const DEFAULT_VOICE_ID = "ehTFHBkERkWR22A3sR8M";
+
 const schema = z
   .object({
     HOST: z.string().default("127.0.0.1"),
@@ -16,8 +22,10 @@ const schema = z
     GATEWAY_ACCESS_TOKEN: z.string().min(32, "must be at least 32 characters"),
 
     ELEVENLABS_API_KEY: z.string().default(""),
-    ELEVENLABS_OWNER_VOICE_ID: z.string().default(""),
-    ELEVENLABS_INCOMING_VOICE_ID: z.string().default(""),
+    /** Voice of your outgoing English / Russian speech. */
+    ELEVENLABS_OWNER_VOICE_ID: z.string().default(DEFAULT_VOICE_ID),
+    /** Voice of the incoming Uzbek speech. May be the same voice; never a clone of the remote participant. */
+    ELEVENLABS_INCOMING_VOICE_ID: z.string().default(DEFAULT_VOICE_ID),
     /** Regional hosts exist (api.us / api.eu.residency / ...); http(s) here, ws(s) is derived. */
     ELEVENLABS_BASE_URL: z.string().url().default("https://api.elevenlabs.io"),
     STT_MODEL: z.string().default("scribe_v3_live"),
@@ -46,7 +54,11 @@ const schema = z
       .default("low"),
     TRANSLATION_TIMEOUT_MS: z.coerce.number().int().min(1000).default(8000),
     /** A translation attempt that has produced no text by then is abandoned. */
-    TRANSLATION_FIRST_TOKEN_TIMEOUT_MS: z.coerce.number().int().min(500).default(4000),
+    TRANSLATION_FIRST_TOKEN_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(500)
+      .default(4000),
     /** No text by then -> a second request races the first (measured median first token is ~0.9 s). 0 disables. */
     TRANSLATION_HEDGE_AFTER_MS: z.coerce.number().int().min(0).default(1200),
 
@@ -69,16 +81,6 @@ const schema = z
           path: [key],
           message: "required when PROVIDER_MODE=real",
         });
-    }
-    if (
-      env.ELEVENLABS_OWNER_VOICE_ID &&
-      env.ELEVENLABS_OWNER_VOICE_ID === env.ELEVENLABS_INCOMING_VOICE_ID
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["ELEVENLABS_INCOMING_VOICE_ID"],
-        message: "must be a separate stock voice, not the owner clone",
-      });
     }
   });
 

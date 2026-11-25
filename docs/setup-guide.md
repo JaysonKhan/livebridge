@@ -1,6 +1,6 @@
 # LiveBridge — o'rnatish va ishlatish qo'llanmasi
 
-LiveBridge siz o'zbekcha gapirganingizni inglizcha yoki ruscha qilib, o'z (klonlangan) ovozingiz bilan qo'ng'iroqqa
+LiveBridge siz o'zbekcha gapirganingizni inglizcha yoki ruscha qilib, sintez qilingan ovoz bilan qo'ng'iroqqa
 uzatadi, suhbatdoshning inglizcha/ruscha nutqini esa o'zbekcha subtitr va ovoz qilib sizga beradi. Suhbatdosh hech
 narsa o'rnatmaydi.
 
@@ -42,8 +42,12 @@ npm run probe                 # haqiqiy API'lar ishlashini tekshiradi (qisqa sin
 npm run gateway               # http://127.0.0.1:8201
 ```
 
-`.env` da kerak: `ELEVENLABS_API_KEY`, `ELEVENLABS_OWNER_VOICE_ID` (o'z klon ovozingiz),
-`ELEVENLABS_INCOMING_VOICE_ID` (kiruvchi o'zbekcha uchun alohida tayyor ovoz — klon EMAS), `GEMINI_API_KEY`.
+`.env` da kerak: `ELEVENLABS_API_KEY` va `GEMINI_API_KEY`. Ovoz ID'lari (`ELEVENLABS_OWNER_VOICE_ID` — chiquvchi
+inglizcha/ruscha, `ELEVENLABS_INCOMING_VOICE_ID` — kiruvchi o'zbekcha) standart holda ikkalasi ham
+`ehTFHBkERkWR22A3sR8M`: bu loyiha muallifining o'z ovozi («JaysonKhan - Natural Uzbek Voice»), uni muallifning o'zi
+ElevenLabs Voice Library'da ochiq qilgan. Kutubxona ovozlari uchun pullik ElevenLabs tarifi kerak; hisobingiz bu ID'ni
+rad etsa, ovozni Voice Library'dan «My Voices»ga qo'shing va u yerda ko'rsatilgan ID'ni yozing. O'z klon ovozingizni
+ishlatmoqchi bo'lsangiz, shu ikki qatorga uning ID'sini qo'ying. Suhbatdoshning ovozi hech qachon klonlanmaydi.
 Kalitsiz sinab ko'rish: `.env` da `PROVIDER_MODE=fake` (soxta matn va signal ovozi — tarjima emas).
 
 Serverga joylash: `docs/deployment.md`.
@@ -91,8 +95,8 @@ imzolangan — qayta build qilinganda macOS ruxsatlarni yana so'rashi mumkin (bu
    Faqat subtitr rejimida uchrashuv ilovasidagi mikrofonni o'zgartirmang.
 5. **Start session** bosing. Ochilgan oynadagi jumlani suhbatdoshga ayting yoki chatga yozing va roziligini oling:
 
-   > “I use a live AI interpreter that translates my speech using my own synthesized voice. May I use it during this call?”
-   > «Я использую ИИ-переводчик в реальном времени с синтезом моего собственного голоса. Вы не против?»
+   > “I use a live AI interpreter that translates my speech and speaks it in a synthesized voice. May I use it during this call?”
+   > «Я использую ИИ-переводчик в реальном времени: он озвучивает мой перевод синтезированным голосом. Вы не против?»
 
    Rozilik belgilanmaguncha sessiya boshlanmaydi. Yashirin ishlatish mumkin emas.
 
@@ -126,6 +130,13 @@ Naushnikda suhbatdoshning asl ovozi ham, o'zbekcha tarjima ham eshitiladi (asl o
 - **Analitika:** chap paneldagi *Analytics* bo'limi tezlik (boshdan-oxir, nutqni tanish, tarjima, ovoz sintezi —
   o'rtacha va eng yomon holatlar), xatolar, uzilishlar va baholaringizni ko'rsatadi. Jurnalda faqat raqamlar
   saqlanadi, matn yo'q; u shu Mac'da qoladi. Bo'limdan o'chirish, eksport qilish va tozalash mumkin.
+
+- **Statistikani ulashish (ixtiyoriy):** *Analytics* bo'limidagi «Share anonymous statistics» o'chiq holda keladi.
+  Yoqsangiz, o'sha raqamli yozuvlar (matn emas) tasodifiy o'rnatish ID'si bilan ishlab chiquvchining saytiga
+  (jaysonkhan.com) yuboriladi; umumiy natijalar `https://jaysonkhan.com/services/livebridge/` sahifasida ko'rinadi.
+  Istalgan payt o'chirsa bo'ladi.
+- **Fikr yuborish:** *Send feedback* tugmasi yozgan xabaringizni (xohlasangiz email va baho bilan) ishlab chiquvchiga
+  yuboradi.
 
 ## 4. Oddiy mikrofonga qaytish
 

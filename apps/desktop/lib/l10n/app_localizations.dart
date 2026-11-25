@@ -403,7 +403,7 @@ abstract class AppLocalizations {
   /// No description provided for @modeBidirectionalDesc.
   ///
   /// In en, this message translates to:
-  /// **'Also speaks your translation into the call with your own voice, through the virtual microphone.'**
+  /// **'Also speaks your translation into the call in a synthesized voice, through the virtual microphone.'**
   String get modeBidirectionalDesc;
 
   /// No description provided for @sectionDevices.
@@ -1317,6 +1317,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This deletes all recorded numbers on this Mac. It cannot be undone.'**
   String get analyticsClearBody;
+
+  /// No description provided for @copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copy;
+
+  /// No description provided for @telemetryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share anonymous statistics with the developer'**
+  String get telemetryTitle;
+
+  /// No description provided for @telemetryNeedsAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on analytics recording above first — sharing uploads that log.'**
+  String get telemetryNeedsAnalytics;
+
+  /// No description provided for @telemetryDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share anonymous statistics?'**
+  String get telemetryDialogTitle;
+
+  /// No description provided for @telemetryDialogSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the macOS version, the interface language and a random install ID.'**
+  String get telemetryDialogSent;
+
+  /// No description provided for @telemetryDialogNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never sent: what was said, translations, audio, device names, the gateway address or keys.'**
+  String get telemetryDialogNever;
+
+  /// No description provided for @telemetryDialogWhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Goes to: the developer\'s site, jaysonkhan.com.'**
+  String get telemetryDialogWhere;
+
+  /// No description provided for @telemetryDialogOff.
+  ///
+  /// In en, this message translates to:
+  /// **'You can switch this off at any time.'**
+  String get telemetryDialogOff;
+
+  /// No description provided for @telemetryPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Records waiting to upload: {count}'**
+  String telemetryPending(int count);
+
+  /// No description provided for @telemetryLastUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Last upload: {time}'**
+  String telemetryLastUpload(String time);
+
+  /// No description provided for @telemetryNever.
+  ///
+  /// In en, this message translates to:
+  /// **'never'**
+  String get telemetryNever;
+
+  /// No description provided for @telemetryLastError.
+  ///
+  /// In en, this message translates to:
+  /// **'Last upload error: {error}'**
+  String telemetryLastError(String error);
+
+  /// No description provided for @telemetryInstallId.
+  ///
+  /// In en, this message translates to:
+  /// **'Install ID'**
+  String get telemetryInstallId;
+
+  /// No description provided for @telemetryStatsPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Public statistics page'**
+  String get telemetryStatsPage;
+
+  /// No description provided for @feedbackButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Send feedback'**
+  String get feedbackButton;
+
+  /// No description provided for @feedbackNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your message goes to the developer. Your e-mail is only used to reply to you.'**
+  String get feedbackNote;
+
+  /// No description provided for @feedbackMessageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Your message'**
+  String get feedbackMessageLabel;
+
+  /// No description provided for @feedbackEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'E-mail (optional)'**
+  String get feedbackEmailLabel;
+
+  /// No description provided for @feedbackEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid e-mail address or leave this empty.'**
+  String get feedbackEmailInvalid;
+
+  /// No description provided for @feedbackRatingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating (optional)'**
+  String get feedbackRatingLabel;
+
+  /// No description provided for @feedbackStar.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} out of 5 stars'**
+  String feedbackStar(int count);
+
+  /// No description provided for @feedbackSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get feedbackSend;
+
+  /// No description provided for @feedbackSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you — your feedback was sent.'**
+  String get feedbackSent;
+
+  /// No description provided for @feedbackRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many messages recently. Please try again later.'**
+  String get feedbackRateLimited;
+
+  /// No description provided for @feedbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send your feedback. Check your connection and try again.'**
+  String get feedbackFailed;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

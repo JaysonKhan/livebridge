@@ -18,6 +18,8 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `analyticsSummary` | — | `Map`, see "Analytics" below |
 | `analyticsExport` | — | String? — Save dialog for the raw analytics file (JSON Lines); saved path or `null` |
 | `analyticsClear` | — | — (deletes the analytics file) |
+| `telemetryStatus` | — | `Map`: `enabled` bool, `installId` String? (present once sharing was ever switched on), `endpoint` String, `pendingRecords` int (local records not uploaded yet), `lastUploadAt` String? (ISO-8601), `lastError` String? |
+| `sendFeedback` | `message` String (1–2000 chars), `email` String?, `rating` int? (1–5) | — ; throws `PlatformException` with code `rate_limited`, `feedback_rejected` or `feedback_failed` |
 | `microphonePermission` | — | String: `granted`, `denied`, `undetermined` |
 | `requestMicrophonePermission` | — | bool |
 | `startMeters` | `micUid` String?, `sourcePids` List<int> | — (setup-screen level meters; no network) |
@@ -52,6 +54,7 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 |---|---|---|
 | `uiLanguage` | String | `uz`, `ru`, `tr` or `en`; absent = follow the system language if supported, else English |
 | `analyticsEnabled` | bool | default `true`; `false` stops writing the analytics log |
+| `telemetryEnabled` | bool | default `false`. Opt-in: upload the numbers-only analytics records to the developer's collector (docs/telemetry-api.md). Needs `analyticsEnabled` |
 | `captionFontSize` | double | caption text size |
 | `showOriginal` / `showTranslated` | bool | caption line visibility |
 

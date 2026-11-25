@@ -116,7 +116,7 @@ recording transcribes to exactly the four English translations.
 
 The spec's quality gate (≥50 turns per language pair, bilingual review, ≥95 % meaning-preserving) is the owner's to
 do. Material for it: `bench-out/translations-2026-11-24T16-58.jsonl` has source, recognised text and translation for
-all 120 turns; `bench-out/probe-owner-clone-{en,ru}.wav` and `probe-stock-voice-uz.wav` are the voices to listen to.
+all 120 turns; `bench-out/probe-outgoing-{en,ru}.wav` and `probe-incoming-uz.wav` are the voices to listen to.
 
 What an automatic comparison shows (not a WER, synthetic speech only): recognised text equals the source after
 normalisation in 48/60 Uzbek, 21/30 English and 18/30 Russian turns. The differences are number formatting

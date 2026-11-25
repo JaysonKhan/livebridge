@@ -1,8 +1,8 @@
 # LiveBridge AI
 
 Personal-use macOS real-time speech interpreter for Zoom, Google Meet and Upwork calls: Uzbek ↔ English / Russian,
-outgoing speech in the owner's own cloned voice through a virtual microphone, incoming speech as Uzbek captions and
-audio. Other participants install nothing.
+outgoing speech in a synthesized voice through a virtual microphone, incoming speech as Uzbek captions and audio.
+Other participants install nothing.
 
 **Read `IMPLEMENTATION_STATUS.md` first** — it says exactly what is verified and what is blocked. In short: it runs
 end to end with the real providers on real audio hardware (translated speech audible a median ~1.4 s after the
@@ -40,6 +40,13 @@ In the app: Mode **Captions only**, Gateway URL `http://127.0.0.1:8201`, paste t
 For real translation: fill `.env` from `.env.example`, run `npm run probe`, then `npm run gateway`.
 Full instructions: `docs/setup-guide.md`.
 
+### Voice
+
+Both directions default to **JaysonKhan - Natural Uzbek Voice** (`ehTFHBkERkWR22A3sR8M`) — the author's own voice,
+published by the author in the ElevenLabs Voice Library; it speaks English, Russian, Uzbek and Turkish. Voice Library
+voices need a paid ElevenLabs plan. If your account rejects the id, add the voice to *My Voices* from the Voice
+Library and use the id shown there. To speak in your own voice, put your clone's id in `ELEVENLABS_OWNER_VOICE_ID`.
+
 ## Tests
 
 ```bash
@@ -54,7 +61,8 @@ npm run typecheck && npm test                               # protocol, gateway,
 
 In: captions, push-to-talk and automatic outgoing speech, incoming Uzbek audio, mute, panic stop, explicit
 microphone bypass, interface in Uzbek / Russian / Turkish / English, on-demand export of the conversation text, and
-a local numbers-only analytics log (latency, errors, your ratings).
+a local numbers-only analytics log (latency, errors, your ratings) with **opt-in** sharing of those numbers and a
+feedback form (`docs/telemetry-api.md`, `docs/privacy.md`).
 Out (by design): meeting bots, browser extensions, audio recording, automatic answers, covert use, Windows/iOS.
 
 ## License

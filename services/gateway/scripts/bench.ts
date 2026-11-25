@@ -2,7 +2,7 @@
 //
 //   npm run bench -- [--rounds 10] [--models gemini-3.8-flash,gemini-3.5-flash-lite] [--directions uz-en,en-uz]
 //
-// Fixture audio is synthesized once from tests/fixtures/sentences.json with the STOCK voice (never the owner clone)
+// Fixture audio is synthesized once from tests/fixtures/sentences.json with the incoming voice
 // and cached under tests/fixtures/audio/. Each turn is fed in real time, committed at end of speech, and timed with
 // the server's monotonic clock. Client playback (jitter buffer + device) is NOT included — measure that with
 // `lbaudio session`. Sends only synthetic sentences; never run it on real call audio.
@@ -210,7 +210,7 @@ async function runDirection(
         messages: [],
       };
       const pipeline = new DirectionPipeline({
-        // Timing is direction-agnostic; the benchmark always drives the pipeline as "out" with the stock voice.
+        // Timing is direction-agnostic; the benchmark always drives the pipeline as "out" with the incoming voice.
         direction: "out",
         config: {
           enabled: true,

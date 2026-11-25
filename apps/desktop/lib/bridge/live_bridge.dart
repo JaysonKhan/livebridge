@@ -18,6 +18,11 @@ abstract class LiveBridge {
   Future<AnalyticsSummary> analyticsSummary();
   Future<String?> analyticsExport();
   Future<void> analyticsClear();
+  Future<TelemetryStatus> telemetryStatus();
+
+  /// Sends a feedback message to the developer. Throws a `PlatformException` with code `rate_limited`,
+  /// `feedback_rejected` or `feedback_failed`.
+  Future<void> sendFeedback({required String message, String? email, int? rating});
   Future<String> microphonePermission();
   Future<bool> requestMicrophonePermission();
   Future<void> startMeters({required String? micUid, required List<int> sourcePids});
@@ -88,6 +93,14 @@ class MethodChannelLiveBridge implements LiveBridge {
 
   @override
   Future<void> analyticsClear() => _control.invokeMethod<void>('analyticsClear');
+
+  @override
+  Future<TelemetryStatus> telemetryStatus() async =>
+      TelemetryStatus.fromMap(await _control.invokeMapMethod<Object?, Object?>('telemetryStatus') ?? const {});
+
+  @override
+  Future<void> sendFeedback({required String message, String? email, int? rating}) =>
+      _control.invokeMethod<void>('sendFeedback', {'message': message, 'email': email, 'rating': rating});
 
   @override
   Future<String> microphonePermission() async =>

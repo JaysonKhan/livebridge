@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { loadConfig } from "../src/config.ts";
+import { DEFAULT_VOICE_ID, loadConfig } from "../src/config.ts";
 import { createLogger } from "../src/log.ts";
 import {
   buildTranslationPrompt,
@@ -34,14 +34,26 @@ test("config: real mode needs every provider credential, fake mode needs none", 
   }
 });
 
-test("config: refuses a short access token, the clone as incoming voice, content storage and non-PCM output", () => {
+test("config: both voices default to the author's public voice and may be the same", () => {
+  const {
+    ELEVENLABS_OWNER_VOICE_ID,
+    ELEVENLABS_INCOMING_VOICE_ID,
+    ...noVoices
+  } = real;
+  const defaults = loadConfig(noVoices);
+  assert.equal(defaults.ELEVENLABS_OWNER_VOICE_ID, DEFAULT_VOICE_ID);
+  assert.equal(defaults.ELEVENLABS_INCOMING_VOICE_ID, DEFAULT_VOICE_ID);
+  const same = loadConfig({
+    ...real,
+    ELEVENLABS_INCOMING_VOICE_ID: ELEVENLABS_OWNER_VOICE_ID,
+  });
+  assert.equal(same.ELEVENLABS_INCOMING_VOICE_ID, ELEVENLABS_OWNER_VOICE_ID);
+});
+
+test("config: refuses a short access token, content storage and non-PCM output", () => {
   assert.throws(
     () => loadConfig({ ...real, GATEWAY_ACCESS_TOKEN: "short" }),
     /GATEWAY_ACCESS_TOKEN/,
-  );
-  assert.throws(
-    () => loadConfig({ ...real, ELEVENLABS_INCOMING_VOICE_ID: "ownerVoice" }),
-    /separate stock voice/,
   );
   assert.throws(
     () => loadConfig({ ...real, STORE_CONTENT: "true" }),

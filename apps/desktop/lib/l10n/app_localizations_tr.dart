@@ -174,7 +174,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get modeBidirectionalTitle => 'Çift yönlü ses';
 
   @override
-  String get modeBidirectionalDesc => 'Ayrıca çevirinizi kendi sesinizle, sanal mikrofon üzerinden görüşmeye iletir.';
+  String get modeBidirectionalDesc =>
+      'Ayrıca çevirinizi sentezlenmiş bir sesle, sanal mikrofon üzerinden görüşmeye iletir.';
 
   @override
   String get sectionDevices => 'Cihazlar';
@@ -698,4 +699,89 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get analyticsClearBody => 'Bu Mac\'teki tüm kayıtlı sayılar silinir. Bu işlem geri alınamaz.';
+
+  @override
+  String get copy => 'Kopyala';
+
+  @override
+  String get telemetryTitle => 'Geliştiriciyle anonim istatistik paylaş';
+
+  @override
+  String get telemetryNeedsAnalytics => 'Önce yukarıdaki analitik kaydını açın — paylaşım bu günlüğü yükler.';
+
+  @override
+  String get telemetryDialogTitle => 'Anonim istatistikler paylaşılsın mı?';
+
+  @override
+  String get telemetryDialogSent =>
+      'Gönderilenler: süreler, sayılar, hata kodları, metin uzunlukları (karakter olarak), beğendim/beğenmedim puanlarınız, uygulama sürümü, macOS sürümü, arayüz dili ve rastgele bir kurulum kimliği.';
+
+  @override
+  String get telemetryDialogNever =>
+      'Asla gönderilmeyenler: söylenenler, çeviriler, ses, cihaz adları, gateway adresi ve anahtarlar.';
+
+  @override
+  String get telemetryDialogWhere => 'Gittiği yer: geliştiricinin sitesi, jaysonkhan.com.';
+
+  @override
+  String get telemetryDialogOff => 'Bunu istediğiniz zaman kapatabilirsiniz.';
+
+  @override
+  String telemetryPending(int count) {
+    return 'Yüklenmeyi bekleyen kayıt: $count';
+  }
+
+  @override
+  String telemetryLastUpload(String time) {
+    return 'Son yükleme: $time';
+  }
+
+  @override
+  String get telemetryNever => 'hiç';
+
+  @override
+  String telemetryLastError(String error) {
+    return 'Son yükleme hatası: $error';
+  }
+
+  @override
+  String get telemetryInstallId => 'Kurulum kimliği';
+
+  @override
+  String get telemetryStatsPage => 'Herkese açık istatistik sayfası';
+
+  @override
+  String get feedbackButton => 'Geri bildirim gönder';
+
+  @override
+  String get feedbackNote => 'Mesajınız geliştiriciye gider. E-postanız yalnızca size yanıt vermek için kullanılır.';
+
+  @override
+  String get feedbackMessageLabel => 'Mesajınız';
+
+  @override
+  String get feedbackEmailLabel => 'E-posta (isteğe bağlı)';
+
+  @override
+  String get feedbackEmailInvalid => 'Geçerli bir e-posta adresi girin veya boş bırakın.';
+
+  @override
+  String get feedbackRatingLabel => 'Puan (isteğe bağlı)';
+
+  @override
+  String feedbackStar(int count) {
+    return '5 yıldızdan $count';
+  }
+
+  @override
+  String get feedbackSend => 'Gönder';
+
+  @override
+  String get feedbackSent => 'Teşekkürler — geri bildiriminiz gönderildi.';
+
+  @override
+  String get feedbackRateLimited => 'Kısa süre içinde çok fazla mesaj gönderildi. Lütfen daha sonra tekrar deneyin.';
+
+  @override
+  String get feedbackFailed => 'Geri bildiriminiz gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.';
 }

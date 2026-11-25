@@ -173,7 +173,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get modeBidirectionalDesc =>
-      'Also speaks your translation into the call with your own voice, through the virtual microphone.';
+      'Also speaks your translation into the call in a synthesized voice, through the virtual microphone.';
 
   @override
   String get sectionDevices => 'Devices';
@@ -695,4 +695,89 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get analyticsClearBody => 'This deletes all recorded numbers on this Mac. It cannot be undone.';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get telemetryTitle => 'Share anonymous statistics with the developer';
+
+  @override
+  String get telemetryNeedsAnalytics => 'Turn on analytics recording above first — sharing uploads that log.';
+
+  @override
+  String get telemetryDialogTitle => 'Share anonymous statistics?';
+
+  @override
+  String get telemetryDialogSent =>
+      'Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the macOS version, the interface language and a random install ID.';
+
+  @override
+  String get telemetryDialogNever =>
+      'Never sent: what was said, translations, audio, device names, the gateway address or keys.';
+
+  @override
+  String get telemetryDialogWhere => 'Goes to: the developer\'s site, jaysonkhan.com.';
+
+  @override
+  String get telemetryDialogOff => 'You can switch this off at any time.';
+
+  @override
+  String telemetryPending(int count) {
+    return 'Records waiting to upload: $count';
+  }
+
+  @override
+  String telemetryLastUpload(String time) {
+    return 'Last upload: $time';
+  }
+
+  @override
+  String get telemetryNever => 'never';
+
+  @override
+  String telemetryLastError(String error) {
+    return 'Last upload error: $error';
+  }
+
+  @override
+  String get telemetryInstallId => 'Install ID';
+
+  @override
+  String get telemetryStatsPage => 'Public statistics page';
+
+  @override
+  String get feedbackButton => 'Send feedback';
+
+  @override
+  String get feedbackNote => 'Your message goes to the developer. Your e-mail is only used to reply to you.';
+
+  @override
+  String get feedbackMessageLabel => 'Your message';
+
+  @override
+  String get feedbackEmailLabel => 'E-mail (optional)';
+
+  @override
+  String get feedbackEmailInvalid => 'Enter a valid e-mail address or leave this empty.';
+
+  @override
+  String get feedbackRatingLabel => 'Rating (optional)';
+
+  @override
+  String feedbackStar(int count) {
+    return '$count out of 5 stars';
+  }
+
+  @override
+  String get feedbackSend => 'Send';
+
+  @override
+  String get feedbackSent => 'Thank you — your feedback was sent.';
+
+  @override
+  String get feedbackRateLimited => 'Too many messages recently. Please try again later.';
+
+  @override
+  String get feedbackFailed => 'Could not send your feedback. Check your connection and try again.';
 }

@@ -79,7 +79,7 @@
   "modeIncomingTitle": "Incoming audio",
   "modeIncomingDesc": "Captions both ways, plus their speech translated into Uzbek in your headphones.",
   "modeBidirectionalTitle": "Bidirectional speech",
-  "modeBidirectionalDesc": "Also speaks your translation into the call with your own voice, through the virtual microphone.",
+  "modeBidirectionalDesc": "Also speaks your translation into the call in a synthesized voice, through the virtual microphone.",
   "sectionDevices": "Devices",
   "deviceMicrophone": "Microphone",
   "deviceHeadphones": "Headphones",
@@ -448,5 +448,58 @@
   "analyticsExportLog": "Export log",
   "analyticsClearLog": "Clear log",
   "analyticsClearTitle": "Clear the analytics log?",
-  "analyticsClearBody": "This deletes all recorded numbers on this Mac. It cannot be undone."
+  "analyticsClearBody": "This deletes all recorded numbers on this Mac. It cannot be undone.",
+  "copy": "Copy",
+  "telemetryTitle": "Share anonymous statistics with the developer",
+  "telemetryNeedsAnalytics": "Turn on analytics recording above first — sharing uploads that log.",
+  "telemetryDialogTitle": "Share anonymous statistics?",
+  "telemetryDialogSent": "Sent: timings, counts, error codes, text lengths in characters, your thumbs up/down, the app version, the macOS version, the interface language and a random install ID.",
+  "telemetryDialogNever": "Never sent: what was said, translations, audio, device names, the gateway address or keys.",
+  "telemetryDialogWhere": "Goes to: the developer's site, jaysonkhan.com.",
+  "telemetryDialogOff": "You can switch this off at any time.",
+  "telemetryPending": "Records waiting to upload: {count}",
+  "@telemetryPending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "telemetryLastUpload": "Last upload: {time}",
+  "@telemetryLastUpload": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "telemetryNever": "never",
+  "telemetryLastError": "Last upload error: {error}",
+  "@telemetryLastError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "telemetryInstallId": "Install ID",
+  "telemetryStatsPage": "Public statistics page",
+  "feedbackButton": "Send feedback",
+  "feedbackNote": "Your message goes to the developer. Your e-mail is only used to reply to you.",
+  "feedbackMessageLabel": "Your message",
+  "feedbackEmailLabel": "E-mail (optional)",
+  "feedbackEmailInvalid": "Enter a valid e-mail address or leave this empty.",
+  "feedbackRatingLabel": "Rating (optional)",
+  "feedbackStar": "{count} out of 5 stars",
+  "@feedbackStar": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feedbackSend": "Send",
+  "feedbackSent": "Thank you — your feedback was sent.",
+  "feedbackRateLimited": "Too many messages recently. Please try again later.",
+  "feedbackFailed": "Could not send your feedback. Check your connection and try again."
 }

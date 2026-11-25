@@ -355,4 +355,271 @@ final class AnalyticsLogTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
         XCTAssertEqual(log.summary()["turns"] as? Int, 0)
     }
+
+    /// The collector merges a turn's records by (install, session, direction, turn), so a session number must
+    /// never repeat for one install — not after an app restart and not after "Clear log".
+    func testSessionNumbersContinueAcrossLaunchesAndClear() throws {
+        func runSession(_ log: AnalyticsLog) throws -> Int {
+            log.record(event: state("connecting"))
+            log.record(event: state("ready"))
+            log.record(event: state("idle"))
+            _ = log.summary()  // waits for the writes
+            let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n")
+            let last = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(try XCTUnwrap(lines.last).utf8)) as? [String: Any])
+            return try XCTUnwrap(last["session"] as? Int)
+        }
+        let first = AnalyticsLog(fileURL: url)
+        XCTAssertEqual(try runSession(first), 1)
+        XCTAssertEqual(try runSession(first), 2)
+        // A new launch.
+        XCTAssertEqual(try runSession(AnalyticsLog(fileURL: url)), 3)
+        // "Clear log", then another launch.
+        let cleared = AnalyticsLog(fileURL: url)
+        cleared.clear()
+        XCTAssertEqual(try runSession(AnalyticsLog(fileURL: url)), 4)
+        // A log from a build without the counter file: numbering continues after the highest number in it.
+        try FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("session"))
+        XCTAssertEqual(try runSession(AnalyticsLog(fileURL: url)), 5)
+    }
+}
+
+/// Answers every request made through a session configured with it, and remembers what was sent.
+private final class StubProtocol: URLProtocol {
+    static var statuses: [Int] = []
+    static var requests: [(path: String, body: [String: Any])] = []
+    static let lock = NSLock()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        var data = request.httpBody ?? Data()
+        if let stream = request.httpBodyStream {
+            stream.open()
+            var buffer = [UInt8](repeating: 0, count: 65_536)
+            while stream.hasBytesAvailable {
+                let read = stream.read(&buffer, maxLength: buffer.count)
+                if read <= 0 { break }
+                data.append(buffer, count: read)
+            }
+        }
+        Self.lock.lock()
+        // URL.path drops a trailing slash; the server needs it, so record the path exactly as sent.
+        let path = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.path ?? ""
+        Self.requests.append((path, (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]))
+        let status = Self.statuses.isEmpty ? 202 : Self.statuses.removeFirst()
+        Self.lock.unlock()
+        if status == 0 {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+        } else {
+            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data("{}".utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+}
+
+final class TelemetryUploaderTests: XCTestCase {
+    private var directory: URL!
+    private var logURL: URL!
+    private var store: UserDefaults!
+    private var suite = ""
+
+    override func setUp() {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("lb-telemetry-\(UUID().uuidString)")
+        logURL = directory.appendingPathComponent("analytics.jsonl")
+        suite = "lb-telemetry-test-\(UUID().uuidString)"
+        store = UserDefaults(suiteName: suite)
+        StubProtocol.statuses = []
+        StubProtocol.requests = []
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: directory)
+        store.removePersistentDomain(forName: suite)
+    }
+
+    private func uploader() -> TelemetryUploader {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubProtocol.self]
+        return TelemetryUploader(
+            logURL: logURL, endpoint: URL(string: "https://collector.test/api/services/v1")!, store: store,
+            session: URLSession(configuration: configuration), appVersion: "1.2.3+4")
+    }
+
+    /// Writes one real session into the log through AnalyticsLog (so the upload carries exactly what the app logs).
+    private func logSession(_ log: AnalyticsLog, turns: Int, mock: Bool = false) {
+        log.record(event: ["type": "state", "state": "connecting", "mock": false])
+        log.record(event: ["type": "state", "state": "ready", "mock": mock, "mode": "bidirectional", "targetLang": "en", "outCommit": "manual"])
+        for id in 1...turns {
+            log.record(event: ["type": "caption", "direction": "out", "turnId": id, "kind": "final", "text": "Maoshim uch ming dollar"])
+            log.record(event: ["type": "metrics", "direction": "out", "turnId": id, "e2eMs": 1300, "translateTotalMs": 700, "sttCommitMs": 300])
+        }
+        log.record(event: ["type": "state", "state": "idle", "mock": false])
+        _ = log.summary()  // waits for the log's queue to drain
+    }
+
+    private func upload(_ uploader: TelemetryUploader) -> Int {
+        let done = expectation(description: "upload finished")
+        var accepted = -1
+        uploader.uploadPending { accepted = $0; done.fulfill() }
+        wait(for: [done], timeout: 10)
+        return accepted
+    }
+
+    func testNothingIsSentUntilTheUserOptsIn() {
+        logSession(AnalyticsLog(fileURL: logURL), turns: 2)
+        let uploader = uploader()
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertTrue(StubProtocol.requests.isEmpty)
+        XCTAssertNil(uploader.status()["installId"])
+        XCTAssertEqual(uploader.status()["enabled"] as? Bool, false)
+    }
+
+    func testUploadsNumbersOnlyOnceAndResumesWhereItStopped() throws {
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 2)
+        let uploader = uploader()
+        uploader.uiLanguage = "uz"
+        uploader.isEnabled = true
+        XCTAssertEqual(uploader.status()["pendingRecords"] as? Int, 4)  // session_start, 2 turns, session_end
+
+        XCTAssertEqual(upload(uploader), 4)
+        let first = try XCTUnwrap(StubProtocol.requests.first)
+        XCTAssertEqual(first.path, "/api/services/v1/telemetry/")
+        XCTAssertEqual(first.body["app"] as? String, "livebridge")
+        XCTAssertEqual(first.body["schema"] as? Int, 1)
+        XCTAssertEqual(first.body["app_version"] as? String, "1.2.3+4")
+        XCTAssertEqual(first.body["ui_language"] as? String, "uz")
+        XCTAssertTrue((first.body["os_version"] as? String ?? "").hasPrefix("macOS "))
+        let installId = try XCTUnwrap(first.body["install_id"] as? String)
+        XCTAssertNotNil(UUID(uuidString: installId))
+        let records = try XCTUnwrap(first.body["records"] as? [[String: Any]])
+        XCTAssertEqual(records.map { $0["type"] as? String }, ["session_start", "turn", "turn", "session_end"])
+        XCTAssertEqual(records[0]["mode"] as? String, "bidirectional")
+        XCTAssertEqual(records[1]["e2eMs"] as? Int, 1300)
+        XCTAssertEqual(records[1]["sourceChars"] as? Int, 23)
+        // Privacy: the payload carries lengths and timings, never what was said, and no internal flags.
+        let payload = String(data: try JSONSerialization.data(withJSONObject: first.body), encoding: .utf8)!
+        XCTAssertFalse(payload.contains("Maoshim"))
+        XCTAssertFalse(payload.contains("mock"))
+
+        // Nothing new: nothing is sent again.
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertEqual(StubProtocol.requests.count, 1)
+        XCTAssertEqual(uploader.status()["pendingRecords"] as? Int, 0)
+        XCTAssertNotNil(uploader.status()["lastUploadAt"])
+
+        // A later session: only its records go, under the same install id.
+        logSession(log, turns: 1)
+        XCTAssertEqual(upload(uploader), 3)
+        XCTAssertEqual(StubProtocol.requests.count, 2)
+        XCTAssertEqual(StubProtocol.requests[1].body["install_id"] as? String, installId)
+        XCTAssertEqual((StubProtocol.requests[1].body["records"] as? [[String: Any]])?.count, 3)
+    }
+
+    func testMockSessionsAreNeverUploaded() {
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 3, mock: true)
+        let uploader = uploader()
+        uploader.isEnabled = true
+        XCTAssertEqual(uploader.status()["pendingRecords"] as? Int, 0)
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertTrue(StubProtocol.requests.isEmpty)
+    }
+
+    func testFailuresKeepThePositionAndPermanentRejectionsDoNotBlock() {
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 1)
+        let uploader = uploader()
+        uploader.isEnabled = true
+
+        // Rate limited, then offline: nothing is lost, the same records are offered again.
+        StubProtocol.statuses = [429]
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertEqual(uploader.status()["pendingRecords"] as? Int, 3)
+        XCTAssertNotNil(uploader.status()["lastError"])
+        StubProtocol.statuses = [0]
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertEqual(uploader.status()["pendingRecords"] as? Int, 3)
+        XCTAssertEqual(upload(uploader), 3)
+        XCTAssertNil(uploader.status()["lastError"])
+
+        // A batch the server refuses outright is skipped, so later records still get through.
+        logSession(log, turns: 1)
+        StubProtocol.statuses = [400]
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertEqual(uploader.status()["pendingRecords"] as? Int, 0)
+        logSession(log, turns: 1)
+        XCTAssertEqual(upload(uploader), 3)
+    }
+
+    func testLargeLogsGoInBatchesAndAClearedLogStartsOver() {
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 620)  // 622 records
+        let uploader = uploader()
+        uploader.isEnabled = true
+        XCTAssertEqual(upload(uploader), 622)
+        XCTAssertEqual(StubProtocol.requests.map { ($0.body["records"] as? [Any])?.count }, [500, 122])
+
+        log.clear()
+        logSession(log, turns: 1)
+        XCTAssertEqual(upload(uploader), 3, "a shorter, new log must be read from its start")
+    }
+
+    func testFeedbackCarriesOnlyWhatTheUserTypedAndMapsServerAnswers() {
+        let uploader = uploader()
+        func send(_ status: Int, email: String? = nil, rating: Int? = nil) -> Result<Void, TelemetryUploader.FeedbackError> {
+            StubProtocol.statuses = [status]
+            let done = expectation(description: "feedback answered")
+            var answer: Result<Void, TelemetryUploader.FeedbackError> = .failure(.failed)
+            uploader.sendFeedback(message: "Tez ishlaydi", email: email, rating: rating) { answer = $0; done.fulfill() }
+            wait(for: [done], timeout: 10)
+            return answer
+        }
+        if case .failure = send(201) { XCTFail("201 is success") }
+        let anonymous = StubProtocol.requests[0]
+        XCTAssertEqual(anonymous.path, "/api/services/v1/feedback/")
+        XCTAssertEqual(anonymous.body["message"] as? String, "Tez ishlaydi")
+        // Statistics sharing is off: feedback is not tied to an install, and no e-mail was typed.
+        XCTAssertNil(anonymous.body["install_id"])
+        XCTAssertNil(anonymous.body["email"])
+
+        uploader.isEnabled = true
+        _ = send(201, email: "me@example.com", rating: 4)
+        XCTAssertNotNil(StubProtocol.requests[1].body["install_id"])
+        XCTAssertEqual(StubProtocol.requests[1].body["email"] as? String, "me@example.com")
+        XCTAssertEqual(StubProtocol.requests[1].body["rating"] as? Int, 4)
+
+        if case .failure(let error) = send(429) { XCTAssertEqual(error, .rateLimited) } else { XCTFail() }
+        if case .failure(let error) = send(400) { XCTAssertEqual(error, .rejected) } else { XCTFail() }
+        if case .failure(let error) = send(0) { XCTAssertEqual(error, .failed) } else { XCTFail() }
+    }
+
+    /// The real uploader against a real collector (docs/telemetry-api.md). Skipped unless a collector is named:
+    /// `LIVEBRIDGE_COLLECTOR_URL=http://127.0.0.1:8011/api/services/v1 swift test --filter LiveCollector`
+    func testLiveCollectorAcceptsWhatTheAppSends() throws {
+        guard let endpoint = ProcessInfo.processInfo.environment["LIVEBRIDGE_COLLECTOR_URL"].flatMap(URL.init(string:)) else {
+            throw XCTSkip("set LIVEBRIDGE_COLLECTOR_URL to run against a collector")
+        }
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 3)
+        log.rate(direction: "out", turnId: 1, rating: "good")
+        _ = log.summary()
+        let uploader = TelemetryUploader(
+            logURL: logURL, endpoint: endpoint, store: store, session: URLSession(configuration: .ephemeral), appVersion: "0.0.0+test")
+        uploader.uiLanguage = "uz"
+        uploader.isEnabled = true
+        XCTAssertEqual(upload(uploader), 6)  // session_start, 3 turns, session_end, rating
+        XCTAssertEqual(upload(uploader), 0, "nothing is sent twice")
+
+        let done = expectation(description: "feedback answered")
+        uploader.sendFeedback(message: "Live collector test (automated)", email: nil, rating: 5) {
+            if case .failure(let error) = $0 { XCTFail("feedback failed: \(error.rawValue)") }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 10)
+    }
 }

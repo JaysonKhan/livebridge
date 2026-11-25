@@ -175,7 +175,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get modeBidirectionalDesc =>
-      'Вдобавок ваш перевод звучит в звонке вашим собственным голосом через виртуальный микрофон.';
+      'Вдобавок ваш перевод звучит в звонке синтезированным голосом через виртуальный микрофон.';
 
   @override
   String get sectionDevices => 'Устройства';
@@ -699,4 +699,89 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get analyticsClearBody => 'Все записанные цифры на этом Mac будут удалены. Это нельзя отменить.';
+
+  @override
+  String get copy => 'Копировать';
+
+  @override
+  String get telemetryTitle => 'Отправлять разработчику анонимную статистику';
+
+  @override
+  String get telemetryNeedsAnalytics => 'Сначала включите запись аналитики выше — отправляется именно этот журнал.';
+
+  @override
+  String get telemetryDialogTitle => 'Отправлять анонимную статистику?';
+
+  @override
+  String get telemetryDialogSent =>
+      'Отправляется: тайминги, счётчики, коды ошибок, длина текста в символах, ваши оценки «палец вверх/вниз», версия приложения, версия macOS, язык интерфейса и случайный ID установки.';
+
+  @override
+  String get telemetryDialogNever =>
+      'Никогда не отправляется: сказанное, переводы, аудио, названия устройств, адрес шлюза и ключи.';
+
+  @override
+  String get telemetryDialogWhere => 'Куда уходит: на сайт разработчика — jaysonkhan.com.';
+
+  @override
+  String get telemetryDialogOff => 'Это можно отключить в любой момент.';
+
+  @override
+  String telemetryPending(int count) {
+    return 'Записей ждёт отправки: $count';
+  }
+
+  @override
+  String telemetryLastUpload(String time) {
+    return 'Последняя отправка: $time';
+  }
+
+  @override
+  String get telemetryNever => 'никогда';
+
+  @override
+  String telemetryLastError(String error) {
+    return 'Ошибка последней отправки: $error';
+  }
+
+  @override
+  String get telemetryInstallId => 'ID установки';
+
+  @override
+  String get telemetryStatsPage => 'Публичная страница статистики';
+
+  @override
+  String get feedbackButton => 'Отправить отзыв';
+
+  @override
+  String get feedbackNote => 'Ваше сообщение уходит разработчику. E-mail используется только для ответа вам.';
+
+  @override
+  String get feedbackMessageLabel => 'Ваше сообщение';
+
+  @override
+  String get feedbackEmailLabel => 'E-mail (необязательно)';
+
+  @override
+  String get feedbackEmailInvalid => 'Введите корректный адрес e-mail или оставьте поле пустым.';
+
+  @override
+  String get feedbackRatingLabel => 'Оценка (необязательно)';
+
+  @override
+  String feedbackStar(int count) {
+    return '$count из 5 звёзд';
+  }
+
+  @override
+  String get feedbackSend => 'Отправить';
+
+  @override
+  String get feedbackSent => 'Спасибо — отзыв отправлен.';
+
+  @override
+  String get feedbackRateLimited => 'Слишком много сообщений за последнее время. Попробуйте позже.';
+
+  @override
+  String get feedbackFailed => 'Не удалось отправить отзыв. Проверьте соединение и попробуйте снова.';
 }

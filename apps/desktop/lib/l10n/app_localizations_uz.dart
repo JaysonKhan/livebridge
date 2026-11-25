@@ -174,7 +174,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get modeBidirectionalDesc =>
-      'Bundan tashqari tarjimangiz o\'z ovozingizda virtual mikrofon orqali suhbatga yetkaziladi.';
+      'Bundan tashqari tarjimangiz sintez qilingan ovozda virtual mikrofon orqali suhbatga yetkaziladi.';
 
   @override
   String get sectionDevices => 'Qurilmalar';
@@ -699,4 +699,89 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get analyticsClearBody => 'Bu Mac\'dagi barcha yozilgan raqamlar o\'chiriladi. Buni qaytarib bo\'lmaydi.';
+
+  @override
+  String get copy => 'Nusxalash';
+
+  @override
+  String get telemetryTitle => 'Dasturchiga anonim statistikani yuborish';
+
+  @override
+  String get telemetryNeedsAnalytics => 'Avval yuqoridagi analitika yozuvini yoqing — yuborish shu jurnalni yuklaydi.';
+
+  @override
+  String get telemetryDialogTitle => 'Anonim statistika yuborilsinmi?';
+
+  @override
+  String get telemetryDialogSent =>
+      'Yuboriladi: vaqtlar, sonlar, xato kodlari, matn uzunligi (belgilarda), yoqdi/yoqmadi baholaringiz, ilova versiyasi, macOS versiyasi, interfeys tili va tasodifiy o\'rnatish ID\'si.';
+
+  @override
+  String get telemetryDialogNever =>
+      'Hech qachon yuborilmaydi: aytilgan gaplar, tarjimalar, audio, qurilma nomlari, gateway manzili va kalitlar.';
+
+  @override
+  String get telemetryDialogWhere => 'Qayerga boradi: dasturchining saytiga — jaysonkhan.com.';
+
+  @override
+  String get telemetryDialogOff => 'Buni istalgan vaqtda o\'chirib qo\'yishingiz mumkin.';
+
+  @override
+  String telemetryPending(int count) {
+    return 'Yuklanishni kutayotgan yozuvlar: $count';
+  }
+
+  @override
+  String telemetryLastUpload(String time) {
+    return 'Oxirgi yuklash: $time';
+  }
+
+  @override
+  String get telemetryNever => 'hech qachon';
+
+  @override
+  String telemetryLastError(String error) {
+    return 'Oxirgi yuklash xatosi: $error';
+  }
+
+  @override
+  String get telemetryInstallId => 'O\'rnatish ID\'si';
+
+  @override
+  String get telemetryStatsPage => 'Ochiq statistika sahifasi';
+
+  @override
+  String get feedbackButton => 'Fikr yuborish';
+
+  @override
+  String get feedbackNote => 'Xabaringiz dasturchiga boradi. E-pochtangiz faqat sizga javob berish uchun ishlatiladi.';
+
+  @override
+  String get feedbackMessageLabel => 'Xabaringiz';
+
+  @override
+  String get feedbackEmailLabel => 'E-pochta (ixtiyoriy)';
+
+  @override
+  String get feedbackEmailInvalid => 'To\'g\'ri e-pochta manzilini kiriting yoki bo\'sh qoldiring.';
+
+  @override
+  String get feedbackRatingLabel => 'Baho (ixtiyoriy)';
+
+  @override
+  String feedbackStar(int count) {
+    return '5 yulduzdan $count';
+  }
+
+  @override
+  String get feedbackSend => 'Yuborish';
+
+  @override
+  String get feedbackSent => 'Rahmat — fikringiz yuborildi.';
+
+  @override
+  String get feedbackRateLimited => 'So\'nggi vaqtda juda ko\'p xabar yuborildi. Keyinroq qayta urinib ko\'ring.';
+
+  @override
+  String get feedbackFailed => 'Fikringizni yuborib bo\'lmadi. Ulanishni tekshirib, qayta urinib ko\'ring.';
 }

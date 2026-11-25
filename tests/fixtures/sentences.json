@@ -1,5 +1,5 @@
 {
-  "note": "Synthetic, non-sensitive benchmark sentences with gold text. Audio is synthesized from these by `npm run bench` using the stock voice; no real person's speech is stored. `words` buckets match the latency report (1, 5, 15, 30).",
+  "note": "Synthetic, non-sensitive benchmark sentences with gold text. Audio is synthesized from these by `npm run bench` using the incoming voice; no real person's speech is stored. `words` buckets match the latency report (1, 5, 15, 30).",
   "uz": [
     { "words": 1, "text": "Rahmat." },
     { "words": 1, "text": "Albatta." },

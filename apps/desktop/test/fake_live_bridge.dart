@@ -58,6 +58,15 @@ class FakeLiveBridge implements LiveBridge {
   AnalyticsSummary summary = const AnalyticsSummary();
   String? analyticsExportResult = '/Users/test/Documents/analytics.jsonl';
 
+  /// `telemetryStatus`: the result, or an exception to throw.
+  TelemetryStatus telemetry = const TelemetryStatus();
+  Exception? telemetryError;
+
+  /// `sendFeedback`: the arguments of every call, an error to throw, and an optional gate to hold the call open.
+  final List<({String message, String? email, int? rating})> feedbacks = [];
+  Exception? feedbackError;
+  Completer<void>? feedbackGate;
+
   final _events = StreamController<BridgeEvent>.broadcast(sync: true);
 
   void push(BridgeEvent e) => _events.add(e);
@@ -117,6 +126,21 @@ class FakeLiveBridge implements LiveBridge {
 
   @override
   Future<void> analyticsClear() async => calls.add('analyticsClear');
+
+  @override
+  Future<TelemetryStatus> telemetryStatus() async {
+    calls.add('telemetryStatus');
+    if (telemetryError != null) throw telemetryError!;
+    return telemetry;
+  }
+
+  @override
+  Future<void> sendFeedback({required String message, String? email, int? rating}) async {
+    calls.add('sendFeedback');
+    feedbacks.add((message: message, email: email, rating: rating));
+    if (feedbackGate != null) await feedbackGate!.future;
+    if (feedbackError != null) throw feedbackError!;
+  }
 
   @override
   Future<String> microphonePermission() async => permission;

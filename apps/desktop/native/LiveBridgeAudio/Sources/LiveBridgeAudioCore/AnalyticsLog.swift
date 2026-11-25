@@ -27,7 +27,9 @@ public final class AnalyticsLog: @unchecked Sendable {
         return formatter
     }()
     private var enabled = true
+    /// Numbered per install, across app launches and "Clear log": the collector merges a turn's records by it.
     private var session = 0
+    private var savedSession = 0
     private var sessionOpen = false
     private var sessionIsMock = false
     private var sessionStartedAt = Date()
@@ -39,7 +41,22 @@ public final class AnalyticsLog: @unchecked Sendable {
 
     public init(fileURL: URL) {
         self.fileURL = fileURL
+        queue.async {
+            if let saved = (try? String(contentsOf: self.counterURL, encoding: .utf8)).flatMap({ Int($0) }) {
+                self.session = saved
+            } else {
+                // No counter yet (a log written by an older build): continue after the highest number in it.
+                let text = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+                self.session = text.split(separator: "\n").lazy
+                    .compactMap { ((try? JSONSerialization.jsonObject(with: Data($0.utf8))) as? [String: Any])?["session"] as? Int }
+                    .max() ?? 0
+            }
+            self.savedSession = self.session
+        }
     }
+
+    /// Survives "Clear log", so a session number is never reused by this install.
+    private var counterURL: URL { fileURL.deletingPathExtension().appendingPathExtension("session") }
 
     public static func defaultURL() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -85,7 +102,9 @@ public final class AnalyticsLog: @unchecked Sendable {
             if state == "ready" || state == "active", !sessionOpen {
                 sessionOpen = true
                 sessionIsMock = event["mock"] as? Bool ?? false
-                write(["type": "session_start"])
+                var record: [String: Any] = ["type": "session_start"]
+                for field in ["mode", "targetLang", "outCommit"] { if let value = event[field] as? String { record[field] = value } }
+                write(record)
             }
             if state == "degraded", lastState != "degraded" { write(["type": "reconnect"]) }
             if state == "idle", sessionOpen {
@@ -145,6 +164,10 @@ public final class AnalyticsLog: @unchecked Sendable {
         guard let json = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]) else { return }
         let manager = FileManager.default
         try? manager.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if session > savedSession {
+            try? String(session).write(to: counterURL, atomically: true, encoding: .utf8)
+            savedSession = session
+        }
         if let size = (try? manager.attributesOfItem(atPath: fileURL.path))?[.size] as? Int, size > Self.maxBytes {
             // Bounded on disk: keep one previous file, start a new one.
             let old = fileURL.deletingPathExtension().appendingPathExtension("old.jsonl")

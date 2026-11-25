@@ -1,6 +1,6 @@
 # LiveBridge AI — implementation status
 
-**Updated:** 2026-11-24 (evening, after the first live-API runs) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
+**Updated:** 2026-11-25 (default voice, opt-in statistics and feedback) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
 
 ## Where it stands
 
@@ -27,11 +27,11 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | 1 | ~~API keys~~ — **done** (speech-only ElevenLabs key + Gemini key in `.env`) | — |
 | 2 | ~~Install BlackHole 2ch~~ — **done**, loopback and content verified | — |
 | 3 | Launch the release app from Finder and approve **Microphone** and **System Audio Recording** | incoming direction with real audio |
-| 4 | Listen to `bench-out/probe-owner-clone-en.wav`, `probe-owner-clone-ru.wav`, `probe-stock-voice-uz.wav`; read `bench-out/translations-*.jsonl` | voice and translation quality gate |
+| 4 | Listen to `bench-out/probe-outgoing-en.wav`, `probe-outgoing-ru.wav`, `probe-incoming-uz.wav`; read `bench-out/translations-*.jsonl` | voice and translation quality gate |
 | 5 | Decisions in `docs/deployment.md`: hostname + DNS record, Node.js on the server, go-ahead to deploy | "use my existing server" — the gateway runs only on localhost today |
 | 6 | A consenting second participant (and an Upwork contact) | platform acceptance (M4) |
 | 7 | Optional: sign with the Apple Development identity instead of ad-hoc | stable permissions, no Keychain prompt after each rebuild |
-| 8 | Confirm the incoming voice id is a stock voice, not a clone | the speech-only key cannot read voice metadata, so this could not be checked |
+| 8 | ~~Confirm the incoming voice id is a stock voice~~ — **dropped 2026-11-25**: both voice slots now default to the author's own voice, published by the author in the ElevenLabs Voice Library (`docs/privacy.md`) | — |
 
 ## Environment (M0)
 
@@ -62,9 +62,9 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | What | Command | Result |
 |---|---|---|
 | TypeScript typecheck | `npm run typecheck` | clean |
-| Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **72 passed, 0 failed** |
-| Swift engine unit tests | `swift test` | **15 passed** |
-| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **39 passed** |
+| Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **74 passed, 0 failed** |
+| Swift engine unit tests | `swift test` | **26 passed**, 1 skipped (the live-collector test below) |
+| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **119 passed** |
 | App end to end (fake providers) | `flutter test integration_test/session_test.dart -d macos` | passed — real UI, engine and microphone |
 | Release build | `flutter build macos --release` | `livebridge.app`, 44 MB, ad-hoc signed, macOS 14.2+ |
 | **Live API probe** | `npm run probe` | 27 checks: 0 failed, 3 skipped (key lacks `user_read` / `voices_read`) |
@@ -75,6 +75,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | **Translated speech through BlackHole** | `lbaudio session … --virtual-mic BlackHole2ch_UID` while `lbaudio mic --uid BlackHole2ch_UID --out …` records its input | 4 turns, 0 errors, 1249–1989 ms; input silent (−120 dBFS) when idle, −19.6 dBFS peak in speech; the recording transcribes to exactly the 4 English translations |
 | Panic stop | `lbaudio session … --panic-during-turn 2` | 87.8 ms to idle (one run) |
 | Gateway killed and restarted mid-session | manual | recovered after 4 retries; interrupted turn not replayed |
+| Statistics upload and feedback against a real collector (run locally, not the production site) | `LIVEBRIDGE_COLLECTOR_URL=http://127.0.0.1:8011/api/services/v1 swift test --filter LiveCollector` | 6 records accepted, nothing sent twice, feedback stored; the public page rendered the figures |
 
 Tests that use fakes or mock servers say so in their titles and file headers. No automated test calls a real API;
 the probe, the benchmark and `lbaudio session` against a real gateway do.
@@ -108,6 +109,8 @@ into any output.
 | TypeScript run directly by Node (type stripping) | No build step; needs Node ≥ 22.18 on the server |
 | Each committed turn is translated as a unit, then synthesized | Protects negation and meaning; output is validated before anything is spoken |
 | TTS input has `[bracketed]` spans removed | Eleven v4 reads them as audio tags |
+| Both voice slots default to the author's public Voice Library voice (`ehTFHBkERkWR22A3sR8M`); the "voices must differ" rule is gone | Owner's decision (2026-11-25): the voice is published by the owner and works in all four languages. The disclosure sentence now says "a synthesized voice". **Not verified:** that the id works for another account without first adding the voice from the Voice Library (ElevenLabs' docs do not say) |
+| Opt-in statistics and feedback go to a collector on the author's site (`docs/telemetry-api.md`) | Off by default, numbers only. **The collector is not deployed yet** — until it is, uploads fail quietly and are retried |
 | Cancel = close and reopen that direction's TTS socket | The dialogue socket documents no per-turn cancel |
 | Riverpod; settings via the native bridge (UserDefaults + Keychain) | No Flutter plugin with native code, so no CocoaPods |
 | App is **not sandboxed** | Process taps and private aggregate devices; personal-use build |
@@ -135,7 +138,7 @@ into any output.
 | Soak | 60 minutes on fake providers only | Long-call behaviour on real providers (cost, session limits) unproven |
 | Docker | Image never built | Compose file untested |
 | Not built | Glossary/keyterm UI, source-language auto-detect, caption overlay, budget warning, translated-only monitoring | Roadmap |
-| Added 2026-11-25 at the owner's request | Interface in uz / ru / tr / en; on-demand conversation export; local numbers-only analytics log with per-turn ratings; meeting-source list filtered to apps; echo hold in automatic turn modes | These change the original "no export, no analytics" stance: both are explicit or content-free (`docs/privacy.md`). Translations of the interface text have not been reviewed by native speakers |
+| Added 2026-11-25 at the owner's request | Opt-in sharing of the numbers-only log and a feedback form, sent to a collector on the owner's site (`docs/telemetry-api.md`) — **the collector is built locally in another repository and is not deployed yet, so uploads currently fail and are retried**; interface in uz / ru / tr / en; on-demand conversation export; local numbers-only analytics log with per-turn ratings; meeting-source list filtered to apps; echo hold in automatic turn modes | These change the original "no export, no analytics" stance: both are explicit or content-free (`docs/privacy.md`). Translations of the interface text have not been reviewed by native speakers |
 
 ## Next commands, in order
 

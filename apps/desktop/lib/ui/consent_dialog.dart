@@ -4,11 +4,12 @@ import 'package:flutter/services.dart';
 import '../l10n/labels.dart';
 
 /// The two sentences the owner reads to the other participant. They are never translated.
+/// "A synthesized voice", not "my own voice": the configured voice is not necessarily the speaker's.
 const consentTextEn =
-    'I use a live AI interpreter that translates my speech using my own synthesized voice. '
+    'I use a live AI interpreter that translates my speech and speaks it in a synthesized voice. '
     'May I use it during this call?';
 const consentTextRu =
-    'Я использую ИИ-переводчик в реальном времени с синтезом моего собственного голоса. Вы не против?';
+    'Я использую ИИ-переводчик в реальном времени: он озвучивает мой перевод синтезированным голосом. Вы не против?';
 const consentCheckboxLabel = 'The other participants have been informed and agreed';
 
 /// Returns true only when the owner ticked the checkbox and pressed Confirm.

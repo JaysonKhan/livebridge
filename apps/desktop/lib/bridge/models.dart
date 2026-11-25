@@ -420,3 +420,31 @@ class AnalyticsSummary {
   final int ratedGood;
   final int ratedBad;
 }
+
+/// Contract `telemetryStatus`: the state of the opt-in upload of the numbers-only log (docs/telemetry-api.md).
+class TelemetryStatus {
+  const TelemetryStatus({
+    this.enabled = false,
+    this.installId,
+    this.endpoint = '',
+    this.pendingRecords = 0,
+    this.lastUploadAt,
+    this.lastError,
+  });
+
+  factory TelemetryStatus.fromMap(Map<Object?, Object?> m) => TelemetryStatus(
+    enabled: m['enabled'] as bool? ?? false,
+    installId: m['installId'] as String?,
+    endpoint: m['endpoint'] as String? ?? '',
+    pendingRecords: (m['pendingRecords'] as num?)?.toInt() ?? 0,
+    lastUploadAt: m['lastUploadAt'] as String?,
+    lastError: m['lastError'] as String?,
+  );
+
+  final bool enabled;
+  final String? installId;
+  final String endpoint;
+  final int pendingRecords;
+  final String? lastUploadAt;
+  final String? lastError;
+}

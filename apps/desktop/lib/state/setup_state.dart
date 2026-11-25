@@ -38,6 +38,7 @@ class SetupState {
     this.showOriginal = true,
     this.showTranslated = true,
     this.uiLanguage,
+    this.telemetryEnabled = false,
   });
 
   final List<AudioDevice> devices;
@@ -60,6 +61,9 @@ class SetupState {
   /// The saved interface language (`uz`, `ru`, `tr`, `en`); null follows the system language.
   final String? uiLanguage;
 
+  /// Opt-in: upload the numbers-only analytics log to the developer (default off).
+  final bool telemetryEnabled;
+
   SetupState copyWith({
     List<AudioDevice>? devices,
     List<AudioProcess>? processes,
@@ -78,6 +82,7 @@ class SetupState {
     bool? showOriginal,
     bool? showTranslated,
     Object? uiLanguage = _keep,
+    bool? telemetryEnabled,
   }) => SetupState(
     devices: devices ?? this.devices,
     processes: processes ?? this.processes,
@@ -96,6 +101,7 @@ class SetupState {
     showOriginal: showOriginal ?? this.showOriginal,
     showTranslated: showTranslated ?? this.showTranslated,
     uiLanguage: identical(uiLanguage, _keep) ? this.uiLanguage : uiLanguage as String?,
+    telemetryEnabled: telemetryEnabled ?? this.telemetryEnabled,
   );
 
   /// Physical microphones (anything with input channels; a virtual one is refused by the route check).
@@ -170,6 +176,7 @@ class SetupNotifier extends Notifier<SetupState> {
         uiLanguage: AppLocalizations.supportedLocales.any((l) => l.languageCode == saved['uiLanguage'])
             ? saved['uiLanguage'] as String
             : null,
+        telemetryEnabled: saved['telemetryEnabled'] as bool?,
       );
     } on Exception catch (e) {
       ref.read(sessionProvider.notifier).reportException(e, 'loadSettings');
@@ -261,6 +268,14 @@ class SetupNotifier extends Notifier<SetupState> {
   void setUiLanguage(String code) {
     state = state.copyWith(uiLanguage: code);
     _persist({'uiLanguage': code});
+  }
+
+  /// Saves the opt-in to share anonymous statistics; completes when the preference is stored.
+  Future<void> setTelemetryEnabled(bool v) async {
+    state = state.copyWith(telemetryEnabled: v);
+    await ref
+        .read(sessionProvider.notifier)
+        .guard('saveSettings', () => ref.read(bridgeProvider).savePreferences({'telemetryEnabled': v}));
   }
 }
 

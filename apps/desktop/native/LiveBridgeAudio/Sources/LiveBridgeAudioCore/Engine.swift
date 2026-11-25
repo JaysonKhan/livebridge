@@ -720,6 +720,12 @@ public final class Engine: @unchecked Sendable {
             "mock": mock, "bypass": bypass, "outgoingMuted": outgoingMuted, "incomingAudioMuted": incomingAudioMuted,
         ]
         if let statusMessage { event["message"] = statusMessage }
+        if let config {
+            // Session shape for the numbers-only analytics log (no device names, addresses or text).
+            event["mode"] = config.mode.rawValue
+            event["targetLang"] = config.targetLang
+            event["outCommit"] = config.outCommit
+        }
         emit(event)
     }
 

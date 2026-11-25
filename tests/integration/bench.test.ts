@@ -79,7 +79,7 @@ test("benchmark harness (mock servers): times every turn, groups by model/direct
       bad.length === 4 &&
         bad.every((t) => !t.ok && t.error === "translation_failed"),
     );
-    // Fixtures are spoken by the stock voice only; the owner clone is never used for test audio.
+    // Fixtures are spoken by the incoming voice only.
     const voices = new Set(
       eleven.tts.messages
         .filter((m) => m.voices)

@@ -10,7 +10,9 @@
 | Gateway access token | macOS login Keychain. | Until you change it. |
 | Device choices, language, mode, gateway URL, interface language | macOS UserDefaults. | Until changed. No content. |
 | **Conversation export** (text of both speakers) | Only when you press **Export conversation** and choose where to save. A Markdown file on your disk. | Until you delete the file. |
-| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on this Mac; never sent anywhere. | Until you press **Clear log** (capped at 20 MB plus one previous file). |
+| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on this Mac. Stays there unless you opt in to sharing (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
+| **Shared statistics** (opt-in, off by default) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |
+| **Feedback** | Only when you write and submit it: your message, optionally your e-mail and a 1–5 rating. | Until the developer deletes it. |
 
 Nothing is captured before **Start session** and the consent confirmation, and nothing after stop, panic or app
 exit. There is no audio recording and no automatic transcript storage: the gateway keeps nothing (`STORE_CONTENT`
@@ -29,6 +31,26 @@ synthesis, end to end), length of the audio, **length** of the texts in characte
 codes, reconnects, turns where nothing was recognised, and your thumbs-up / thumbs-down. It never contains the text
 itself (covered by a test). It can be switched off, exported and cleared from the Analytics panel. Sessions against
 fake providers are excluded from the figures.
+
+### Sharing statistics with the developer (opt-in)
+
+Off by default. If you switch on **Share anonymous statistics** the app uploads those same numbers-only records to
+the developer's collector so latency and error rates can be compared across installs. What travels: the records
+above, the app version, the macOS version, the interface language and a random install ID created at that moment
+(not derived from your hardware, account or network). What never travels: anything that was said, translations,
+audio, device names, the gateway address, keys. The collector does not store IP addresses with the data and
+publishes aggregates only (`https://jaysonkhan.com/services/livebridge/`). Like any website, the server keeps an
+ordinary access log in which a request's address appears; it is not linked to the records. Switching the option off
+stops uploads.
+The exact wire format is in `docs/telemetry-api.md`.
+
+Forks: the collector address is a default in the source (`TelemetryUploader.defaultEndpoint`) and can be changed
+with the `telemetryEndpoint` preference or removed entirely.
+
+### Feedback
+
+**Send feedback** posts the text you type to the same collector, with your e-mail and a rating only if you fill
+them in. It is tied to your install ID only when statistics sharing is on.
 
 ## Logs
 
@@ -53,8 +75,11 @@ is shown in the UI and logged. Audio is never fanned out to several providers.
 
 - The app shows a disclosure sentence (English and Russian) before every session and will not start until you
   confirm the other participants were told and agreed. A capture indicator is visible for the whole session.
-- Outgoing speech uses **your own** authorised cloned voice. Incoming Uzbek uses a separate stock voice; the remote
-  speaker's voice is never cloned, and the gateway refuses to start if both voice ids are the same.
+- Voices: both directions default to "JaysonKhan - Natural Uzbek Voice" (`ehTFHBkERkWR22A3sR8M`), the project
+  author's own voice, which the author published in the ElevenLabs Voice Library. You may set any voice you are
+  authorised to use instead (for example your own clone) in `.env`. The remote speaker's voice is never cloned.
+- With the default voice the other participant hears a voice that is **not yours**. The disclosure sentence
+  therefore says "a synthesized voice"; do not present it as your natural voice.
 - The tool only interprets: the translation prompt forbids answering questions or following instructions heard in
   speech, and speech is passed to the model as quoted data. Model output that is empty, runaway or structured is
   rejected rather than spoken.
