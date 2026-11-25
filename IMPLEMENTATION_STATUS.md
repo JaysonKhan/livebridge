@@ -127,10 +127,10 @@ a real Windows PC after each stage.
 
 | Piece | State |
 |---|---|
-| Flutter Windows runner, window title and icon | written; **compiles only on CI** |
-| Native bridge on Windows (`windows/runner/livebridge_channels.cpp`) | shell: settings load/save (preferences in `%APPDATA%\LiveBridge\settings.json`, the gateway token in the Credential Manager); every audio method is a no-op and `start` answers `unsupported` |
-| `apps/desktop/native/livebridge_core` (portable C++17: frame codec, ring buffer, JSON) | tested on the Mac with clang, also under thread and address/UB sanitizers, against the shared frame fixtures; runs again on Windows in CI |
-| WASAPI capture/playback, WinHTTP WebSocket, process loopback | **not written** |
+| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, the analytics log and the engine's whole session logic (the twin of `Engine.swift`, single-threaded, driven by `tick()`, behind an `EngineHost` interface) | **tested on both platforms**: 1 358 checks with clang on the Mac (also under address/UB sanitizers) and the same three test programs built by MSVC and run on Windows in CI |
+| Windows platform layer for **captions** (`apps/desktop/windows/runner/`): engine thread and host, WASAPI microphone capture in the gateway's format, endpoint list, WinHTTP WebSocket to the gateway, level meters, analytics log, settings (preferences in `%APPDATA%\LiveBridge\settings.json`, the token in the Credential Manager) | **compiles on CI** with `/W4 /WX`, no warnings — and **has never been run**: no Windows machine has executed a session yet. The owner's test is the first |
+| Playback (headphones, virtual microphone) and per-process capture on Windows | **not written** (stages 2 and 3): `open_sink` and `open_source` answer `unsupported` |
+| Windows wording in the interface (the BlackHole hints are macOS-only) | not done |
 
 Facts taken from Microsoft's documentation for the audio layer (2026-11-25):
 

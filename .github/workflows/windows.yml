@@ -1,5 +1,5 @@
 # Builds the Windows app and runs the portable core's tests on a Windows machine.
-# Windows support is in progress: the build is the app shell (interface and settings), without the audio engine.
+# Windows support is in progress: captions are implemented and compile here, but nothing is run with audio hardware.
 name: Windows
 
 on:
@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: JK-LiveBridge-windows-shell
+          name: JK-LiveBridge-windows
           path: apps/desktop/build/windows/x64/runner/Release
           if-no-files-found: error
           retention-days: 14
