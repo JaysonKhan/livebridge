@@ -10,6 +10,25 @@ narsa o'rnatmaydi.
 > bilan SINALMAGAN.
 > Batafsil: `IMPLEMENTATION_STATUS.md`, o'lchovlar: `docs/benchmark.md`.
 
+## 0. Windows'da (sinov bosqichida)
+
+Windows versiyasi yig'iladi va uchala rejim yozilgan, lekin haqiqiy kompyuterda **hali sinalmagan**.
+
+1. **O'rnatish:** GitHub Actions'dagi oxirgi «Windows» yig'ilishidan `JK-LiveBridge-windows-setup` ni yuklab,
+   `JK-LiveBridge-…-windows-setup.exe` ni ishga tushiring (administrator huquqi kerak emas). Windows «noma'lum
+   nashriyotchi» desa: **More info → Run anyway**. Ilova Start menyuda **JK - LiveBridge** nomi bilan chiqadi.
+2. **Virtual mikrofon (faqat ikki tomonlama rejim uchun):** [VB-CABLE](https://vb-audio.com/Cable/) ni o'rnating va
+   kompyuterni qayta yoqing. U ikki qurilma qo'shadi: ilova tarjimani **CABLE Input** ga chiqaradi, Zoom/Meet'da
+   mikrofon sifatida **CABLE Output** ni tanlaysiz.
+3. **Gateway:** Windows ilovasi ham gateway'ga ulanadi. Mac'dagi gateway'dan foydalansangiz, uni tarmoq uchun oching
+   (`HOST=0.0.0.0 npm run gateway`), ilovaga `http://<Mac manzili>:8201` va o'sha tokenni kiriting.
+4. **Mikrofon ruxsati:** Settings → Privacy & security → Microphone → «Let desktop apps access your microphone» yoqilgan
+   bo'lsin.
+5. **Suhbatdosh ovozini ushlash** (kiruvchi va ikki tomonlama rejimlar) **Windows 11** yoki Windows 10'ning yangi
+   build'ini talab qiladi; eski Windows'da ilova buni xato bilan aytadi.
+
+Qolgan qadamlar macOS bilan bir xil (2-bo'limdan).
+
 ## 1. Bir martalik tayyorgarlik
 
 ### 1.1 BlackHole 2ch (virtual mikrofon)

@@ -338,8 +338,9 @@ and `npm run bench` are the tools that exercise the real providers.
   most of it by language, but they cannot tell who is speaking — test from separate rooms, with headphones.
 - **No notarised download.** The DMG is ad-hoc signed, so macOS asks for confirmation on first launch, and it
   holds the app only: the gateway runs separately, on your own machine or server, with your own API keys.
-- **macOS today; Windows is in progress.** The Windows build compiles and captions are implemented, but it has not
-  been run on real hardware yet, and translated audio is not ported (`IMPLEMENTATION_STATUS.md`).
+- **macOS today; Windows is in testing.** All three modes are implemented for Windows (VB-CABLE as the virtual
+  microphone, per-app capture on Windows 11) and the installer builds, but no session has run on a real Windows PC
+  yet (`IMPLEMENTATION_STATUS.md`).
 - **Follow each platform's rules and the law.** Tell people an AI interpreter is in use. Recording and consent laws
   differ by country.
 

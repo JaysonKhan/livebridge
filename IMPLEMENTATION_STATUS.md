@@ -127,10 +127,11 @@ a real Windows PC after each stage.
 
 | Piece | State |
 |---|---|
-| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, the analytics log and the engine's whole session logic (the twin of `Engine.swift`, single-threaded, driven by `tick()`, behind an `EngineHost` interface) | **tested on both platforms**: 1 358 checks with clang on the Mac (also under address/UB sanitizers) and the same three test programs built by MSVC and run on Windows in CI |
-| Windows platform layer for **captions** (`apps/desktop/windows/runner/`): engine thread and host, WASAPI microphone capture in the gateway's format, endpoint list, WinHTTP WebSocket to the gateway, level meters, analytics log, settings (preferences in `%APPDATA%\LiveBridge\settings.json`, the token in the Credential Manager) | **compiles on CI** with `/W4 /WX`, no warnings — and **has never been run**: no Windows machine has executed a session yet. The owner's test is the first |
-| Playback (headphones, virtual microphone) and per-process capture on Windows | **not written** (stages 2 and 3): `open_sink` and `open_source` answer `unsupported` |
-| Windows wording in the interface (the BlackHole hints are macOS-only) | not done |
+| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, analytics log, the engine's session logic (twin of `Engine.swift`), resampler and multi-source mixer, telemetry uploader | **tested on both platforms**: 1 804 checks with clang on the Mac (also under address/UB and thread sanitizers) and the same five test programs built by MSVC and run on Windows in CI |
+| Windows platform layer (`apps/desktop/windows/runner/`): engine thread, WASAPI microphone capture, render sinks for the headphones and the VB-CABLE virtual microphone, per-process loopback capture of the meeting app (mixed when several), process and device lists, test tone, meters, WinHTTP gateway socket, statistics upload and feedback, Save dialogs, settings (token in the Credential Manager) | **compiles on CI** with `/W4 /WX`, no warnings — and **has never been run**: no session has executed on a Windows PC yet |
+| Interface on Windows (VB-CABLE detection, Windows wording, privacy hint) | done; 8 widget tests force the Windows variant |
+| Installer (Inno Setup, per user, Start menu "JK - LiveBridge", Visual C++ runtime bundled) | builds in CI; not installed on a real PC yet |
+| Open questions only a real PC answers | which formats per-process loopback accepts (16 kHz mono is tried first, then 44.1/48 kHz stereo); whether builds 19041–20347 support it; event-driven render with format conversion; Russian/Turkish names of the Windows privacy setting |
 
 Facts taken from Microsoft's documentation for the audio layer (2026-11-25):
 
