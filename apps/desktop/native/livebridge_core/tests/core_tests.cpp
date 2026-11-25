@@ -1,5 +1,5 @@
-// Tests of the portable core. No framework: each CHECK prints its location on failure and the process exits
-// non-zero if any failed. Usage: core_tests <path to packages/protocol/fixtures/frames.json>
+// Tests of the frame codec, ring buffer and JSON module.
+// Usage: core_tests <path to packages/protocol/fixtures/frames.json>
 #include <atomic>
 #include <cstdio>
 #include <fstream>
@@ -8,23 +8,12 @@
 #include <thread>
 #include <vector>
 
+#include "check.h"
 #include "livebridge/frame_codec.h"
 #include "livebridge/json.h"
 #include "livebridge/ring_buffer.h"
 
 using namespace livebridge;
-
-static int failures = 0;
-static int checks = 0;
-
-#define CHECK(condition)                                                              \
-  do {                                                                                \
-    checks++;                                                                         \
-    if (!(condition)) {                                                               \
-      failures++;                                                                     \
-      std::printf("FAILED %s:%d: %s\n", __FILE__, __LINE__, #condition);              \
-    }                                                                                 \
-  } while (0)
 
 static std::vector<std::uint8_t> from_hex(const std::string& hex) {
   std::vector<std::uint8_t> bytes;
@@ -37,7 +26,7 @@ static Json parse(const std::string& text) {
   Json value;
   std::string error;
   if (!Json::parse(text, value, &error)) {
-    failures++;
+    livebridge_test::failures++;
     std::printf("FAILED to parse %s: %s\n", text.c_str(), error.c_str());
   }
   return value;
@@ -214,6 +203,5 @@ int main(int argc, char** argv) {
   test_json_reads_and_writes_protocol_messages();
   test_json_handles_unicode_and_escapes();
   test_json_rejects_malformed_input();
-  std::printf("%d checks, %d failed\n", checks, failures);
-  return failures == 0 ? 0 : 1;
+  return livebridge_test::finish();
 }

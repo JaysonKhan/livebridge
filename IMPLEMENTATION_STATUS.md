@@ -119,6 +119,34 @@ into any output.
 | systemd service behind nginx on port 8201 (Docker files provided too) | Matches the server's conventions |
 | Setup guide in Uzbek, UI in simple English | Spec allowed either |
 
+## Windows port (in progress, branch `windows-support`)
+
+Decided with the owner on 2026-11-25: staged (1. captions, 2. incoming audio, 3. bidirectional through VB-CABLE),
+built by GitHub Actions on `windows-latest` (the development Mac cannot build Windows code), tested by the owner on
+a real Windows PC after each stage.
+
+| Piece | State |
+|---|---|
+| Flutter Windows runner, window title and icon | written; **compiles only on CI** |
+| Native bridge on Windows (`windows/runner/livebridge_channels.cpp`) | shell: settings load/save (preferences in `%APPDATA%\LiveBridge\settings.json`, the gateway token in the Credential Manager); every audio method is a no-op and `start` answers `unsupported` |
+| `apps/desktop/native/livebridge_core` (portable C++17: frame codec, ring buffer, JSON) | tested on the Mac with clang, also under thread and address/UB sanitizers, against the shared frame fixtures; runs again on Windows in CI |
+| WASAPI capture/playback, WinHTTP WebSocket, process loopback | **not written** |
+
+Facts taken from Microsoft's documentation for the audio layer (2026-11-25):
+
+- Shared-mode streams can be opened in our own format: `AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM` inserts "a channel
+  matrixer and a sample rate converter" between the supplied format and the mix format
+  (`AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY` for the better converter); check with `IAudioClient::IsFormatSupported`.
+- Per-process loopback (`ActivateAudioInterfaceAsync` + `VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK`,
+  `AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS`): the target process **and its child processes**; documented minimum
+  "Windows 10 Build 20348" (one page says 20438); silence when the target renders nothing. Which wave formats that
+  client accepts is not documented — to be found out on the owner's PC.
+- Processes that are producing audio: `IAudioSessionManager2::GetSessionEnumerator` →
+  `IAudioSessionControl2::GetProcessId`, state `AudioSessionStateActive`.
+- WebSocket client: WinHTTP (`WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET`, `WinHttpWebSocketCompleteUpgrade`), Windows 8+.
+- Not documented and still open: whether desktop apps get a microphone prompt and which error a denied microphone
+  returns.
+
 ## Known gaps and risks
 
 | Area | Gap / risk | Consequence |
