@@ -1,0 +1,51 @@
+# Builds the Windows app and runs the portable core's tests on a Windows machine.
+# Windows support is in progress: the build is the app shell (interface and settings), without the audio engine.
+name: Windows
+
+on:
+  push:
+    branches: [main, windows-support]
+    paths:
+      - "apps/desktop/**"
+      - "packages/protocol/fixtures/**"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - "packages/protocol/fixtures/**"
+      - ".github/workflows/windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Core tests (frame codec, ring buffer, JSON)
+        run: |
+          cmake -S apps/desktop/native/livebridge_core -B build/core
+          cmake --build build/core --config Release
+          ctest --test-dir build/core -C Release --output-on-failure
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.0"
+          cache: true
+
+      - name: Build the Windows app
+        working-directory: apps/desktop
+        run: |
+          flutter pub get
+          flutter build windows --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JK-LiveBridge-windows-shell
+          path: apps/desktop/build/windows/x64/runner/Release
+          if-no-files-found: error
+          retention-days: 14
