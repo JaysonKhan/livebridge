@@ -43,6 +43,36 @@ jobs:
           flutter pub get
           flutter build windows --release
 
+      # The Visual C++ runtime is not part of Windows; ship it next to the app (app-local deployment of the
+      # redistributable DLLs) so the app starts on a PC that never installed it.
+      - name: Add the Visual C++ runtime
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $crt = Get-Item "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT" -ErrorAction SilentlyContinue |
+            Where-Object { $_.PSIsContainer } | Sort-Object FullName | Select-Object -Last 1
+          if (-not $crt) { throw "Visual C++ runtime not found under $vs" }
+          Write-Host "Using $($crt.FullName)"
+          Copy-Item "$($crt.FullName)\*.dll" "apps/desktop/build/windows/x64/runner/Release/"
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path apps/desktop/pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y | Out-Null }
+          $env:LB_VERSION = $version
+          & $iscc apps/desktop/windows/installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JK-LiveBridge-windows-setup
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
       - uses: actions/upload-artifact@v4
         with:
           name: JK-LiveBridge-windows
