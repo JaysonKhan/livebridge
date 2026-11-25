@@ -42,9 +42,25 @@ enum CaptionKind implements Wire {
   partial('partial'),
   finalText('final'),
   translationDelta('translationDelta'),
-  translationFinal('translationFinal');
+  translationFinal('translationFinal'),
+
+  /// The turn was captioned but neither translated nor spoken; the event carries a [SkipReason].
+  skipped('skipped');
 
   const CaptionKind(this.wire);
+  @override
+  final String wire;
+}
+
+/// Why the gateway left a turn untranslated.
+enum SkipReason implements Wire {
+  /// The speech was already in the target language (usually the other side's voice reaching this microphone).
+  sameLanguage('same_language'),
+
+  /// Our own synthesized speech came back.
+  echo('echo');
+
+  const SkipReason(this.wire);
   @override
   final String wire;
 }
@@ -216,6 +232,9 @@ sealed class BridgeEvent {
           turnId: (m['turnId'] as num).toInt(),
           kind: kind,
           text: m['text'] as String? ?? '',
+          skipReason: kind == CaptionKind.skipped
+              ? parseWire(SkipReason.values, m['reason']) ?? SkipReason.sameLanguage
+              : null,
         );
       case 'meters':
         return MetersEvent(
@@ -279,12 +298,21 @@ final class StateEvent extends BridgeEvent {
 }
 
 final class CaptionEvent extends BridgeEvent {
-  const CaptionEvent({required this.direction, required this.turnId, required this.kind, required this.text});
+  const CaptionEvent({
+    required this.direction,
+    required this.turnId,
+    required this.kind,
+    required this.text,
+    this.skipReason,
+  });
 
   final Direction direction;
   final int turnId;
   final CaptionKind kind;
   final String text;
+
+  /// Set on [CaptionKind.skipped] events only.
+  final SkipReason? skipReason;
 }
 
 final class MetersEvent extends BridgeEvent {

@@ -107,6 +107,13 @@ export type ErrorCode =
   | "tts_failed"
   | "provider_unavailable";
 
+/**
+ * Why a committed turn was neither translated nor spoken.
+ * `same_language`: the speech was already in the target language (usually the other side's voice reaching this
+ * direction's microphone). `echo`: our own synthesized speech came back.
+ */
+export type SkipReason = "same_language" | "echo";
+
 export type ServerMessage =
   | {
       v: 1;
@@ -155,6 +162,15 @@ export type ServerMessage =
       generation: number;
       text: string;
       lang: Lang;
+    }
+  | {
+      /** Follows the turn's `caption.final`. Nothing else is sent for the turn. */
+      v: 1;
+      type: "turn.skipped";
+      direction: Direction;
+      turn_id: number;
+      generation: number;
+      reason: SkipReason;
     }
   | {
       v: 1;

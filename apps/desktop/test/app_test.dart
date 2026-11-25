@@ -279,6 +279,39 @@ void main() {
       expect(laneText('out'), isNot(contains('Qalaysiz?')));
     });
 
+    testWidgets('a skipped turn keeps its caption, says why, and offers no rating', (tester) async {
+      await pumpApp(tester);
+      await push(readyState);
+      await push(cap(Direction.out, 1, CaptionKind.finalText, 'What about those projects?'));
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      await push(
+        const CaptionEvent(
+          direction: Direction.out,
+          turnId: 1,
+          kind: CaptionKind.skipped,
+          text: '',
+          skipReason: SkipReason.sameLanguage,
+        ),
+      );
+      expect(laneText('out'), contains('What about those projects?'));
+      expect(find.byKey(const Key('skipped-out-1')), findsOneWidget);
+      expect(find.text('Not translated — already in the target language'), findsOneWidget);
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      expect(find.byKey(const Key('rate-good-out-1')), findsNothing);
+
+      await push(cap(Direction.incoming, 1, CaptionKind.finalText, 'How much does it cost?'));
+      await push(
+        const CaptionEvent(
+          direction: Direction.incoming,
+          turnId: 1,
+          kind: CaptionKind.skipped,
+          text: '',
+          skipReason: SkipReason.echo,
+        ),
+      );
+      expect(find.text('Ignored — our own translated speech came back (echo)'), findsOneWidget);
+    });
+
     testWidgets('original and translated lines can be hidden and the font size changed', (tester) async {
       final c = await pumpApp(tester);
       await push(cap(Direction.out, 1, CaptionKind.finalText, 'Salom'));

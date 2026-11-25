@@ -372,6 +372,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get turnInProgress => 'Still in progress';
 
   @override
+  String get turnSkippedSameLanguage => 'Not translated — already in the target language';
+
+  @override
+  String get turnSkippedEcho => 'Ignored — our own translated speech came back (echo)';
+
+  @override
   String stateChip(String state) {
     return 'State: $state';
   }

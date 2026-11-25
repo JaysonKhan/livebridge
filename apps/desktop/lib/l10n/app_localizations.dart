@@ -778,6 +778,18 @@ abstract class AppLocalizations {
   /// **'Still in progress'**
   String get turnInProgress;
 
+  /// No description provided for @turnSkippedSameLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Not translated — already in the target language'**
+  String get turnSkippedSameLanguage;
+
+  /// No description provided for @turnSkippedEcho.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored — our own translated speech came back (echo)'**
+  String get turnSkippedEcho;
+
   /// No description provided for @stateChip.
   ///
   /// In en, this message translates to:

@@ -376,6 +376,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get turnInProgress => 'Hâlâ sürüyor';
 
   @override
+  String get turnSkippedSameLanguage => 'Çevrilmedi — konuşma zaten hedef dilde';
+
+  @override
+  String get turnSkippedEcho => 'Yok sayıldı — kendi çeviri sesimiz geri geldi (yankı)';
+
+  @override
   String stateChip(String state) {
     return 'Durum: $state';
   }

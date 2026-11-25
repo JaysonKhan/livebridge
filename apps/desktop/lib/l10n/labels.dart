@@ -34,6 +34,11 @@ extension AppLocalizationsLabels on AppLocalizations {
 
   String laneTitle(Direction d) => d == Direction.out ? laneOut : laneIn;
 
+  String turnSkipped(SkipReason reason) => switch (reason) {
+    SkipReason.sameLanguage => turnSkippedSameLanguage,
+    SkipReason.echo => turnSkippedEcho,
+  };
+
   /// A localized message for a known engine/gateway error code, or null (the caller then shows the raw message).
   String? errorMessage(String code) => switch (code) {
     'provider_unavailable' => errProviderUnavailable,

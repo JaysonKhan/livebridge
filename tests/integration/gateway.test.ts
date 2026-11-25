@@ -6,6 +6,7 @@ import {
   FLAG_END_OF_TURN,
   type ServerMessage,
 } from "../../packages/protocol/src/index.ts";
+import { SAME_LANGUAGE_MARK } from "../../services/gateway/src/prompt.ts";
 import {
   ACCESS_TOKEN,
   issueSession,
@@ -518,6 +519,97 @@ test("translator failure: explicit error, caption kept, no audio, next turn stil
   assert.equal(client.frames.length, 0);
   await pushToTalk(client, 1, next);
   assert.equal((await client.message("metrics")).turn_id, 2);
+});
+
+test("speech already in the target language is captioned but neither translated nor spoken; the next turn works", async () => {
+  // The other participant's English reached the owner's microphone: the model answers with the mark.
+  const { base, logLines } = await start({
+    fake: {
+      transcripts: ["What about those projects?", "Narxi qancha?"],
+      translate: (req) =>
+        req.text === "Narxi qancha?" ? "How much is it?" : SAME_LANGUAGE_MARK,
+    },
+  });
+  const client = await TestClient.connect(base);
+  await client.configure();
+  const next = await pushToTalk(client, 1);
+  const skipped = await client.message("turn.skipped");
+  assert.deepEqual(
+    [skipped.direction, skipped.turn_id, skipped.reason],
+    ["out", 1, "same_language"],
+  );
+  assert.equal(
+    (await client.message("caption.final")).text,
+    "What about those projects?",
+  );
+  await client.sync();
+  // The mark itself is never shown, and nothing was synthesized or measured for the turn.
+  assert.ok(
+    !client.messages.some((m) =>
+      ["translation.delta", "translation.final", "metrics"].includes(m.type),
+    ),
+  );
+  assert.equal(client.frames.length, 0);
+
+  await pushToTalk(client, 1, next);
+  assert.equal((await client.message("metrics")).turn_id, 2);
+  assert.equal(
+    (await client.message("translation.final")).text,
+    "How much is it?",
+  );
+  assert.ok(client.frames.every((f) => f.turnId === 2));
+  assert.deepEqual(errors(client), []);
+  assert.ok(logLines.some((l) => l.includes('"turn.skipped"') && l.includes("same_language")));
+});
+
+test("our own translated speech coming back on the other direction is not translated again", async () => {
+  const { base } = await start({
+    fake: {
+      transcripts: [
+        "Narxi qancha?",
+        // The far end plays our translation on loudspeakers and its microphone sends it back.
+        "How much does it cost?",
+        "It costs ten dollars.",
+      ],
+      translate: (req) =>
+        req.source === "uz" ? "How much does it cost?" : `uz: ${req.text}`,
+    },
+  });
+  const client = await TestClient.connect(base);
+  await client.configure();
+  await pushToTalk(client, 1);
+  await client.message("metrics", (m) => m.direction === "out");
+  const outFrames = client.frames.length;
+
+  client.send({ v: 1, type: "capture.start", direction: "in", generation: 1 });
+  let next = client.sendAudio("in", 1, speech(700));
+  await sleep(30);
+  next = client.sendAudio("in", 1, silence(400), next);
+  const skipped = await client.message("turn.skipped");
+  assert.deepEqual(
+    [skipped.direction, skipped.turn_id, skipped.reason],
+    ["in", 1, "echo"],
+  );
+  assert.equal(
+    (await client.message("caption.final", (m) => m.direction === "in")).text,
+    "How much does it cost?",
+  );
+  await client.sync();
+  assert.equal(client.frames.length, outFrames);
+
+  // A real reply right after it is interpreted as usual.
+  next = client.sendAudio("in", 1, speech(700), next);
+  await sleep(30);
+  client.sendAudio("in", 1, silence(400), next);
+  const translation = await client.message(
+    "translation.final",
+    (m) => m.direction === "in",
+  );
+  assert.deepEqual(
+    [translation.turn_id, translation.text],
+    [2, "uz: It costs ten dollars."],
+  );
+  assert.deepEqual(errors(client), []);
 });
 
 test("audio tags and stage directions in a translation are captioned but not sent to synthesis", async () => {

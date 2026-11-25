@@ -69,7 +69,7 @@ Each event is a map with a `type` key.
 | `type` | Fields |
 |---|---|
 | `state` | `state` (`idle`, `connecting`, `ready`, `active`, `degraded`, `stopping`), `outReady` bool, `inReady` bool, `capturing` bool (PTT held or hands-free capture running), `mock` bool (gateway is using fake providers), `bypass` bool, `outgoingMuted` bool, `incomingAudioMuted` bool, `message` String? |
-| `caption` | `direction` (`out`, `in`), `turnId` int, `kind` (`partial`, `final`, `translationDelta`, `translationFinal`), `text` String |
+| `caption` | `direction` (`out`, `in`), `turnId` int, `kind` (`partial`, `final`, `translationDelta`, `translationFinal`, `skipped`), `text` String. `skipped` follows a `final` when the gateway left the turn untranslated and unspoken; it carries `reason` (`same_language` — the speech was already in the target language, usually the other side's voice in this lane; `echo` — our own synthesized speech came back) and an empty `text` |
 | `meters` | `mic` double, `source` double (dBFS, −120 = silence), `outQueueMs` double, `inQueueMs` double — about 10 per second |
 | `metrics` | `direction`, `turnId`, optional ints `e2eMs` (PTT release → first audible sample, client clock), `sttCommitMs`, `translateFirstMs`, `translateTotalMs`, `ttsFirstAudioMs`, `ttsTotalMs`, `audioMs` |
 | `error` | `code` String, `message` String, `direction` String?, `fatal` bool |

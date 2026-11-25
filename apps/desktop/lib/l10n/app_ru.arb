@@ -114,6 +114,8 @@
   "laneIn": "Собеседник → вы",
   "noCaptions": "Субтитров пока нет",
   "turnInProgress": "Ещё в процессе",
+  "turnSkippedSameLanguage": "Не переведено — речь уже на языке перевода",
+  "turnSkippedEcho": "Пропущено — вернулся наш собственный перевод (эхо)",
   "stateChip": "Состояние: {state}",
   "stateIdle": "Ожидание",
   "stateConnecting": "Подключение",

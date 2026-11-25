@@ -7,12 +7,13 @@ import 'time_format.dart';
 /// `livebridge-YYYY-MM-DD-HHmm.md`, from the local time.
 String exportFileName(DateTime now) => 'livebridge-${formatDate(now)}-${formatHourMinute(now).replaceAll(':', '')}.md';
 
-/// Both directions merged in the order the turns first appeared. Turns that never got a final text are skipped.
+/// Both directions merged in the order the turns first appeared. Left out: turns that never got a final text, and
+/// turns the gateway filtered (the other side's voice in the wrong lane, or our own speech coming back).
 List<(Direction, CaptionTurn)> _finishedTurnsInOrder(List<CaptionTurn> outTurns, List<CaptionTurn> inTurns) {
   final all = <(Direction, CaptionTurn)>[
     for (final t in outTurns) (Direction.out, t),
     for (final t in inTurns) (Direction.incoming, t),
-  ].where((e) => e.$2.originalFinal || e.$2.translationFinal).toList();
+  ].where((e) => e.$2.skipped == null && (e.$2.originalFinal || e.$2.translationFinal)).toList();
   // Stable on ties (List.sort is not): the original index breaks them.
   final order = {for (var i = 0; i < all.length; i++) all[i]: i};
   all.sort((a, b) {

@@ -11,6 +11,7 @@ import {
   type ServerMessage,
 } from "../../../packages/protocol/src/index.ts";
 import type { Config } from "./config.ts";
+import { EchoGuard } from "./echo.ts";
 import type { Logger } from "./log.ts";
 import { DirectionPipeline } from "./pipeline.ts";
 import type { ProviderFactory } from "./providers/types.ts";
@@ -32,6 +33,7 @@ export class Session {
   private readonly deps: SessionDeps;
   private phase: "new" | "configuring" | "ready" | "closed" = "new";
   private readonly pipelines = new Map<Direction, DirectionPipeline>();
+  private readonly echo = new EchoGuard();
   private badFrames = 0;
   private readonly expiry: NodeJS.Timeout;
 
@@ -128,7 +130,10 @@ export class Session {
         break;
       case "playback.start":
       case "playback.end":
-        // Client-side observation, distinct from provider completion. Recorded for diagnostics only.
+        // Client-side observation, distinct from provider completion: logged, and the end of playback bounds how
+        // long that turn can still come back as an echo.
+        if (message.type === "playback.end")
+          this.echo.playbackEnded(message.direction, message.turn_id);
         this.deps.log.info(message.type, {
           session: this.deps.id,
           direction: message.direction,
@@ -162,6 +167,7 @@ export class Session {
           factory,
           translationModel: model,
           glossary: message.glossary ?? [],
+          echo: this.echo,
           log,
           emit: (m) => this.send(m),
           sendAudio: (frame) => {

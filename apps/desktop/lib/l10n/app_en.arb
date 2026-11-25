@@ -177,6 +177,8 @@
   "laneIn": "Them → you",
   "noCaptions": "No captions yet",
   "turnInProgress": "Still in progress",
+  "turnSkippedSameLanguage": "Not translated — already in the target language",
+  "turnSkippedEcho": "Ignored — our own translated speech came back (echo)",
   "stateChip": "State: {state}",
   "@stateChip": {
     "placeholders": {

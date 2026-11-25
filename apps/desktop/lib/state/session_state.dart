@@ -20,6 +20,7 @@ class CaptionTurn {
     this.originalFinal = false,
     this.translation = '',
     this.translationFinal = false,
+    this.skipped,
     this.rating,
   });
 
@@ -32,16 +33,20 @@ class CaptionTurn {
   final String translation;
   final bool translationFinal;
 
+  /// Set when the gateway left the turn untranslated and unspoken; such a turn is finished.
+  final SkipReason? skipped;
+
   /// The owner's rating of the translation, if any.
   final TurnRating? rating;
 
-  bool get isLive => !(originalFinal && translationFinal);
+  bool get isLive => skipped == null && !(originalFinal && translationFinal);
 
   CaptionTurn copyWith({
     String? original,
     bool? originalFinal,
     String? translation,
     bool? translationFinal,
+    SkipReason? skipped,
     Object? rating = _keep,
   }) => CaptionTurn(
     id: id,
@@ -50,6 +55,7 @@ class CaptionTurn {
     originalFinal: originalFinal ?? this.originalFinal,
     translation: translation ?? this.translation,
     translationFinal: translationFinal ?? this.translationFinal,
+    skipped: skipped ?? this.skipped,
     rating: identical(rating, _keep) ? this.rating : rating as TurnRating?,
   );
 }
@@ -64,6 +70,7 @@ List<CaptionTurn> applyCaption(List<CaptionTurn> turns, CaptionEvent e, {DateTim
     CaptionKind.finalText => cur.copyWith(original: e.text, originalFinal: true),
     CaptionKind.translationDelta => cur.translationFinal ? cur : cur.copyWith(translation: cur.translation + e.text),
     CaptionKind.translationFinal => cur.copyWith(translation: e.text, translationFinal: true),
+    CaptionKind.skipped => cur.copyWith(skipped: e.skipReason ?? SkipReason.sameLanguage),
   };
   final list = [...turns];
   if (i >= 0) {

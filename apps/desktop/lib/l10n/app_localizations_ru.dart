@@ -376,6 +376,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get turnInProgress => 'Ещё в процессе';
 
   @override
+  String get turnSkippedSameLanguage => 'Не переведено — речь уже на языке перевода';
+
+  @override
+  String get turnSkippedEcho => 'Пропущено — вернулся наш собственный перевод (эхо)';
+
+  @override
   String stateChip(String state) {
     return 'Состояние: $state';
   }

@@ -114,6 +114,8 @@
   "laneIn": "Suhbatdosh → siz",
   "noCaptions": "Hozircha subtitrlar yo'q",
   "turnInProgress": "Hali davom etmoqda",
+  "turnSkippedSameLanguage": "Tarjima qilinmadi — gap allaqachon tarjima tilida",
+  "turnSkippedEcho": "E'tiborga olinmadi — o'z tarjima ovozimiz qaytib keldi (aks-sado)",
   "stateChip": "Holat: {state}",
   "stateIdle": "Kutmoqda",
   "stateConnecting": "Ulanmoqda",

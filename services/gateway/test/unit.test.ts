@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_VOICE_ID, loadConfig } from "../src/config.ts";
+import { EchoGuard } from "../src/echo.ts";
 import { createLogger } from "../src/log.ts";
 import {
   buildTranslationPrompt,
   guardTranslation,
+  isSameLanguageMark,
+  mayBeSameLanguageMark,
+  SAME_LANGUAGE_MARK,
   toSpeakable,
 } from "../src/prompt.ts";
 
@@ -211,6 +215,70 @@ test("speakable: strips audio tags, stage directions and markdown before synthes
     toSpeakable("CI/CD costs 1,500 dollars — not 15."),
     "CI/CD costs 1,500 dollars — not 15.",
   );
+});
+
+test("prompt: speech already in the target language is answered with the mark, for every direction", () => {
+  for (const [source, target, name] of [
+    ["uz", "en", "English"],
+    ["en", "uz", "Uzbek"],
+    ["uz", "ru", "Russian"],
+  ] as const) {
+    const { system } = buildTranslationPrompt({ ...request("x"), source, target });
+    assert.ok(system.includes(`already in ${name}`));
+    assert.ok(system.includes(`output exactly ${SAME_LANGUAGE_MARK}`));
+    // Every placeholder was filled in.
+    assert.doesNotMatch(system, /SOURCE_LANGUAGE|TARGET_LANGUAGE/);
+  }
+});
+
+test("same-language mark: recognised as a whole answer, held back while streaming, never spoken", () => {
+  assert.ok(isSameLanguageMark(SAME_LANGUAGE_MARK));
+  assert.ok(isSameLanguageMark(` ${SAME_LANGUAGE_MARK}\n`));
+  assert.ok(isSameLanguageMark(`${SAME_LANGUAGE_MARK} What about those projects?`));
+  assert.ok(!isSameLanguageMark("What about those projects?"));
+  // A streamed answer is shown only once it can no longer be the mark.
+  for (const partial of ["@", "@@SA", SAME_LANGUAGE_MARK, `${SAME_LANGUAGE_MARK}.`])
+    assert.ok(mayBeSameLanguageMark(partial), partial);
+  for (const partial of ["H", "@home", "@@ twice", "Hello @@SAME@@"])
+    assert.ok(!mayBeSameLanguageMark(partial), partial);
+  // If the mark turns up inside other text, nothing is spoken.
+  assert.deepEqual(guardTranslation("x", `Hello ${SAME_LANGUAGE_MARK}`), {
+    ok: false,
+    reason: "malformed",
+  });
+});
+
+test("echo guard: our own spoken translation is recognised when it comes back, within a short window", () => {
+  let now = 0;
+  const guard = new EchoGuard(() => now);
+  assert.ok(!guard.isEcho("How much does it cost?"));
+  guard.spoke("out", 1, "How much does it cost per month?");
+
+  // The whole sentence, a recogniser's variant of it, and a fragment of it.
+  assert.ok(guard.isEcho("How much does it cost per month?"));
+  assert.ok(guard.isEcho("how much does it cost per month"));
+  assert.ok(guard.isEcho("How much does it cost a month?"));
+  assert.ok(guard.isEcho("much does it cost per"));
+  // A different sentence, an answer that shares a few words, and a short reply are real speech.
+  assert.ok(!guard.isEcho("It costs ten dollars per month."));
+  assert.ok(!guard.isEcho("Per month?"));
+  assert.ok(!guard.isEcho("Yes."));
+
+  // A short turn has to be repeated as a whole.
+  guard.spoke("in", 4, "Ha, albatta.");
+  assert.ok(guard.isEcho("Ha, albatta"));
+  assert.ok(!guard.isEcho("Albatta"));
+
+  // After the client finished playing the turn, it can come back for 3 s only.
+  guard.playbackEnded("out", 1);
+  now = 2_900;
+  assert.ok(guard.isEcho("How much does it cost per month?"));
+  now = 3_100;
+  assert.ok(!guard.isEcho("How much does it cost per month?"));
+  // A turn whose playback end was never reported is forgotten after 30 s.
+  assert.ok(guard.isEcho("Ha, albatta."));
+  now = 30_100;
+  assert.ok(!guard.isEcho("Ha, albatta."));
 });
 
 test("logger: emits one JSON object per line with primitive fields only", () => {

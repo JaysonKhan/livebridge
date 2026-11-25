@@ -98,6 +98,20 @@ void main() {
       expect('Your rating'.allMatches(doc), hasLength(2));
     });
 
+    test('turns the gateway filtered out are not part of the exported conversation', () {
+      final leaked = turn(1, at(9, 0, 0), original: 'What about those projects?', translationFinal: false);
+      final doc = build(
+        en,
+        [
+          leaked.copyWith(skipped: SkipReason.sameLanguage),
+          turn(2, at(9, 0, 5), original: 'Salom', translation: 'Hello'),
+        ],
+        [turn(1, at(9, 0, 1), original: 'What about those projects?', translation: "O'sha loyihalar-chi?")],
+      );
+      expect('What about those projects?'.allMatches(doc), hasLength(1));
+      expect(doc, contains('Salom'));
+    });
+
     test('equal timestamps keep the input order', () {
       final doc = build(
         en,

@@ -7,9 +7,16 @@ import {
   type Direction,
   type DirectionConfig,
   type ServerMessage,
+  type SkipReason,
 } from "../../../packages/protocol/src/index.ts";
+import type { EchoGuard } from "./echo.ts";
 import type { Logger } from "./log.ts";
-import { guardTranslation, toSpeakable } from "./prompt.ts";
+import {
+  guardTranslation,
+  isSameLanguageMark,
+  mayBeSameLanguageMark,
+  toSpeakable,
+} from "./prompt.ts";
 import {
   ProviderError,
   type ProviderFactory,
@@ -24,6 +31,8 @@ export interface PipelineDeps {
   factory: ProviderFactory;
   translationModel: string;
   glossary: { source: string; target: string }[];
+  /** Shared by both directions of a session; absent = our own speech coming back is not filtered. */
+  echo?: EchoGuard;
   log: Logger;
   emit(message: ServerMessage): void;
   /** Sends one binary frame to the client and returns how many bytes are still buffered towards it. */
@@ -291,8 +300,17 @@ export class DirectionPipeline {
       text,
       lang: config.source_lang,
     });
+    // Our own synthesized speech heard again by a microphone is never translated a second time.
+    if (this.deps.echo?.isEcho(text)) return this.skip(id, this.generation, "echo");
     this.queue.push({ id, text, generation: this.generation, sttCommitMs });
     void this.pump();
+  }
+
+  /** The turn stays on screen as a caption, marked as not translated; nothing is spoken. */
+  private skip(turnId: number, generation: number, reason: SkipReason) {
+    const { direction, emit, log } = this.deps;
+    log.info("turn.skipped", { direction, reason });
+    emit({ v: 1, type: "turn.skipped", direction, turn_id: turnId, generation, reason });
   }
 
   private async pump() {
@@ -317,6 +335,8 @@ export class DirectionPipeline {
     } as const;
     const started = nowMs();
     let firstDelta: number | undefined;
+    // Streamed text is held back while it could still turn out to be the same-language mark.
+    let held: string | null = "";
 
     let translated;
     try {
@@ -332,6 +352,12 @@ export class DirectionPipeline {
         (text) => {
           if (cancelled.aborted) return;
           firstDelta ??= nowMs();
+          if (held !== null) {
+            held += text;
+            if (mayBeSameLanguageMark(held)) return;
+            text = held;
+            held = null;
+          }
           emit({ v: 1, type: "translation.delta", ...tag, text });
         },
         cancelled,
@@ -348,6 +374,11 @@ export class DirectionPipeline {
       return;
     }
     if (cancelled.aborted) return;
+
+    // Speech that is already in the target language is the other side of the call reaching this direction's
+    // microphone (or needs no interpreter): it is not translated back and not spoken.
+    if (isSameLanguageMark(translated.text))
+      return this.skip(turn.id, turn.generation, "same_language");
 
     const guarded = guardTranslation(turn.text, translated.text);
     if (!guarded.ok) {
@@ -406,6 +437,7 @@ export class DirectionPipeline {
     cancelled: AbortSignal,
   ) {
     const { direction, log } = this.deps;
+    this.deps.echo?.spoke(direction, turn.id, text);
     const congestion = new AbortController();
     const signal = AbortSignal.any([cancelled, congestion.signal]);
     const frameBytes = Math.floor(tts.sampleRate / 5) * 2; // 200 ms

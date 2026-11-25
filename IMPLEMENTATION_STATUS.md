@@ -62,9 +62,9 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | What | Command | Result |
 |---|---|---|
 | TypeScript typecheck | `npm run typecheck` | clean |
-| Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **74 passed, 0 failed** |
+| Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **79 passed, 0 failed** |
 | Swift engine unit tests | `swift test` | **26 passed**, 1 skipped (the live-collector test below) |
-| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **119 passed** |
+| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **122 passed** |
 | App end to end (fake providers) | `flutter test integration_test/session_test.dart -d macos` | passed — real UI, engine and microphone |
 | Release build | `flutter build macos --release` | `livebridge.app`, 44 MB, ad-hoc signed, macOS 14.2+ |
 | **Live API probe** | `npm run probe` | 27 checks: 0 failed, 3 skipped (key lacks `user_read` / `voices_read`) |
@@ -92,6 +92,7 @@ the probe, the benchmark and `lbaudio session` against a real gateway do.
 | First use in the app: a quick tap on push-to-talk closed the STT session (the provider requires ≥ 0.3 s of uncommitted audio and closes the socket otherwise) | short turns are padded with silence to 0.32 s; an empty press is answered locally without a round trip |
 | After a reconnect the gateway restarts turn numbering | the engine keeps caption ids unique across reconnects |
 | The app froze on a macOS Keychain prompt after a rebuild | Keychain access moved off the UI thread; tests no longer touch the Keychain |
+| First two-person test, both in one room (2026-11-25, automatic mode): 12 of the other speaker's 21 turns were also picked up by the owner's microphone in the same second; English landing in the Uzbek→English lane was translated *back* into Uzbek and spoken into the call | Speech already in a lane's target language is captioned but not translated or spoken (the model answers with a mark; 21 of 22 sample sentences right on the primary model, 22 of 22 on the fallback — the miss: English in an Uzbek→Russian lane is skipped instead of translated). Our own synthesized speech coming back is recognised by its text and dropped. Speech-to-text cannot be used for this: with a forced language it reports the forced one, not the spoken one (measured). **Not solved:** a third language (e.g. Turkish) leaking into the other lane, and a room shared by both speakers in general |
 
 The owner's `.env` was edited once by this work: the two model lines were switched to the measured choice
 (`TRANSLATION_MODEL=gemini-3.5-flash-lite`, `TRANSLATION_FALLBACK_MODEL=gemini-3.8-flash`). Secrets were not read

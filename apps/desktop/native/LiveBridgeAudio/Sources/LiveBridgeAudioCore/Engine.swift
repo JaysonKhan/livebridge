@@ -557,6 +557,13 @@ public final class Engine: @unchecked Sendable {
             guard let direction else { return }
             let kinds = ["caption.partial": "partial", "caption.final": "final", "translation.delta": "translationDelta", "translation.final": "translationFinal"]
             emit(["type": "caption", "direction": direction.name, "turnId": displayTurn(direction, turnId), "kind": kinds[type]!, "text": message["text"] as? String ?? ""])
+        case "turn.skipped":
+            // The turn's caption stays; it was not translated or spoken (same language, or our own speech coming back).
+            guard let direction else { return }
+            emit([
+                "type": "caption", "direction": direction.name, "turnId": displayTurn(direction, turnId), "kind": "skipped",
+                "text": "", "reason": message["reason"] as? String ?? "",
+            ])
         case "metrics":
             guard let direction else { return }
             var event: [String: Any] = ["type": "metrics", "direction": direction.name, "turnId": displayTurn(direction, turnId)]

@@ -376,6 +376,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get turnInProgress => 'Hali davom etmoqda';
 
   @override
+  String get turnSkippedSameLanguage => 'Tarjima qilinmadi — gap allaqachon tarjima tilida';
+
+  @override
+  String get turnSkippedEcho => 'E\'tiborga olinmadi — o\'z tarjima ovozimiz qaytib keldi (aks-sado)';
+
+  @override
   String stateChip(String state) {
     return 'Holat: $state';
   }

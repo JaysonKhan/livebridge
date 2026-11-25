@@ -114,6 +114,8 @@
   "laneIn": "Karşı taraf → siz",
   "noCaptions": "Henüz altyazı yok",
   "turnInProgress": "Hâlâ sürüyor",
+  "turnSkippedSameLanguage": "Çevrilmedi — konuşma zaten hedef dilde",
+  "turnSkippedEcho": "Yok sayıldı — kendi çeviri sesimiz geri geldi (yankı)",
   "stateChip": "Durum: {state}",
   "stateIdle": "Boşta",
   "stateConnecting": "Bağlanıyor",

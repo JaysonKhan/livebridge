@@ -116,6 +116,20 @@ Ekranda ikki alohida yo'lak bor: **You → them** (sizning nutqingiz va tarjimas
 
 Naushnikda suhbatdoshning asl ovozi ham, o'zbekcha tarjima ham eshitiladi (asl ovozni o'chirish hali qilinmagan).
 
+**Ovozlar aralashmasligi uchun.** Ikki filtr bor, ular gapni yo'lakda qoldiradi, lekin tarjima qilmaydi va
+aytmaydi (ostida kichik izoh chiqadi):
+
+- *Tarjima qilinmadi — gap allaqachon tarjima tilida.* Sizning yo'lagingizga inglizcha/ruscha gap tushsa (odatda
+  suhbatdoshning ovozi mikrofoningizga yetib kelgan), yoki suhbatdosh yo'lagiga o'zbekcha gap tushsa (sizning
+  ovozingiz qo'ng'iroq orqali qaytgan).
+- *E'tiborga olinmadi — o'z tarjima ovozimiz qaytib keldi (aks-sado).* Suhbatdosh karnayda bo'lsa yoki siz
+  naushniksiz bo'lsangiz, tarjima ovozi yana mikrofonga tushadi; u qayta tarjima qilinmaydi.
+
+Filtrlar tilga va matnga qaraydi, ovoz egasini tanimaydi. Shuning uchun **bir xonada sinamang**: ikki mikrofon
+ikkala odamni ham eshitadi, uchinchi tildagi (masalan turkcha) gap esa baribir ikkala yo'lakda chiqishi mumkin.
+Sinov uchun alohida xona va ikkalangizga naushnik kerak. Siz o'zingiz ataylab inglizcha gapirsangiz ham, u
+suhbatdoshga uzatilmaydi.
+
 ## 3a. Til, eksport va analitika
 
 - **Interfeys tili:** ilova tepasidagi ro'yxatdan O'zbekcha / Русский / Türkçe / English ni tanlang. Tanlov saqlanadi.

@@ -41,7 +41,12 @@ Client → gateway: `session.configure`, `capture.start`, `capture.pause`, `capt
 `turn.cancel`, `playback.start`, `playback.end`, `ping`.
 
 Gateway → client: `session.ready`, `caption.partial`, `caption.final`, `translation.delta`, `translation.final`,
-`metrics`, `error`, `pong`.
+`turn.skipped`, `metrics`, `error`, `pong`.
+
+`turn.skipped` (`direction`, `turn_id`, `generation`, `reason`) follows a `caption.final` that is neither translated
+nor spoken: `same_language` when the speech was already in the target language (the other side of the call reaching
+this direction's microphone), `echo` when the session's own synthesized speech came back. Nothing else is sent for
+that turn.
 
 Exact fields: the zod schema `clientMessage` and the `ServerMessage` type in `src/messages.ts`.
 

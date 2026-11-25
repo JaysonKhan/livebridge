@@ -61,6 +61,44 @@ void main() {
     });
   });
 
+  test('a skipped caption event carries its reason and finishes the turn without a translation', () {
+    final e = BridgeEvent.fromMap({
+      'type': 'caption',
+      'direction': 'out',
+      'turnId': 2,
+      'kind': 'skipped',
+      'text': '',
+      'reason': 'echo',
+    });
+    expect(e, isA<CaptionEvent>());
+    expect((e as CaptionEvent).skipReason, SkipReason.echo);
+
+    var turns = applyCaption(
+      const [],
+      const CaptionEvent(
+        direction: Direction.out,
+        turnId: 2,
+        kind: CaptionKind.finalText,
+        text: 'What about those projects?',
+      ),
+    );
+    expect(turns.single.isLive, isTrue);
+    turns = applyCaption(
+      turns,
+      const CaptionEvent(
+        direction: Direction.out,
+        turnId: 2,
+        kind: CaptionKind.skipped,
+        text: '',
+        skipReason: SkipReason.sameLanguage,
+      ),
+    );
+    expect(turns.single.skipped, SkipReason.sameLanguage);
+    expect(turns.single.isLive, isFalse);
+    expect(turns.single.original, 'What about those projects?');
+    expect(turns.single.translationFinal, isFalse);
+  });
+
   test('applyCaption: partial replaces, final commits, deltas append, translation final replaces', () {
     CaptionEvent ev(CaptionKind k, String t) => CaptionEvent(direction: Direction.out, turnId: 1, kind: k, text: t);
     var turns = <CaptionTurn>[];

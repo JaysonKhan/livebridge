@@ -119,6 +119,12 @@ class _TurnView extends StatelessWidget {
                   turn.translation,
                   style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
                 ),
+              if (turn.skipped case final reason?)
+                Text(
+                  context.l10n.turnSkipped(reason),
+                  key: Key('skipped-${direction.name}-${turn.id}'),
+                  style: TextStyle(fontSize: fontSize * 0.7, color: scheme.outline, fontStyle: FontStyle.italic),
+                ),
             ],
           ),
         ),
