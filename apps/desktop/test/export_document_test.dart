@@ -28,7 +28,7 @@ CaptionTurn turn(
 String build(AppLocalizations l, List<CaptionTurn> out, List<CaptionTurn> incoming) => buildConversationMarkdown(
   l: l,
   exportedAt: DateTime(2026, 11, 25, 14, 30),
-  targetLang: TargetLang.en,
+  languages: 'Uzbek ↔ English',
   mode: SessionMode.captions,
   outTurns: out,
   inTurns: incoming,

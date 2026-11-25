@@ -13,6 +13,7 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `listAudioProcesses` | — | `List<Map>`: `pid` int, `bundleId` String, `name` String, `isPlaying` bool — processes that currently own an audio object |
 | `loadSettings` | — | `Map` of everything saved so far (missing keys absent): the `start` config keys plus the preference keys below. `accessToken` comes from the Keychain, the rest from UserDefaults |
 | `saveSettings` | any subset of the `start` config keys and preference keys | — (the given keys are **merged** into what is stored; a `null` value removes a key) |
+| `languageNames` | `codes` [String], `locale` String | Map code → name of each language in the interface language `locale`, from the system's locale data (first letter capitalised); a code the system has no name for is left out |
 | `saveTextFile` | `suggestedName` String, `content` String | String? — shows the system Save dialog and writes UTF-8 text; returns the saved path, or `null` if the user cancelled |
 | `rateTurn` | `direction` String, `turnId` int, `rating` String (`good`, `bad`, `none`) | — (records the owner's judgement of a translation in the analytics log; no text is stored) |
 | `analyticsSummary` | — | `Map`, see "Analytics" below |
@@ -43,7 +44,8 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `headphonesUid` | String | physical output for incoming Uzbek audio |
 | `virtualMicUid` | String? | BlackHole 2ch; `null` = no outgoing audio is possible |
 | `sourcePids` | List<int> | meeting app processes to tap; empty = incoming direction off |
-| `targetLang` | String | `en` or `ru` (the remote participant's language) |
+| `myLang` | String | the owner's language, default `uz` — a code from `packages/protocol/src/languages.ts` (90 languages) |
+| `targetLang` | String | the remote participant's language, default `en` — same table; must differ from `myLang` |
 | `mode` | String | `captions`, `incoming`, `bidirectional` |
 | `outCommit` | String | `manual` (push-to-talk), `vad`, `turn_prediction` |
 | `translationModel` | String? | must be allowed by the gateway |

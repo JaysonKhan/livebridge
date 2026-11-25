@@ -5,6 +5,8 @@ import {
   decodeFrame,
   encodeFrame,
   FrameError,
+  LANGS,
+  LANGUAGES,
   MAX_PAYLOAD_BYTES,
   parseClientMessage,
 } from "../src/index.ts";
@@ -92,42 +94,37 @@ const inDir = {
   commit: "vad",
 };
 
-test("session.configure accepts UZ<->EN/RU and rejects other pairs", () => {
-  assert.ok(!("error" in parseClientMessage(configure(outDir, inDir))));
+test("session.configure accepts any pair of supported languages, never a language into itself", () => {
+  const accepted = (out: object, inn: object) =>
+    !("error" in parseClientMessage(configure(out, inn)));
+  assert.ok(accepted(outDir, inDir));
   assert.ok(
-    !(
-      "error" in
-      parseClientMessage(
-        configure(
-          { ...outDir, target_lang: "ru" },
-          { ...inDir, source_lang: "ru" },
-        ),
-      )
+    accepted({ ...outDir, target_lang: "ru" }, { ...inDir, source_lang: "ru" }),
+  );
+  // Neither side has to be Uzbek.
+  assert.ok(
+    accepted(
+      { ...outDir, source_lang: "tr", target_lang: "de" },
+      { ...inDir, source_lang: "de", target_lang: "tr" },
     ),
   );
-  assert.ok(
-    "error" in
-      parseClientMessage(configure({ ...outDir, target_lang: "uz" }, inDir)),
-  );
-  assert.ok(
-    "error" in
-      parseClientMessage(
-        configure({ ...outDir, source_lang: "en", target_lang: "ru" }, inDir),
-      ),
-  );
-  assert.ok(
-    "error" in
-      parseClientMessage(configure({ ...outDir, target_lang: "de" }, inDir)),
-  );
+  // Codes without an ISO 639-1 form are three letters.
+  assert.ok(accepted({ ...outDir, target_lang: "yue" }, inDir));
+  assert.ok(!accepted({ ...outDir, target_lang: "uz" }, inDir));
+  // Not a supported language: unknown code, and Kamba (speech synthesis only, no speech-to-text).
+  assert.ok(!accepted({ ...outDir, target_lang: "xx" }, inDir));
+  assert.ok(!accepted({ ...outDir, target_lang: "kam" }, inDir));
   // A disabled direction is not checked for language sanity.
-  assert.ok(
-    !(
-      "error" in
-      parseClientMessage(
-        configure(outDir, { ...inDir, enabled: false, source_lang: "uz" }),
-      )
-    ),
+  assert.ok(accepted(outDir, { ...inDir, enabled: false, source_lang: "uz" }));
+});
+
+test("the language table matches the shared fixture the app's list is tested against", () => {
+  const fixture = JSON.parse(
+    readFileSync(new URL("../fixtures/languages.json", import.meta.url), "utf8"),
   );
+  assert.deepEqual(LANGUAGES, fixture);
+  assert.equal(LANGS.length, 90);
+  for (const code of LANGS) assert.match(code, /^[a-z]{2,3}$/);
 });
 
 test("malformed control messages are rejected, not thrown", () => {

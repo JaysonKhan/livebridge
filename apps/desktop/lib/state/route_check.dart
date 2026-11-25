@@ -25,6 +25,7 @@ List<String> startBlockers(SetupState s, AppLocalizations l) {
 
   if (s.mode == SessionMode.bidirectional && virtualMic == null) reasons.add(l.blockBidirectionalNeedsVirtual);
   if (s.mode == SessionMode.incoming && s.sourcePids.isEmpty) reasons.add(l.blockIncomingNeedsSource);
+  if (s.myLang == s.targetLang) reasons.add(l.blockSameLanguages);
   if (s.gatewayUrl.trim().isEmpty) reasons.add(l.blockEnterGateway);
   if (s.accessToken.trim().isEmpty) reasons.add(l.blockEnterToken);
   return reasons;

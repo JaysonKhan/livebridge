@@ -124,6 +124,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get blockIncomingNeedsSource => 'Для входящего звука нужен хотя бы один источник встречи.';
 
   @override
+  String get blockSameLanguages => 'Выберите два разных языка.';
+
+  @override
   String get blockEnterGateway => 'Введите адрес шлюза.';
 
   @override
@@ -152,10 +155,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sectionLanguageMode => 'Язык и режим';
 
   @override
-  String get pairEn => 'Узбекский ↔ Английский';
+  String get languageUz => 'Узбекский';
 
   @override
-  String get pairRu => 'Узбекский ↔ Русский';
+  String get languageEn => 'Английский';
+
+  @override
+  String get languageRu => 'Русский';
+
+  @override
+  String get languageTr => 'Турецкий';
+
+  @override
+  String get myLanguage => 'Мой язык';
+
+  @override
+  String get theirLanguage => 'Язык собеседника';
 
   @override
   String get modeCaptionsTitle => 'Только субтитры';
@@ -168,7 +183,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get modeIncomingDesc =>
-      'Субтитры в обе стороны, а речь собеседника звучит в ваших наушниках в переводе на узбекский.';
+      'Субтитры в обе стороны, а речь собеседника звучит в ваших наушниках в переводе на ваш язык.';
 
   @override
   String get modeBidirectionalTitle => 'Двусторонняя озвучка';

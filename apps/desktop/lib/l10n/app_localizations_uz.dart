@@ -123,6 +123,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get blockIncomingNeedsSource => 'Kiruvchi ovoz uchun kamida bitta uchrashuv manbai kerak.';
 
   @override
+  String get blockSameLanguages => 'Ikki xil til tanlang.';
+
+  @override
   String get blockEnterGateway => 'Gateway manzilini kiriting.';
 
   @override
@@ -151,10 +154,22 @@ class AppLocalizationsUz extends AppLocalizations {
   String get sectionLanguageMode => 'Til va rejim';
 
   @override
-  String get pairEn => 'O\'zbekcha ↔ Inglizcha';
+  String get languageUz => 'O\'zbekcha';
 
   @override
-  String get pairRu => 'O\'zbekcha ↔ Ruscha';
+  String get languageEn => 'Inglizcha';
+
+  @override
+  String get languageRu => 'Ruscha';
+
+  @override
+  String get languageTr => 'Turkcha';
+
+  @override
+  String get myLanguage => 'Mening tilim';
+
+  @override
+  String get theirLanguage => 'Suhbatdosh tili';
 
   @override
   String get modeCaptionsTitle => 'Faqat subtitr';
@@ -167,7 +182,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get modeIncomingDesc =>
-      'Ikki tomonga subtitrlar, shuningdek suhbatdoshingiz nutqi o\'zbekchaga tarjima qilinib naushnikda eshitiladi.';
+      'Ikki tomonga subtitrlar, shuningdek suhbatdoshingiz nutqi sizning tilingizga tarjima qilinib naushnikda eshitiladi.';
 
   @override
   String get modeBidirectionalTitle => 'Ikki tomonlama ovoz';

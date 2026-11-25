@@ -103,7 +103,7 @@ public final class AnalyticsLog: @unchecked Sendable {
                 sessionOpen = true
                 sessionIsMock = event["mock"] as? Bool ?? false
                 var record: [String: Any] = ["type": "session_start"]
-                for field in ["mode", "targetLang", "outCommit"] { if let value = event[field] as? String { record[field] = value } }
+                for field in ["mode", "myLang", "targetLang", "outCommit"] { if let value = event[field] as? String { record[field] = value } }
                 write(record)
             }
             if state == "degraded", lastState != "degraded" { write(["type": "reconnect"]) }

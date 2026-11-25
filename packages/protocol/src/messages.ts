@@ -1,10 +1,9 @@
 // JSON control messages, protocol version 1. Every message carries `v` and `type`.
 import { z } from "zod";
 import type { Direction } from "./frame.ts";
+import { LANGS, type Lang } from "./languages.ts";
 
 export const PROTOCOL_VERSION = 1;
-export const LANGS = ["uz", "en", "ru"] as const;
-export type Lang = (typeof LANGS)[number];
 export const COMMIT_STRATEGIES = ["manual", "vad", "turn_prediction"] as const;
 export type CommitStrategy = (typeof COMMIT_STRATEGIES)[number];
 /** Capture audio is always this format in v1; synthesized format is announced in `session.ready`. */
@@ -72,7 +71,7 @@ export type SessionConfigure = Extract<
   { type: "session.configure" }
 >;
 
-/** A direction translates between Uzbek and one of English / Russian, never a language into itself. */
+/** A direction never translates a language into itself. */
 export function directionConfigError(
   name: Direction,
   cfg: DirectionConfig,
@@ -80,8 +79,6 @@ export function directionConfigError(
   if (!cfg.enabled) return null;
   if (cfg.source_lang === cfg.target_lang)
     return `${name}: source and target language are the same`;
-  if (cfg.source_lang !== "uz" && cfg.target_lang !== "uz")
-    return `${name}: one side must be Uzbek`;
   return null;
 }
 

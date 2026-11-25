@@ -30,7 +30,7 @@ Request: `Content-Type: application/json`, body ≤ 256 KB.
   "os_version": "macOS 26.6.2",
   "ui_language": "uz",
   "records": [
-    {"type": "session_start", "t": "2026-11-25T09:13:10.120Z", "session": 4, "mode": "bidirectional", "targetLang": "en", "outCommit": "manual"},
+    {"type": "session_start", "t": "2026-11-25T09:13:10.120Z", "session": 4, "mode": "bidirectional", "myLang": "uz", "targetLang": "en", "outCommit": "manual"},
     {"type": "turn", "t": "2026-11-25T09:13:31.900Z", "session": 4, "direction": "out", "turnId": 1, "e2eMs": 1350, "sttCommitMs": 302, "translateFirstMs": 690, "translateTotalMs": 760, "ttsFirstAudioMs": 238, "ttsTotalMs": 900, "audioMs": 2480, "sourceChars": 36, "translationChars": 34, "model": "gemini-3.5-flash-lite"},
     {"type": "rating", "t": "2026-11-25T09:13:40.000Z", "session": 4, "direction": "out", "turnId": 1, "rating": "good"},
     {"type": "session_end", "t": "2026-11-25T09:16:23.000Z", "session": 4, "durationSec": 193, "turns": 7}
@@ -53,7 +53,7 @@ Unknown keys are ignored. Integers are milliseconds / counts and are clamped to 
 
 | `type` | Extra fields |
 |---|---|
-| `session_start` | `mode` (`captions` \| `incoming` \| `bidirectional`), `targetLang` (`en` \| `ru`), `outCommit` (`manual` \| `vad` \| `turn_prediction`) |
+| `session_start` | `mode` (`captions` \| `incoming` \| `bidirectional`), `myLang` and `targetLang` (the owner's and the remote participant's language: 2–3 lowercase letters, the codes of `packages/protocol/src/languages.ts`; `myLang` is optional and means `uz` when absent), `outCommit` (`manual` \| `vad` \| `turn_prediction`) |
 | `turn` | `direction` (`out` \| `in`), `turnId` int; optional ints `e2eMs`, `sttCommitMs`, `translateFirstMs`, `translateTotalMs`, `ttsFirstAudioMs`, `ttsTotalMs`, `audioMs`, `sourceChars`, `translationChars`; optional `model` string ≤ 64 |
 | `e2e` | `direction`, `turnId`, `e2eMs` — the end-to-end time of a turn whose `turn` record was written before it was known |
 | `empty_turn` | `direction` |

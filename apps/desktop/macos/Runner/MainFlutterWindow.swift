@@ -98,6 +98,16 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
         Settings.save(arguments)
         DispatchQueue.main.async { result(nil) }
       }
+    case "languageNames":
+      // Language names in the interface language, from the system's own locale data.
+      guard let codes = arguments["codes"] as? [String] else { return result(Self.badArguments) }
+      let locale = Locale(identifier: arguments["locale"] as? String ?? "en")
+      var names: [String: String] = [:]
+      for code in codes {
+        guard let name = locale.localizedString(forLanguageCode: code), !name.isEmpty else { continue }
+        names[code] = name.prefix(1).uppercased(with: locale) + name.dropFirst()
+      }
+      result(names)
     case "saveTextFile":
       guard let content = arguments["content"] as? String else { return result(Self.badArguments) }
       save(suggestedName: arguments["suggestedName"] as? String ?? "livebridge.md", result) { url in

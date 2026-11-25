@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../bridge/languages.dart';
 import '../bridge/models.dart';
 import 'app_localizations.dart';
 
@@ -9,7 +10,18 @@ extension L10nContext on BuildContext {
 
 /// Maps enums and wire codes to localized text in one place.
 extension AppLocalizationsLabels on AppLocalizations {
-  String languagePair(TargetLang lang) => lang == TargetLang.en ? pairEn : pairRu;
+  /// A session language's name: our own wording for the four interface languages, the system's name
+  /// ([systemNames], code -> name in the interface language) for the rest, the English name as a last resort.
+  String languageName(String code, [Map<String, String> systemNames = const {}]) => switch (code) {
+    'uz' => languageUz,
+    'en' => languageEn,
+    'ru' => languageRu,
+    'tr' => languageTr,
+    _ => systemNames[code] ?? kLanguages[code] ?? code,
+  };
+
+  String languagePair(String myLang, String theirLang, [Map<String, String> systemNames = const {}]) =>
+      '${languageName(myLang, systemNames)} ↔ ${languageName(theirLang, systemNames)}';
 
   String modeTitle(SessionMode mode) => switch (mode) {
     SessionMode.captions => modeCaptionsTitle,

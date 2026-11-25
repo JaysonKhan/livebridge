@@ -123,6 +123,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockIncomingNeedsSource => 'Incoming audio needs at least one meeting source.';
 
   @override
+  String get blockSameLanguages => 'Choose two different languages.';
+
+  @override
   String get blockEnterGateway => 'Enter the gateway URL.';
 
   @override
@@ -151,10 +154,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionLanguageMode => 'Language and mode';
 
   @override
-  String get pairEn => 'Uzbek ↔ English';
+  String get languageUz => 'Uzbek';
 
   @override
-  String get pairRu => 'Uzbek ↔ Russian';
+  String get languageEn => 'English';
+
+  @override
+  String get languageRu => 'Russian';
+
+  @override
+  String get languageTr => 'Turkish';
+
+  @override
+  String get myLanguage => 'My language';
+
+  @override
+  String get theirLanguage => 'Their language';
 
   @override
   String get modeCaptionsTitle => 'Captions only';
@@ -166,7 +181,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get modeIncomingTitle => 'Incoming audio';
 
   @override
-  String get modeIncomingDesc => 'Captions both ways, plus their speech translated into Uzbek in your headphones.';
+  String get modeIncomingDesc =>
+      'Captions both ways, plus their speech translated into your language in your headphones.';
 
   @override
   String get modeBidirectionalTitle => 'Bidirectional speech';

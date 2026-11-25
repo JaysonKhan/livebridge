@@ -3,6 +3,7 @@
 // realtime guides (checked 2026-11-24). Not yet exercised against the live API in this repo — see
 // IMPLEMENTATION_STATUS.md for which behaviours are documented-only.
 import WebSocket from "ws";
+import type { Lang } from "../../../../packages/protocol/src/index.ts";
 import type { SttOptions, StreamingSTT } from "./types.ts";
 import { ProviderError } from "./types.ts";
 
@@ -14,6 +15,8 @@ export interface ElevenLabsSttConfig {
   vadSilenceSecs: number;
 }
 
+/** Realtime speech-to-text rejects these two ISO 639-1 codes and takes the ISO 639-3 ones (observed 2026-11-25). */
+const STT_LANGUAGE_CODE: Partial<Record<Lang, string>> = { ff: "ful", ln: "lin" };
 const SAMPLE_RATE = 16_000;
 /** Provider guidance is 0.1–1 s per chunk; 100 ms keeps partial captions responsive. */
 const CHUNK_BYTES = (SAMPLE_RATE * 2) / 10;
@@ -59,7 +62,10 @@ export class ElevenLabsRealtimeSTT implements StreamingSTT {
     );
     url.searchParams.set("model_id", this.config.model);
     url.searchParams.set("audio_format", `pcm_${SAMPLE_RATE}`);
-    url.searchParams.set("language_code", this.options.language);
+    url.searchParams.set(
+      "language_code",
+      STT_LANGUAGE_CODE[this.options.language] ?? this.options.language,
+    );
     url.searchParams.set("commit_strategy", this.options.commit);
     if (this.options.commit !== "manual") {
       url.searchParams.set(

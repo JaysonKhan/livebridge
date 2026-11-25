@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../bridge/languages.dart';
 import '../bridge/models.dart';
 import '../l10n/app_localizations.dart';
 import 'providers.dart';
@@ -26,7 +27,8 @@ class SetupState {
     this.micUid,
     this.headphonesUid,
     this.sourcePids = const {},
-    this.targetLang = TargetLang.en,
+    this.myLang = kDefaultMyLang,
+    this.targetLang = kDefaultTargetLang,
     this.mode = SessionMode.captions,
     this.outCommit = OutCommit.manual,
     this.gatewayUrl = 'http://127.0.0.1:8201',
@@ -46,7 +48,10 @@ class SetupState {
   final String? micUid;
   final String? headphonesUid;
   final Set<int> sourcePids;
-  final TargetLang targetLang;
+
+  /// What the owner speaks and what the other participant speaks (codes from `kLanguages`).
+  final String myLang;
+  final String targetLang;
   final SessionMode mode;
   final OutCommit outCommit;
   final String gatewayUrl;
@@ -70,7 +75,8 @@ class SetupState {
     Object? micUid = _keep,
     Object? headphonesUid = _keep,
     Set<int>? sourcePids,
-    TargetLang? targetLang,
+    String? myLang,
+    String? targetLang,
     SessionMode? mode,
     OutCommit? outCommit,
     String? gatewayUrl,
@@ -89,6 +95,7 @@ class SetupState {
     micUid: identical(micUid, _keep) ? this.micUid : micUid as String?,
     headphonesUid: identical(headphonesUid, _keep) ? this.headphonesUid : headphonesUid as String?,
     sourcePids: sourcePids ?? this.sourcePids,
+    myLang: myLang ?? this.myLang,
     targetLang: targetLang ?? this.targetLang,
     mode: mode ?? this.mode,
     outCommit: outCommit ?? this.outCommit,
@@ -126,6 +133,7 @@ class SetupState {
     headphonesUid: headphonesUid!,
     virtualMicUid: mode == SessionMode.bidirectional ? virtualMic?.uid : null,
     sourcePids: (sourcePids.toList()..sort()),
+    myLang: myLang,
     targetLang: targetLang,
     mode: mode,
     outCommit: outCommit,
@@ -167,7 +175,8 @@ class SetupNotifier extends Notifier<SetupState> {
         gatewayUrl: saved['gatewayUrl'] as String?,
         accessToken: saved['accessToken'] as String?,
         translationModel: saved['translationModel'] as String?,
-        targetLang: parseWire(TargetLang.values, saved['targetLang']),
+        myLang: kLanguages.containsKey(saved['myLang']) ? saved['myLang'] as String : null,
+        targetLang: kLanguages.containsKey(saved['targetLang']) ? saved['targetLang'] as String : null,
         mode: parseWire(SessionMode.values, saved['mode']),
         outCommit: parseWire(OutCommit.values, saved['outCommit']),
         captionFontSize: (saved['captionFontSize'] as num?)?.clamp(12, 40).toDouble(),
@@ -235,7 +244,8 @@ class SetupNotifier extends Notifier<SetupState> {
 
   void setMic(String? uid) => state = state.copyWith(micUid: uid);
   void setHeadphones(String? uid) => state = state.copyWith(headphonesUid: uid);
-  void setTargetLang(TargetLang v) => state = state.copyWith(targetLang: v);
+  void setMyLang(String v) => state = state.copyWith(myLang: v);
+  void setTargetLang(String v) => state = state.copyWith(targetLang: v);
   void setMode(SessionMode v) => state = state.copyWith(mode: v);
   void setOutCommit(OutCommit v) => state = state.copyWith(outCommit: v);
   void setGatewayUrl(String v) => state = state.copyWith(gatewayUrl: v);

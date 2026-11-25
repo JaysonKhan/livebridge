@@ -124,6 +124,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get blockIncomingNeedsSource => 'Gelen ses için en az bir toplantı kaynağı gerekir.';
 
   @override
+  String get blockSameLanguages => 'İki farklı dil seçin.';
+
+  @override
   String get blockEnterGateway => 'Gateway adresini girin.';
 
   @override
@@ -152,10 +155,22 @@ class AppLocalizationsTr extends AppLocalizations {
   String get sectionLanguageMode => 'Dil ve mod';
 
   @override
-  String get pairEn => 'Özbekçe ↔ İngilizce';
+  String get languageUz => 'Özbekçe';
 
   @override
-  String get pairRu => 'Özbekçe ↔ Rusça';
+  String get languageEn => 'İngilizce';
+
+  @override
+  String get languageRu => 'Rusça';
+
+  @override
+  String get languageTr => 'Türkçe';
+
+  @override
+  String get myLanguage => 'Benim dilim';
+
+  @override
+  String get theirLanguage => 'Karşı tarafın dili';
 
   @override
   String get modeCaptionsTitle => 'Yalnızca altyazı';
@@ -168,7 +183,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get modeIncomingDesc =>
-      'Her iki yönde altyazı; ayrıca karşı tarafın konuşması Özbekçeye çevrilip kulaklığınızda duyulur.';
+      'Her iki yönde altyazı; ayrıca karşı tarafın konuşması sizin dilinize çevrilip kulaklığınızda duyulur.';
 
   @override
   String get modeBidirectionalTitle => 'Çift yönlü ses';

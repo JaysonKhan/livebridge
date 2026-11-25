@@ -452,7 +452,7 @@ final class TelemetryUploaderTests: XCTestCase {
     /// Writes one real session into the log through AnalyticsLog (so the upload carries exactly what the app logs).
     private func logSession(_ log: AnalyticsLog, turns: Int, mock: Bool = false) {
         log.record(event: ["type": "state", "state": "connecting", "mock": false])
-        log.record(event: ["type": "state", "state": "ready", "mock": mock, "mode": "bidirectional", "targetLang": "en", "outCommit": "manual"])
+        log.record(event: ["type": "state", "state": "ready", "mock": mock, "mode": "bidirectional", "myLang": "uz", "targetLang": "en", "outCommit": "manual"])
         for id in 1...turns {
             log.record(event: ["type": "caption", "direction": "out", "turnId": id, "kind": "final", "text": "Maoshim uch ming dollar"])
             log.record(event: ["type": "metrics", "direction": "out", "turnId": id, "e2eMs": 1300, "translateTotalMs": 700, "sttCommitMs": 300])

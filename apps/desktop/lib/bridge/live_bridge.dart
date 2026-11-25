@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import 'languages.dart';
 import 'models.dart';
 
 /// Everything Flutter can ask of the native engine. See docs/bridge-contract.md.
@@ -14,6 +15,10 @@ abstract class LiveBridge {
   /// Saves preference keys (contract `saveSettings`: the given keys are merged, `null` removes a key).
   Future<void> savePreferences(Map<String, Object?> preferences);
   Future<String?> saveTextFile({required String suggestedName, required String content});
+
+  /// Names of the session languages in the interface language [locale] (code -> name), from the system's locale
+  /// data. A code the system has no name for is left out.
+  Future<Map<String, String>> languageNames(String locale);
   Future<void> rateTurn(Direction direction, int turnId, String rating);
   Future<AnalyticsSummary> analyticsSummary();
   Future<String?> analyticsExport();
@@ -79,6 +84,14 @@ class MethodChannelLiveBridge implements LiveBridge {
   @override
   Future<String?> saveTextFile({required String suggestedName, required String content}) =>
       _control.invokeMethod<String>('saveTextFile', {'suggestedName': suggestedName, 'content': content});
+
+  @override
+  Future<Map<String, String>> languageNames(String locale) async =>
+      (await _control.invokeMapMethod<String, String>('languageNames', {
+        'codes': kLanguages.keys.toList(),
+        'locale': locale,
+      })) ??
+      const {};
 
   @override
   Future<void> rateTurn(Direction direction, int turnId, String rating) =>

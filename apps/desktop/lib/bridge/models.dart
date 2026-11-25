@@ -65,15 +65,6 @@ enum SkipReason implements Wire {
   final String wire;
 }
 
-enum TargetLang implements Wire {
-  en('en'),
-  ru('ru');
-
-  const TargetLang(this.wire);
-  @override
-  final String wire;
-}
-
 enum SessionMode implements Wire {
   captions('captions'),
   incoming('incoming'),
@@ -164,6 +155,7 @@ class StartConfig {
     required this.headphonesUid,
     required this.virtualMicUid,
     required this.sourcePids,
+    required this.myLang,
     required this.targetLang,
     required this.mode,
     required this.outCommit,
@@ -176,7 +168,10 @@ class StartConfig {
   final String headphonesUid;
   final String? virtualMicUid;
   final List<int> sourcePids;
-  final TargetLang targetLang;
+
+  /// The owner's language and the other participant's language (codes from `kLanguages`).
+  final String myLang;
+  final String targetLang;
   final SessionMode mode;
   final OutCommit outCommit;
   final String? translationModel;
@@ -188,7 +183,8 @@ class StartConfig {
     'headphonesUid': headphonesUid,
     'virtualMicUid': virtualMicUid,
     'sourcePids': sourcePids,
-    'targetLang': targetLang.wire,
+    'myLang': myLang,
+    'targetLang': targetLang,
     'mode': mode.wire,
     'outCommit': outCommit.wire,
     'translationModel': translationModel,

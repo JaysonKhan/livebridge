@@ -223,7 +223,9 @@ const overlap = (gold: string, heard: string) => {
   );
 };
 
-const SAMPLE: Record<Lang, string> = {
+/** The probe exercises these three languages. */
+type ProbeLang = "en" | "ru" | "uz";
+const SAMPLE: Record<ProbeLang, string> = {
   en: "We need a senior Flutter developer who can start on Monday.",
   ru: "Нам нужен опытный разработчик на Flutter, который сможет начать в понедельник.",
   uz: "Men besh yildan beri Flutter va Dart bilan ishlayman.",

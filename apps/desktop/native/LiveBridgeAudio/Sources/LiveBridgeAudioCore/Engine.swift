@@ -10,7 +10,9 @@ public struct EngineConfig: Sendable {
     public var headphonesUid: String
     public var virtualMicUid: String?
     public var sourcePids: [pid_t]
-    /// The remote participant's language: "en" or "ru". The owner's side is always Uzbek.
+    /// The owner's language and the remote participant's language: codes from the protocol's language table
+    /// (packages/protocol/src/languages.ts). The gateway refuses a code it does not know.
+    public var myLang: String
     public var targetLang: String
     public var mode: Mode
     /// "manual" (push-to-talk), "vad" or "turn_prediction".
@@ -29,7 +31,8 @@ public struct EngineConfig: Sendable {
             let token = dictionary["accessToken"] as? String, !token.isEmpty,
             let mic = dictionary["micUid"] as? String,
             let headphones = dictionary["headphonesUid"] as? String,
-            let target = dictionary["targetLang"] as? String, ["en", "ru"].contains(target),
+            let target = dictionary["targetLang"] as? String, Self.isLanguageCode(target),
+            case let my = dictionary["myLang"] as? String ?? "uz", Self.isLanguageCode(my), my != target,
             let mode = (dictionary["mode"] as? String).flatMap(Mode.init(rawValue:)),
             let commit = dictionary["outCommit"] as? String, ["manual", "vad", "turn_prediction"].contains(commit)
         else { return nil }
@@ -39,10 +42,15 @@ public struct EngineConfig: Sendable {
         headphonesUid = headphones
         virtualMicUid = dictionary["virtualMicUid"] as? String
         sourcePids = (dictionary["sourcePids"] as? [Any] ?? []).compactMap { ($0 as? NSNumber)?.int32Value }
+        myLang = my
         targetLang = target
         self.mode = mode
         outCommit = commit
         translationModel = (dictionary["translationModel"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    private static func isLanguageCode(_ code: String) -> Bool {
+        code.range(of: "^[a-z]{2,3}$", options: .regularExpression) != nil
     }
 }
 
@@ -291,11 +299,11 @@ public final class Engine: @unchecked Sendable {
                     "capture_format": ["encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1],
                     "directions": [
                         "out": [
-                            "enabled": true, "source_lang": "uz", "target_lang": config.targetLang,
+                            "enabled": true, "source_lang": config.myLang, "target_lang": config.targetLang,
                             "speak": config.mode == .bidirectional, "commit": config.outCommit,
                         ],
                         "in": [
-                            "enabled": incomingEnabled, "source_lang": config.targetLang, "target_lang": "uz",
+                            "enabled": incomingEnabled, "source_lang": config.targetLang, "target_lang": config.myLang,
                             "speak": config.mode != .captions, "commit": "vad",
                         ],
                     ],
@@ -730,6 +738,7 @@ public final class Engine: @unchecked Sendable {
         if let config {
             // Session shape for the numbers-only analytics log (no device names, addresses or text).
             event["mode"] = config.mode.rawValue
+            event["myLang"] = config.myLang
             event["targetLang"] = config.targetLang
             event["outCommit"] = config.outCommit
         }

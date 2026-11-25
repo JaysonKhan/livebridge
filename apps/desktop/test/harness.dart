@@ -55,6 +55,17 @@ Future<void> fillToken() async {
   await tt.pump();
 }
 
+/// Picks a session language in the `my-language` / `their-language` dropdown by typing part of its name.
+Future<void> pickLanguage(String key, String name) async {
+  final field = find.descendant(of: find.byKey(Key(key)), matching: find.byType(TextField));
+  await tt.tap(field);
+  await tt.pumpAndSettle();
+  await tt.enterText(field, name);
+  await tt.pumpAndSettle();
+  await tt.tap(find.widgetWithText(MenuItemButton, name).last);
+  await tt.pumpAndSettle();
+}
+
 CaptionEvent cap(Direction d, int id, CaptionKind k, String t) =>
     CaptionEvent(direction: d, turnId: id, kind: k, text: t);
 

@@ -40,6 +40,10 @@ Every message has `"v": 1` and `"type"`.
 Client → gateway: `session.configure`, `capture.start`, `capture.pause`, `capture.stop`, `turn.commit`,
 `turn.cancel`, `playback.start`, `playback.end`, `ping`.
 
+Languages: `source_lang` / `target_lang` of a direction are codes from `src/languages.ts` — the 90 languages that
+Eleven v4 can speak and realtime speech-to-text can recognise (`fixtures/languages.json` is the same table, shared
+with the app's tests). A direction never translates a language into itself; no language is special.
+
 Gateway → client: `session.ready`, `caption.partial`, `caption.final`, `translation.delta`, `translation.final`,
 `turn.skipped`, `metrics`, `error`, `pong`.
 

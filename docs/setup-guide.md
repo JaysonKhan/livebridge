@@ -74,7 +74,10 @@ imzolangan — qayta build qilinganda macOS ruxsatlarni yana so'rashi mumkin (bu
 
 1. **Naushnik taqing.** Karnay ishlatilsa tarjima ovozi mikrofonga qaytib kiradi (aks-sado).
 2. Ilovada:
-   - **Language** — suhbatdosh tili: English yoki Russian.
+   - **Mening tilim / Suhbatdosh tili** — ikki ro'yxat. Standart: O'zbekcha ↔ Inglizcha. Har ikkisini 90 tildan
+     tanlash mumkin (ElevenLabs v4 qo'llaydigan va nutqni tanish ham tushunadigan tillar); maydonga yozsangiz ro'yxat
+     saralanadi. Ikki til bir xil bo'lsa sessiya boshlanmaydi. O'zbek ↔ ingliz/rusdan boshqa juftliklar
+     o'lchanmagan — sifatini o'zingiz sinab ko'ring.
    - **Mode** — `Captions only` (faqat subtitr), `Incoming audio` (subtitr + o'zbekcha ovoz naushnikda),
      `Bidirectional speech` (ikki tomonlama ovoz; BlackHole kerak).
    - **Microphone** — haqiqiy mikrofoningiz. **Headphones** — naushnigingiz.

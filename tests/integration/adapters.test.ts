@@ -2,7 +2,10 @@
 // These verify the adapters against the documented wire protocols. They are not evidence about the live APIs.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import type { ServerMessage } from "../../packages/protocol/src/index.ts";
+import type {
+  Lang,
+  ServerMessage,
+} from "../../packages/protocol/src/index.ts";
 import { ElevenLabsRealtimeSTT } from "../../services/gateway/src/providers/elevenlabs-stt.ts";
 import { ElevenLabsDialogueTTS } from "../../services/gateway/src/providers/elevenlabs-tts.ts";
 import { GeminiTranslator } from "../../services/gateway/src/providers/gemini.ts";
@@ -35,6 +38,7 @@ function sttAdapter(
   base: string,
   commit: "manual" | "vad" = "manual",
   apiKey = MOCK_API_KEY,
+  language: Lang = "uz",
 ) {
   const events = {
     partials: [] as string[],
@@ -44,7 +48,7 @@ function sttAdapter(
   const stt = new ElevenLabsRealtimeSTT(
     { apiKey, baseUrl: base, model: "scribe_v3_live", vadSilenceSecs: 0.6 },
     {
-      language: "uz",
+      language,
       commit,
       events: {
         onPartial: (t) => events.partials.push(t),
@@ -99,6 +103,19 @@ test("STT: documented handshake, 100 ms chunks, commit flushes the remainder, ev
   assert.deepEqual(events.committed, ["Salom dunyo"]);
   assert.deepEqual(events.partials, ["partial 1", "partial 2"]);
   assert.deepEqual(events.disconnects, []);
+});
+
+test("STT: the language code is sent as given, except the two the provider only takes in ISO 639-3", async () => {
+  const mock = await eleven();
+  for (const language of ["tr", "yue", "ff", "ln"] as const) {
+    const { stt } = sttAdapter(mock.base, "manual", MOCK_API_KEY, language);
+    await stt.open();
+    stt.close();
+  }
+  assert.deepEqual(
+    mock.stt.queries.map((q) => q.get("language_code")),
+    ["tr", "yue", "ful", "lin"],
+  );
 });
 
 test("STT: vad strategy sends the silence threshold", async () => {

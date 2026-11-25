@@ -48,7 +48,11 @@ class _ExportButtonState extends ConsumerState<ExportButton> {
     final content = buildConversationMarkdown(
       l: l,
       exportedAt: now,
-      targetLang: setup.targetLang,
+      languages: l.languagePair(
+        setup.myLang,
+        setup.targetLang,
+        ref.read(languageNamesProvider(l.localeName)).value ?? const {},
+      ),
       mode: setup.mode,
       outTurns: session.outTurns,
       inTurns: session.inTurns,

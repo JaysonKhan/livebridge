@@ -83,11 +83,56 @@ void main() {
     });
   });
 
+  group('languages', () {
+    String shown(String key) => tt
+        .widget<TextField>(find.descendant(of: find.byKey(Key(key)), matching: find.byType(TextField)))
+        .controller!
+        .text;
+
+    testWidgets('defaults to Uzbek and English; either side can be any supported language', (tester) async {
+      final bridge = FakeLiveBridge()
+        ..systemLanguageNames = {
+          'en': {'de': 'German (system)', 'tr': 'ignored'},
+        };
+      final c = await pumpApp(tester, bridge: bridge);
+      expect(shown('my-language'), 'Uzbek');
+      expect(shown('their-language'), 'English');
+
+      // Our own wording for the four interface languages, the system's name for the others.
+      await pickLanguage('my-language', 'Turkish');
+      await pickLanguage('their-language', 'German (system)');
+      expect(c.read(setupProvider).myLang, 'tr');
+      expect(c.read(setupProvider).targetLang, 'de');
+      expect(shown('my-language'), 'Turkish');
+      expect(shown('their-language'), 'German (system)');
+
+      // The four interface languages lead the list; the rest follow by name.
+      await tester.tap(find.descendant(of: find.byKey(const Key('my-language')), matching: find.byType(TextField)));
+      await tester.pumpAndSettle();
+      final labels = tester
+          .widgetList<Text>(find.descendant(of: find.byType(MenuItemButton), matching: find.byType(Text)))
+          .map((t) => t.data)
+          .toList();
+      expect(labels.take(6), ['Uzbek', 'English', 'Russian', 'Turkish', 'Afrikaans', 'Amharic']);
+    });
+
+    testWidgets('the same language on both sides blocks Start', (tester) async {
+      await pumpApp(tester);
+      await fillToken();
+      expect(startEnabled(), isTrue);
+      await pickLanguage('their-language', 'Uzbek');
+      expect(startEnabled(), isFalse);
+      expect(find.text('Choose two different languages.'), findsOneWidget);
+      await pickLanguage('their-language', 'Russian');
+      expect(startEnabled(), isTrue);
+    });
+  });
+
   group('consent gate', () {
     testWidgets('Start opens the dialog; start is only called after the checkbox and Confirm', (tester) async {
       await pumpApp(tester);
       await fillToken();
-      await tester.tap(find.text('Uzbek ↔ Russian'));
+      await pickLanguage('their-language', 'Russian');
       await tester.tap(find.text('Incoming audio'));
       await tester.tap(find.text('zoom.us'));
       await tester.enterText(find.byKey(const Key('translation-model')), 'gpt-x');
@@ -121,7 +166,8 @@ void main() {
       expect(cfg.headphonesUid, 'hp1');
       expect(cfg.virtualMicUid, isNull);
       expect(cfg.sourcePids, [100]);
-      expect(cfg.targetLang, TargetLang.ru);
+      expect(cfg.myLang, 'uz');
+      expect(cfg.targetLang, 'ru');
       expect(cfg.mode, SessionMode.incoming);
       expect(cfg.outCommit, OutCommit.manual);
       expect(cfg.translationModel, 'gpt-x');
@@ -521,6 +567,7 @@ void main() {
           'micUid': 'mic1',
           'headphonesUid': 'hp1',
           'sourcePids': [100, 999],
+          'myLang': 'tr',
           'targetLang': 'ru',
           'mode': 'incoming',
           'outCommit': 'vad',
@@ -530,7 +577,8 @@ void main() {
       expect(s.gatewayUrl, 'https://bridge.example.com');
       expect(s.accessToken, 'saved-token');
       expect(s.sourcePids, {100});
-      expect(s.targetLang, TargetLang.ru);
+      expect(s.myLang, 'tr');
+      expect(s.targetLang, 'ru');
       expect(s.mode, SessionMode.incoming);
       expect(s.outCommit, OutCommit.vad);
       expect(find.text('https://bridge.example.com'), findsOneWidget);

@@ -6,7 +6,8 @@ import LiveBridgeAudioCore
 ///
 ///   lbaudio session --gateway http://127.0.0.1:8201 --token TOKEN
 ///       [--mic UID] [--headphones UID] [--virtual-mic UID] [--pid PID ...]
-///       [--target en|ru] [--mode bidirectional|incoming|captions] [--commit manual|vad|turn_prediction]
+///       [--my-lang uz] [--target en]    the owner's and the remote participant's language codes
+///       [--mode bidirectional|incoming|captions] [--commit manual|vad|turn_prediction]
 ///       [--turns 3] [--hold 1.5]        number of push-to-talk turns and how long each is held (seconds)
 ///       [--synthetic-mic]               send a generated tone instead of opening the microphone
 ///       [--mic-file speech.pcm]         send this 16 kHz mono s16le recording on every turn instead (implies
@@ -22,6 +23,7 @@ func runSession() throws {
         "micUid": value("mic") ?? devices.first(where: \.isDefaultInput)?.uid ?? "",
         "headphonesUid": value("headphones") ?? devices.first(where: \.isDefaultOutput)?.uid ?? "",
         "sourcePids": values("pid").compactMap { Int($0) },
+        "myLang": value("my-lang") ?? "uz",
         "targetLang": value("target") ?? "en",
         "mode": value("mode") ?? "bidirectional",
         "outCommit": value("commit") ?? "manual",

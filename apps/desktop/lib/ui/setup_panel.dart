@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../bridge/languages.dart';
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
+import '../state/providers.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
@@ -122,7 +124,9 @@ class _LanguageAndMode extends ConsumerWidget {
       ChoiceOption(SessionMode.incoming, l.modeIncomingTitle, l.modeIncomingDesc),
       ChoiceOption(SessionMode.bidirectional, l.modeBidirectionalTitle, l.modeBidirectionalDesc),
     ];
-    final lang = ref.watch(setupProvider.select((s) => s.targetLang));
+    final myLang = ref.watch(setupProvider.select((s) => s.myLang));
+    final theirLang = ref.watch(setupProvider.select((s) => s.targetLang));
+    final names = ref.watch(languageNamesProvider(l.localeName)).value ?? const <String, String>{};
     final mode = ref.watch(setupProvider.select((s) => s.mode));
     final notifier = ref.read(setupProvider.notifier);
     return SectionCard(
@@ -130,18 +134,27 @@ class _LanguageAndMode extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
+          const SizedBox(height: 4),
+          Row(
             children: [
-              ChoiceChip(
-                label: Text(l.pairEn),
-                selected: lang == TargetLang.en,
-                onSelected: (_) => notifier.setTargetLang(TargetLang.en),
+              Expanded(
+                child: _LanguageDropdown(
+                  key: const Key('my-language'),
+                  label: l.myLanguage,
+                  value: myLang,
+                  systemNames: names,
+                  onChanged: notifier.setMyLang,
+                ),
               ),
-              ChoiceChip(
-                label: Text(l.pairRu),
-                selected: lang == TargetLang.ru,
-                onSelected: (_) => notifier.setTargetLang(TargetLang.ru),
+              const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(Icons.swap_horiz, size: 20)),
+              Expanded(
+                child: _LanguageDropdown(
+                  key: const Key('their-language'),
+                  label: l.theirLanguage,
+                  value: theirLang,
+                  systemNames: names,
+                  onChanged: notifier.setTargetLang,
+                ),
               ),
             ],
           ),
@@ -149,6 +162,49 @@ class _LanguageAndMode extends ConsumerWidget {
           ChoiceList<SessionMode>(options: modes, value: mode, onChanged: notifier.setMode),
         ],
       ),
+    );
+  }
+}
+
+/// One of the session's two languages, from the full list: the four interface languages first, then the rest by
+/// name. Typing in the field filters the list.
+class _LanguageDropdown extends StatelessWidget {
+  const _LanguageDropdown({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.systemNames,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final Map<String, String> systemNames;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    const first = ['uz', 'en', 'ru', 'tr'];
+    final rest = [
+      for (final code in kLanguages.keys)
+        if (!first.contains(code)) (code: code, name: l.languageName(code, systemNames)),
+    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final entries = [for (final code in first) (code: code, name: l.languageName(code)), ...rest];
+    return DropdownMenu<String>(
+      // Rebuilt when the interface language or the names change, so the field shows the current name.
+      key: ValueKey('$value-${l.localeName}-${systemNames.length}'),
+      initialSelection: value,
+      label: Text(label),
+      expandedInsets: EdgeInsets.zero,
+      menuHeight: 320,
+      enableFilter: true,
+      requestFocusOnTap: true,
+      inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), isDense: true),
+      onSelected: (code) {
+        if (code != null) onChanged(code);
+      },
+      dropdownMenuEntries: [for (final e in entries) DropdownMenuEntry(value: e.code, label: e.name)],
     );
   }
 }

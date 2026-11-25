@@ -27,7 +27,7 @@ List<(Direction, CaptionTurn)> _finishedTurnsInOrder(List<CaptionTurn> outTurns,
 String buildConversationMarkdown({
   required AppLocalizations l,
   required DateTime exportedAt,
-  required TargetLang targetLang,
+  required String languages,
   required SessionMode mode,
   required List<CaptionTurn> outTurns,
   required List<CaptionTurn> inTurns,
@@ -36,7 +36,7 @@ String buildConversationMarkdown({
     ..writeln('# ${l.exportDocTitle}')
     ..writeln()
     ..writeln('- ${l.exportDocExported(formatDateTime(exportedAt))}')
-    ..writeln('- ${l.exportDocLanguages(l.languagePair(targetLang))}')
+    ..writeln('- ${l.exportDocLanguages(languages)}')
     ..writeln('- ${l.exportDocMode(l.modeTitle(mode))}');
   final turns = _finishedTurnsInOrder(outTurns, inTurns);
   if (turns.isEmpty) {

@@ -135,6 +135,17 @@ test("prompt: language names come from the validated enum for every direction", 
       .system,
     /Translate Uzbek to Russian/,
   );
+  // Neither side has to be Uzbek, and three-letter codes have names too.
+  assert.match(
+    buildTranslationPrompt({ ...request("x"), source: "tr", target: "de" })
+      .system,
+    /Translate Turkish to German/,
+  );
+  assert.match(
+    buildTranslationPrompt({ ...request("x"), source: "en", target: "yue" })
+      .system,
+    /Translate English to Cantonese/,
+  );
 });
 
 test("prompt: context is capped to the most recent turns and a character budget", () => {

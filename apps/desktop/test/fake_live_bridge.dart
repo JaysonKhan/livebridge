@@ -49,6 +49,9 @@ class FakeLiveBridge implements LiveBridge {
   /// Every `savePreferences` call, in order; they are also merged into [settings] like the real store does.
   final List<Map<String, Object?>> savedPrefs = [];
 
+  /// `languageNames`: the system's names per interface language (code -> name); empty = none known.
+  Map<String, Map<String, String>> systemLanguageNames = {};
+
   /// `saveTextFile`: the result (null = the user cancelled), an error to throw, and the last arguments.
   String? saveTextFileResult = '/Users/test/Documents/livebridge-test.md';
   Exception? saveTextFileError;
@@ -98,6 +101,9 @@ class FakeLiveBridge implements LiveBridge {
     savedPrefs.add(Map.of(preferences));
     settings = {...settings, ...preferences};
   }
+
+  @override
+  Future<Map<String, String>> languageNames(String locale) async => systemLanguageNames[locale] ?? const {};
 
   @override
   Future<String?> saveTextFile({required String suggestedName, required String content}) async {

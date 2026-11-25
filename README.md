@@ -1,7 +1,8 @@
 # LiveBridge AI
 
-Personal-use macOS real-time speech interpreter for Zoom, Google Meet and Upwork calls: Uzbek ↔ English / Russian,
-outgoing speech in a synthesized voice through a virtual microphone, incoming speech as Uzbek captions and audio.
+Personal-use macOS real-time speech interpreter for Zoom, Google Meet and Upwork calls: Uzbek ↔ English by default,
+any pair of the 90 languages that both speech models support (`packages/protocol/src/languages.ts`),
+outgoing speech in a synthesized voice through a virtual microphone, incoming speech as captions and audio in your language.
 Other participants install nothing.
 
 **Read `IMPLEMENTATION_STATUS.md` first** — it says exactly what is verified and what is blocked. In short: it runs

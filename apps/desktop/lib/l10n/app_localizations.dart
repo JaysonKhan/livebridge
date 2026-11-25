@@ -310,6 +310,12 @@ abstract class AppLocalizations {
   /// **'Incoming audio needs at least one meeting source.'**
   String get blockIncomingNeedsSource;
 
+  /// No description provided for @blockSameLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose two different languages.'**
+  String get blockSameLanguages;
+
   /// No description provided for @blockEnterGateway.
   ///
   /// In en, this message translates to:
@@ -358,17 +364,41 @@ abstract class AppLocalizations {
   /// **'Language and mode'**
   String get sectionLanguageMode;
 
-  /// No description provided for @pairEn.
+  /// No description provided for @languageUz.
   ///
   /// In en, this message translates to:
-  /// **'Uzbek ↔ English'**
-  String get pairEn;
+  /// **'Uzbek'**
+  String get languageUz;
 
-  /// No description provided for @pairRu.
+  /// No description provided for @languageEn.
   ///
   /// In en, this message translates to:
-  /// **'Uzbek ↔ Russian'**
-  String get pairRu;
+  /// **'English'**
+  String get languageEn;
+
+  /// No description provided for @languageRu.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get languageRu;
+
+  /// No description provided for @languageTr.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkish'**
+  String get languageTr;
+
+  /// No description provided for @myLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'My language'**
+  String get myLanguage;
+
+  /// No description provided for @theirLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Their language'**
+  String get theirLanguage;
 
   /// No description provided for @modeCaptionsTitle.
   ///
@@ -391,7 +421,7 @@ abstract class AppLocalizations {
   /// No description provided for @modeIncomingDesc.
   ///
   /// In en, this message translates to:
-  /// **'Captions both ways, plus their speech translated into Uzbek in your headphones.'**
+  /// **'Captions both ways, plus their speech translated into your language in your headphones.'**
   String get modeIncomingDesc;
 
   /// No description provided for @modeBidirectionalTitle.

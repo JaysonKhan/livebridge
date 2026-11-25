@@ -1,11 +1,5 @@
-import type { Lang } from "../../../packages/protocol/src/index.ts";
+import { LANGUAGES } from "../../../packages/protocol/src/index.ts";
 import type { TranslateRequest } from "./providers/types.ts";
-
-const LANGUAGE_NAME: Record<Lang, string> = {
-  uz: "Uzbek",
-  en: "English",
-  ru: "Russian",
-};
 
 /** What the model answers instead of a translation when the speech is already in the target language. */
 export const SAME_LANGUAGE_MARK = "@@SAME@@";
@@ -43,8 +37,8 @@ export function buildTranslationPrompt(req: TranslateRequest): {
 } {
   const system = SYSTEM_TEMPLATE.replaceAll(
     "SOURCE_LANGUAGE",
-    LANGUAGE_NAME[req.source],
-  ).replaceAll("TARGET_LANGUAGE", LANGUAGE_NAME[req.target]);
+    LANGUAGES[req.source],
+  ).replaceAll("TARGET_LANGUAGE", LANGUAGES[req.target]);
   const context: TranslateRequest["context"] = [];
   let budget = MAX_CONTEXT_CHARS;
   for (const turn of req.context.slice(-MAX_CONTEXT_TURNS).reverse()) {
