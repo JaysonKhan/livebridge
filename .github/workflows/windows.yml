@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Core tests (frame codec, ring buffer, JSON)
+      - name: Core tests
         run: |
           cmake -S apps/desktop/native/livebridge_core -B build/core
           cmake --build build/core --config Release

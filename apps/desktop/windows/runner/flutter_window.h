@@ -30,7 +30,8 @@ class FlutterWindow : public Win32Window {
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
 
-  // The app's native bridge (docs/bridge-contract.md).
+  // The app's native bridge (docs/bridge-contract.md). It owns the audio engine's thread, so OnDestroy() releases it
+  // before the Flutter engine.
   std::unique_ptr<LiveBridgeChannels> channels_;
 };
 

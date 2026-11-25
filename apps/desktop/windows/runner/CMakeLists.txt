@@ -7,12 +7,17 @@ project(runner LANGUAGES CXX)
 #
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
+  "audio_devices.cpp"
   "flutter_window.cpp"
+  "gateway_socket.cpp"
   "livebridge_channels.cpp"
   "main.cpp"
   "settings_store.cpp"
   "utils.cpp"
+  "wasapi_capture.cpp"
   "win32_window.cpp"
+  "win_engine_host.cpp"
+  "win_util.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
   "Runner.rc"
   "runner.exe.manifest"
@@ -41,6 +46,9 @@ target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 # (known folders, COM memory, Credential Manager).
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../native/livebridge_core" "${CMAKE_BINARY_DIR}/livebridge_core")
 target_link_libraries(${BINARY_NAME} PRIVATE livebridge_core "shell32.lib" "ole32.lib" "advapi32.lib")
+# The engine's Windows layer: WinHTTP for the gateway connection, and MMCSS (audio priority for the capture thread).
+# WASAPI and the device list are COM interfaces and need nothing beyond ole32.
+target_link_libraries(${BINARY_NAME} PRIVATE "winhttp.lib" "avrt.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.

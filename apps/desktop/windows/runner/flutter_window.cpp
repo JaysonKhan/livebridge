@@ -25,7 +25,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  channels_ = std::make_unique<LiveBridgeChannels>(flutter_controller_->engine()->messenger());
+  // The bridge posts LiveBridgeChannels::kEventsMessage to this window when engine events wait (MessageHandler).
+  channels_ = std::make_unique<LiveBridgeChannels>(flutter_controller_->engine()->messenger(), GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -41,6 +42,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // The bridge goes first: it stops the audio engine's thread (closing a running session) while the Flutter engine
+  // that its channels talk to still exists.
   channels_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -67,6 +70,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+    case LiveBridgeChannels::kEventsMessage:
+      // Engine events wait in the bridge. They were queued on the engine thread; Flutter takes them on this one.
+      if (channels_) channels_->DrainEvents();
+      return 0;
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
