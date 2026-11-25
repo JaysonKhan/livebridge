@@ -66,7 +66,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | Swift engine unit tests | `swift test` | **26 passed**, 1 skipped (the live-collector test below) |
 | Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **122 passed** |
 | App end to end (fake providers) | `flutter test integration_test/session_test.dart -d macos` | passed — real UI, engine and microphone |
-| Release build | `flutter build macos --release` | `livebridge.app`, 44 MB, ad-hoc signed, macOS 14.2+ |
+| Release build | `flutter build macos --release` | `JK - LiveBridge.app`, 46 MB, ad-hoc signed, macOS 14.2+ |
 | **Live API probe** | `npm run probe` | 27 checks: 0 failed, 3 skipped (key lacks `user_read` / `voices_read`) |
 | **Real benchmark** | `npm run bench -- --rounds 3 --models gemini-3.5-flash-lite` | 120 turns, 0 failed, first audio p50 1333 / p95 2490 ms |
 | **Real end to end on hardware** | `lbaudio session --mic-file …` | 24 turns, 0 errors, median 1350–1407 ms, max 1806 ms, owner's voice |

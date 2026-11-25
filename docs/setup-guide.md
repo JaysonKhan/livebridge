@@ -57,8 +57,10 @@ Serverga joylash: `docs/deployment.md`.
 ```bash
 cd apps/desktop
 flutter build macos --release
-open build/macos/Build/Products/Release/livebridge.app
+open "build/macos/Build/Products/Release/JK - LiveBridge.app"
 ```
+
+Ilova Dock, Finder va Spotlight'da **JK - LiveBridge** nomi bilan ko'rinadi (Spotlight'ga «JK» deb yozing).
 
 Birinchi ishga tushirishda macOS ikki ruxsat so'raydi — ikkalasiga ham **Allow** bosing:
 

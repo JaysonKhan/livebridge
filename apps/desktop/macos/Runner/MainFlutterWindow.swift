@@ -13,7 +13,7 @@ class MainFlutterWindow: NSWindow {
     self.minSize = NSSize(width: 980, height: 680)
     self.setContentSize(NSSize(width: 1240, height: 800))
     self.center()
-    self.title = "LiveBridge"
+    self.title = "JK - LiveBridge"
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     bridge = LiveBridgeChannels(messenger: flutterViewController.engine.binaryMessenger)

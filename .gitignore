@@ -16,3 +16,4 @@ xcuserdata/
 
 # Benchmark speech cache: synthesized on demand by `npm run bench`, not source
 /tests/fixtures/audio/
+/dist/

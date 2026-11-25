@@ -1,9 +1,12 @@
+<p align="center"><img src="docs/assets/logo.png" width="128" alt="LiveBridge logo"></p>
+
 # LiveBridge AI
 
 **A real-time speech interpreter for calls on macOS.** You speak your language; the other person hears theirs, a
 moment later, in a synthesized voice — and their reply comes back to you as captions and speech in your language.
 It works with Zoom, Google Meet and any other meeting app, and the other participant installs nothing.
 
+[![Download](https://img.shields.io/github/v/release/JaysonKhan/livebridge?label=download)](https://github.com/JaysonKhan/livebridge/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Platform: macOS 14.2+](https://img.shields.io/badge/platform-macOS%2014.2%2B-black?logo=apple)
 ![Languages: 90](https://img.shields.io/badge/languages-90-blue)
@@ -193,6 +196,10 @@ never cloned.
 
 ## Quick start
 
+**Download:** the latest DMG is on the [Releases page](https://github.com/JaysonKhan/livebridge/releases/latest).
+It contains the app only — you still need a gateway (steps 1–2 below) — and it is not notarised, so the first
+launch needs **System Settings → Privacy & Security → Open Anyway**. Or build everything from source:
+
 ### 1. Try it without any keys
 
 Fake providers return placeholder text and test tones, so you can see the whole flow working first.
@@ -207,8 +214,10 @@ In a second terminal:
 
 ```bash
 cd apps/desktop && flutter build macos --release
-open build/macos/Build/Products/Release/livebridge.app
+open "build/macos/Build/Products/Release/JK - LiveBridge.app"
 ```
+
+The app shows up as **JK - LiveBridge** in the Dock, Finder and Spotlight (type "JK" to find it).
 
 In the app: mode **Captions only**, gateway address `http://127.0.0.1:8201`, paste the token, press
 **Start session**, hold **Space** and speak. You will see placeholder text under a `MOCK PROVIDERS` banner — that is
@@ -224,6 +233,16 @@ npm run gateway
 
 Then start a session in the app as above. On first launch macOS asks for two permissions — allow both:
 **Microphone**, and **System Audio Recording** (used only for the meeting app you select).
+
+### 3. Package it as a DMG
+
+```bash
+./scripts/make-dmg.sh    # builds the app and writes dist/JK-LiveBridge-<version>.dmg
+```
+
+Open the DMG and drag **JK - LiveBridge** to Applications. The app is ad-hoc signed and not notarised, so on
+another Mac the first launch is blocked: open **System Settings → Privacy & Security** and press **Open Anyway**.
+The DMG contains the app only — the gateway still has to run (step 2).
 
 ## Using it in a call
 
@@ -317,8 +336,8 @@ and `npm run bench` are the tools that exercise the real providers.
   has measured them.
 - **Two people in one room will hear a mess.** Both microphones pick up both voices. The crosstalk filters catch
   most of it by language, but they cannot tell who is speaking — test from separate rooms, with headphones.
-- **You build it yourself.** There is no signed download; the app is built from source and the gateway runs on your
-  own machine or server.
+- **No notarised download.** The DMG is ad-hoc signed, so macOS asks for confirmation on first launch, and it
+  holds the app only: the gateway runs separately, on your own machine or server, with your own API keys.
 - **macOS only.** The audio engine is built on Core Audio.
 - **Follow each platform's rules and the law.** Tell people an AI interpreter is in use. Recording and consent laws
   differ by country.
