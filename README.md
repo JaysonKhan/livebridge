@@ -57,19 +57,31 @@ captures and plays sound on the Mac, and a **gateway** (Node.js) that talks to t
 only in the gateway — never in the app.
 
 ```mermaid
-flowchart LR
-    subgraph Mac["Your Mac"]
-        Mic["Microphone"] --> Engine["Audio engine<br/>(Swift, Core Audio)"]
-        Meeting["Meeting app audio"] -->|process tap| Engine
-        Engine --> App["Desktop app<br/>captions and controls"]
-        Engine -->|translated speech| Virtual["BlackHole 2ch<br/>virtual microphone"]
-        Engine -->|translated speech| Phones["Your headphones"]
+flowchart TB
+    subgraph mac["Your Mac"]
+        mic["Microphone"]
+        meeting["Meeting app audio"]
+        engine["Audio engine (Swift)"]
+        app["Desktop app: captions and controls"]
+        phones["Your headphones"]
+        virtual["BlackHole 2ch virtual microphone"]
+        mic --> engine
+        meeting -- process tap --> engine
+        engine --> app
+        engine -- their speech, translated --> phones
+        engine -- your speech, translated --> virtual
     end
-    Engine <-->|"WebSocket<br/>audio frames + JSON"| Gateway["Gateway<br/>(Node.js)"]
-    Gateway --> STT["ElevenLabs Scribe v3 Live<br/>speech to text"]
-    Gateway --> LLM["Google Gemini<br/>translation"]
-    Gateway --> TTS["ElevenLabs Eleven v4 Turbo<br/>text to speech"]
-    Virtual --> Call["Meeting app microphone<br/>(what the other person hears)"]
+    gateway["Gateway (Node.js)"]
+    stt["ElevenLabs Scribe v3 Live: speech to text"]
+    llm["Google Gemini: translation"]
+    tts["ElevenLabs Eleven v4 Turbo: text to speech"]
+    remote["The call: what the other person hears"]
+    engine -- audio --> gateway
+    gateway -- captions and speech --> engine
+    gateway --> stt
+    gateway --> llm
+    gateway --> tts
+    virtual --> remote
 ```
 
 ### One turn, step by step
