@@ -46,6 +46,18 @@ class FakeLiveBridge implements LiveBridge {
   StartConfig? startedWith;
   StartConfig? savedWith;
 
+  /// Every `savePreferences` call, in order; they are also merged into [settings] like the real store does.
+  final List<Map<String, Object?>> savedPrefs = [];
+
+  /// `saveTextFile`: the result (null = the user cancelled), an error to throw, and the last arguments.
+  String? saveTextFileResult = '/Users/test/Documents/livebridge-test.md';
+  Exception? saveTextFileError;
+  String? savedFileName;
+  String? savedFileContent;
+
+  AnalyticsSummary summary = const AnalyticsSummary();
+  String? analyticsExportResult = '/Users/test/Documents/analytics.jsonl';
+
   final _events = StreamController<BridgeEvent>.broadcast(sync: true);
 
   void push(BridgeEvent e) => _events.add(e);
@@ -70,6 +82,41 @@ class FakeLiveBridge implements LiveBridge {
     calls.add('saveSettings');
     savedWith = config;
   }
+
+  @override
+  Future<void> savePreferences(Map<String, Object?> preferences) async {
+    calls.add('savePreferences');
+    savedPrefs.add(Map.of(preferences));
+    settings = {...settings, ...preferences};
+  }
+
+  @override
+  Future<String?> saveTextFile({required String suggestedName, required String content}) async {
+    calls.add('saveTextFile');
+    savedFileName = suggestedName;
+    savedFileContent = content;
+    if (saveTextFileError != null) throw saveTextFileError!;
+    return saveTextFileResult;
+  }
+
+  @override
+  Future<void> rateTurn(Direction direction, int turnId, String rating) async =>
+      calls.add('rateTurn(${direction.wire},$turnId,$rating)');
+
+  @override
+  Future<AnalyticsSummary> analyticsSummary() async {
+    calls.add('analyticsSummary');
+    return summary;
+  }
+
+  @override
+  Future<String?> analyticsExport() async {
+    calls.add('analyticsExport');
+    return analyticsExportResult;
+  }
+
+  @override
+  Future<void> analyticsClear() async => calls.add('analyticsClear');
 
   @override
   Future<String> microphonePermission() async => permission;

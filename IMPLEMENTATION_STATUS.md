@@ -123,7 +123,6 @@ into any output.
 | Technical terms | "BLoC" recognised as "Blog"/"Block" | Needs a keyterm list (the provider supports it, at extra cost); not implemented |
 | Network | ~2 of 45 ElevenLabs handshakes failed from this network | A turn can lose its audio (caption still shown); a server-side gateway should be steadier — unmeasured |
 | Tap permission | A silent tap gives no error from Core Audio | App shows a flat source meter, not an explicit "permission missing" message |
-| Meeting source list | Lists every process that owns audio, system daemons included, alphabetically | The meeting browser's helper process is hard to find; needs filtering (apps and playing processes first) |
 | Original audio | Meeting app keeps playing to the headphones | Original and translation are heard together |
 | Echo | No automatic echo detection | Headphones required; hands-free without them will loop |
 | Browser calls | Tap is per process, not per tab | Use a dedicated browser window |
@@ -136,6 +135,7 @@ into any output.
 | Soak | 60 minutes on fake providers only | Long-call behaviour on real providers (cost, session limits) unproven |
 | Docker | Image never built | Compose file untested |
 | Not built | Glossary/keyterm UI, source-language auto-detect, caption overlay, budget warning, translated-only monitoring | Roadmap |
+| Added 2026-11-25 at the owner's request | Interface in uz / ru / tr / en; on-demand conversation export; local numbers-only analytics log with per-turn ratings; meeting-source list filtered to apps; echo hold in automatic turn modes | These change the original "no export, no analytics" stance: both are explicit or content-free (`docs/privacy.md`). Translations of the interface text have not been reviewed by native speakers |
 
 ## Next commands, in order
 

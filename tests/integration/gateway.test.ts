@@ -140,6 +140,8 @@ test("push-to-talk turn: caption, translation, owner-voice audio on OUT only, th
     metrics.tts_first_audio_ms !== undefined &&
       metrics.tts_first_audio_ms <= metrics.tts_total_ms!,
   );
+  // The answering translation model is reported per turn (for the local analytics log).
+  assert.equal(metrics.model, "gemini-3.5-flash-lite");
   assert.deepEqual(errors(client), []);
 });
 

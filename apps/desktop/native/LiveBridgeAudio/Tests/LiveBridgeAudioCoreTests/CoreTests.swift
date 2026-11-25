@@ -235,3 +235,124 @@ final class DeviceEnumerationTests: XCTestCase {
         XCTAssertThrowsError(try ProcessTap(pids: []))
     }
 }
+
+final class ProcessListTests: XCTestCase {
+    func testSystemServicesAreNotOfferedAsMeetingSourcesButBrowsersAndMeetingAppsAre() {
+        for bundle in ["com.google.Chrome.helper", "us.zoom.xos", "org.mozilla.firefox", "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.FaceTime"] {
+            XCTAssertTrue(AudioProcesses.isMeetingCandidate(bundleId: bundle), bundle)
+        }
+        for bundle in ["", "com.apple.assistantd", "com.apple.avconferenced", "com.apple.TelephonyUtilities", "com.apple.audiomxd"] {
+            XCTAssertFalse(AudioProcesses.isMeetingCandidate(bundleId: bundle), bundle)
+        }
+    }
+}
+
+final class AnalyticsLogTests: XCTestCase {
+    private var url: URL!
+
+    override func setUp() {
+        url = FileManager.default.temporaryDirectory.appendingPathComponent("lb-analytics-\(UUID().uuidString)/analytics.jsonl")
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+    }
+
+    private func state(_ state: String, mock: Bool = false) -> [String: Any] { ["type": "state", "state": state, "mock": mock] }
+
+    /// One push-to-talk turn the way the engine reports it: captions, the client's end-to-end time, then the
+    /// gateway's stage timings.
+    private func turn(_ log: AnalyticsLog, id: Int, e2e: Int, source: String, translation: String, e2eFirst: Bool = true) {
+        log.record(event: ["type": "caption", "direction": "out", "turnId": id, "kind": "final", "text": source])
+        log.record(event: ["type": "caption", "direction": "out", "turnId": id, "kind": "translationFinal", "text": translation])
+        let local: [String: Any] = ["type": "metrics", "direction": "out", "turnId": id, "e2eMs": e2e]
+        var server: [String: Any] = [
+            "type": "metrics", "direction": "out", "turnId": id, "sttCommitMs": 300, "translateFirstMs": 600,
+            "translateTotalMs": 700, "ttsFirstAudioMs": 250, "audioMs": 2400, "model": "gemini-3.5-flash-lite",
+        ]
+        if e2eFirst {
+            log.record(event: local)
+            server["e2eMs"] = e2e
+            log.record(event: server)
+        } else {
+            log.record(event: server)
+            log.record(event: local)
+        }
+    }
+
+    func testRecordsNumbersOnlyAndSummarisesThem() throws {
+        let log = AnalyticsLog(fileURL: url)
+        let secret = "Maoshim oyiga uch ming dollar"
+        log.record(event: state("connecting"))
+        log.record(event: state("ready"))
+        for (index, e2e) in [1200, 1400, 1300, 2600].enumerated() {
+            turn(log, id: index + 1, e2e: e2e, source: secret, translation: "My salary is three thousand dollars a month", e2eFirst: index != 3)
+        }
+        log.record(event: ["type": "caption", "direction": "out", "turnId": 5, "kind": "partial", "text": ""])
+        log.record(event: ["type": "error", "code": "translation_failed", "direction": "out", "fatal": false])
+        log.record(event: state("degraded"))
+        log.record(event: state("ready"))
+        log.rate(direction: "out", turnId: 1, rating: "good")
+        log.rate(direction: "out", turnId: 2, rating: "bad")
+        log.rate(direction: "out", turnId: 2, rating: "good")
+        log.rate(direction: "out", turnId: 3, rating: "bad")
+        log.rate(direction: "out", turnId: 3, rating: "none")
+        log.record(event: state("idle"))
+
+        let summary = log.summary()
+        let written = try String(contentsOf: url, encoding: .utf8)
+        // Privacy: lengths are recorded, text never is.
+        XCTAssertFalse(written.contains("Maoshim"))
+        XCTAssertFalse(written.contains("salary"))
+        XCTAssertTrue(written.contains("\"sourceChars\":\(secret.count)"))
+        XCTAssertTrue(written.contains("\"model\":\"gemini-3.5-flash-lite\""))
+
+        XCTAssertEqual(summary["sessions"] as? Int, 1)
+        XCTAssertEqual(summary["turns"] as? Int, 4)
+        XCTAssertEqual(summary["emptyTurns"] as? Int, 1)
+        XCTAssertEqual(summary["reconnects"] as? Int, 1)
+        XCTAssertEqual(summary["errors"] as? [String: Int], ["translation_failed": 1])
+        // Turn 2's last rating is "good"; turn 3's was withdrawn.
+        XCTAssertEqual(summary["ratedGood"] as? Int, 2)
+        XCTAssertEqual(summary["ratedBad"] as? Int, 0)
+        // All four end-to-end times count, including the one observed after the gateway's timings arrived.
+        XCTAssertEqual(summary["e2eMs"] as? [String: Int], ["count": 4, "p50": 1300, "p95": 2600, "max": 2600])
+        XCTAssertEqual((summary["translateFirstMs"] as? [String: Int])?["p50"], 600)
+        XCTAssertEqual(summary["path"] as? String, url.path)
+        XCTAssertNotNil(summary["firstAt"])
+        XCTAssertGreaterThan(summary["fileSizeBytes"] as? Int ?? 0, 100)
+    }
+
+    func testMockSessionsAreKeptOutOfTheFigures() {
+        let log = AnalyticsLog(fileURL: url)
+        log.record(event: state("connecting"))
+        log.record(event: state("ready", mock: true))
+        turn(log, id: 1, e2e: 190, source: "x", translation: "y")
+        log.record(event: state("idle"))
+        let summary = log.summary()
+        XCTAssertEqual(summary["sessions"] as? Int, 0)
+        XCTAssertEqual(summary["turns"] as? Int, 0)
+        XCTAssertNil(summary["e2eMs"])
+    }
+
+    func testDisabledLogWritesNothingAndClearRemovesTheFile() {
+        let log = AnalyticsLog(fileURL: url)
+        log.isEnabled = false
+        log.record(event: state("connecting"))
+        log.record(event: state("ready"))
+        turn(log, id: 1, e2e: 1000, source: "x", translation: "y")
+        XCTAssertEqual(log.summary()["turns"] as? Int, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertEqual(log.summary()["enabled"] as? Bool, false)
+
+        log.isEnabled = true
+        log.record(event: state("idle"))
+        log.record(event: state("connecting"))
+        log.record(event: state("active"))
+        turn(log, id: 1, e2e: 1000, source: "x", translation: "y")
+        XCTAssertEqual(log.summary()["turns"] as? Int, 1)
+        log.clear()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertEqual(log.summary()["turns"] as? Int, 0)
+    }
+}

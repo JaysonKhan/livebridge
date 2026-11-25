@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/labels.dart';
+
+/// The two sentences the owner reads to the other participant. They are never translated.
 const consentTextEn =
     'I use a live AI interpreter that translates my speech using my own synthesized voice. '
     'May I use it during this call?';
@@ -27,7 +30,7 @@ class _ConsentDialogState extends State<_ConsentDialog> {
   Future<void> _copy(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.copied)));
   }
 
   Widget _block(String language, String text, String copyLabel) {
@@ -47,8 +50,9 @@ class _ConsentDialogState extends State<_ConsentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return AlertDialog(
-      title: const Text('Tell the other participants first'),
+      title: Text(l.consentTitle),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -56,24 +60,24 @@ class _ConsentDialogState extends State<_ConsentDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Say or paste this sentence into the call chat before you start.'),
+              Text(l.consentIntro),
               const SizedBox(height: 12),
-              _block('English', consentTextEn, 'Copy English'),
-              _block('Русский', consentTextRu, 'Copy Russian'),
+              _block('English', consentTextEn, l.consentCopyEnglish),
+              _block('Русский', consentTextRu, l.consentCopyRussian),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _agreed,
                 onChanged: (v) => setState(() => _agreed = v ?? false),
-                title: const Text(consentCheckboxLabel),
+                title: Text(l.consentCheckbox),
               ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-        FilledButton(onPressed: _agreed ? () => Navigator.of(context).pop(true) : null, child: const Text('Confirm')),
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l.cancel)),
+        FilledButton(onPressed: _agreed ? () => Navigator.of(context).pop(true) : null, child: Text(l.confirm)),
       ],
     );
   }

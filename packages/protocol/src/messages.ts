@@ -169,6 +169,8 @@ export type ServerMessage =
       tts_first_audio_ms?: number;
       tts_total_ms?: number;
       audio_ms?: number;
+      /** Translation model that answered this turn (the fallback when it was used). */
+      model?: string;
       dropped_frames: number;
     }
   | {

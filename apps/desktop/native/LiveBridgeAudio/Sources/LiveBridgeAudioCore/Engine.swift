@@ -99,6 +99,10 @@ public final class Engine: @unchecked Sendable {
     private var turnBase: [Direction: Int] = [.out: 0, .in: 0]
     private var highestTurn: [Direction: Int] = [.out: 0, .in: 0]
     private var lastBacklogWarningUs: UInt64 = 0
+    /// Automatic turn modes only: the microphone is not forwarded while translated incoming speech is playing (and
+    /// for a moment after), so that speech coming out of loudspeakers is not picked up and translated back.
+    private var echoHoldUntilUs: UInt64 = 0
+    private static let echoTailUs: UInt64 = 400_000
 
     private let micLevel = AtomicValue(-1200)
     private let sourceLevel = AtomicValue(-1200)
@@ -468,6 +472,11 @@ public final class Engine: @unchecked Sendable {
             }
             // Nothing leaves the machine unless the talk button is held (or an automatic turn mode is open).
             guard (pttHeld || outCaptureOpen), !outgoingMuted, directionReady[.out] == true else { return }
+            if outCaptureOpen, !pttHeld {
+                let now = monotonicMicroseconds()
+                if let incoming = sinks[.in], incoming.queuedMs > 0, !incoming.isMuted { echoHoldUntilUs = now + Self.echoTailUs }
+                if now < echoHoldUntilUs { return }
+            }
         } else {
             guard inCaptureStarted, directionReady[.in] == true else { return }
         }
@@ -556,6 +565,7 @@ public final class Engine: @unchecked Sendable {
                 "tts_first_audio_ms": "ttsFirstAudioMs", "tts_total_ms": "ttsTotalMs", "audio_ms": "audioMs",
             ]
             for (key, name) in names { if let value = message[key] as? Int { event[name] = value } }
+            if let model = message["model"] as? String { event["model"] = model }
             if direction == .out, let e2e = endToEndMs.removeValue(forKey: UInt32(turnId)) { event["e2eMs"] = e2e }
             emit(event)
         case "error":

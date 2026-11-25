@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/live_bridge.dart';
+import '../l10n/labels.dart';
 import '../state/providers.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
@@ -50,6 +51,7 @@ class _DeviceTestSectionState extends ConsumerState<DeviceTestSection> {
   @override
   Widget build(BuildContext context) {
     final running = ref.watch(sessionProvider.select((s) => s.running));
+    final l = context.l10n;
     // A new session stops the meters (the session notifier calls stopMeters); just fold the section.
     ref.listen(sessionProvider.select((s) => s.running), (_, running) {
       if (running && _open) {
@@ -65,8 +67,8 @@ class _DeviceTestSectionState extends ConsumerState<DeviceTestSection> {
       controller: _tile,
       enabled: !running,
       leading: const Icon(Icons.tune),
-      title: const Text('Test your devices'),
-      subtitle: Text(running ? 'Not available while a session is running' : 'Level meters, test tones, permission'),
+      title: Text(l.testDevicesTitle),
+      subtitle: Text(running ? l.testDevicesUnavailable : l.testDevicesSubtitle),
       onExpansionChanged: _onExpansion,
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -81,11 +83,12 @@ class _Meters extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final meters = ref.watch(sessionProvider.select((s) => s.meters));
+    final l = context.l10n;
     return Column(
       children: [
-        LevelMeter(label: 'Microphone level', db: meters?.mic ?? -120),
+        LevelMeter(label: l.levelMic, db: meters?.mic ?? -120),
         const SizedBox(height: 8),
-        LevelMeter(label: 'Meeting source level', db: meters?.source ?? -120),
+        LevelMeter(label: l.levelSource, db: meters?.source ?? -120),
       ],
     );
   }
@@ -100,7 +103,7 @@ class LevelMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fraction = ((db + 80) / 80).clamp(0.0, 1.0);
-    final dbText = db <= -120 ? 'silent' : '${db.round()} dB';
+    final dbText = db <= -120 ? context.l10n.levelSilent : '${db.round()} dB';
     return Semantics(
       label: label,
       value: dbText,
@@ -126,6 +129,7 @@ class _Tones extends ConsumerWidget {
     final virtualUid = ref.watch(setupProvider.select((s) => s.virtualMic?.uid));
     final session = ref.read(sessionProvider.notifier);
     final bridge = ref.read(bridgeProvider);
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -136,17 +140,17 @@ class _Tones extends ConsumerWidget {
             OutlinedButton.icon(
               onPressed: headphones == null ? null : () => session.guard('testTone', () => bridge.testTone(headphones)),
               icon: const Icon(Icons.headphones),
-              label: const Text('Test headphones'),
+              label: Text(l.testHeadphones),
             ),
             OutlinedButton.icon(
               onPressed: virtualUid == null ? null : () => session.guard('testTone', () => bridge.testTone(virtualUid)),
               icon: const Icon(Icons.mic_external_on),
-              label: const Text('Test virtual mic'),
+              label: Text(l.testVirtualMic),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        const Text('Each test plays one quiet tone. Leave any call that uses BlackHole 2ch before testing.'),
+        Text(l.testToneNote),
       ],
     );
   }
@@ -159,15 +163,16 @@ class _Permission extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final permission = ref.watch(setupProvider.select((s) => s.micPermission));
     final granted = permission == 'granted';
+    final l = context.l10n;
     return Row(
       children: [
         Icon(granted ? Icons.check_circle_outline : Icons.error_outline),
         const SizedBox(width: 8),
-        Expanded(child: Text('Microphone permission: $permission')),
+        Expanded(child: Text(l.micPermission(l.permissionStatus(permission)))),
         if (!granted)
           FilledButton.tonal(
             onPressed: () => ref.read(setupProvider.notifier).refreshMicPermission(request: true),
-            child: const Text('Request'),
+            child: Text(l.permissionRequest),
           ),
       ],
     );

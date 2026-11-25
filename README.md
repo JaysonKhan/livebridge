@@ -52,5 +52,11 @@ npm run typecheck && npm test                               # protocol, gateway,
 
 ## Scope
 
-In: captions, push-to-talk outgoing speech, incoming Uzbek audio, mute, panic stop, explicit microphone bypass.
-Out (by design): meeting bots, browser extensions, recording, automatic answers, covert use, Windows/iOS.
+In: captions, push-to-talk and automatic outgoing speech, incoming Uzbek audio, mute, panic stop, explicit
+microphone bypass, interface in Uzbek / Russian / Turkish / English, on-demand export of the conversation text, and
+a local numbers-only analytics log (latency, errors, your ratings).
+Out (by design): meeting bots, browser extensions, audio recording, automatic answers, covert use, Windows/iOS.
+
+## License
+
+MIT — see `LICENSE`. BlackHole (GPL-3.0) is a separate install and is not part of this repository.

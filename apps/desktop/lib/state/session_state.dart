@@ -15,34 +15,50 @@ const int _maxTurnsPerLane = 200;
 class CaptionTurn {
   const CaptionTurn({
     required this.id,
+    required this.startedAt,
     this.original = '',
     this.originalFinal = false,
     this.translation = '',
     this.translationFinal = false,
+    this.rating,
   });
 
   final int id;
+
+  /// When the turn first appeared.
+  final DateTime startedAt;
   final String original;
   final bool originalFinal;
   final String translation;
   final bool translationFinal;
 
+  /// The owner's rating of the translation, if any.
+  final TurnRating? rating;
+
   bool get isLive => !(originalFinal && translationFinal);
 
-  CaptionTurn copyWith({String? original, bool? originalFinal, String? translation, bool? translationFinal}) =>
-      CaptionTurn(
-        id: id,
-        original: original ?? this.original,
-        originalFinal: originalFinal ?? this.originalFinal,
-        translation: translation ?? this.translation,
-        translationFinal: translationFinal ?? this.translationFinal,
-      );
+  CaptionTurn copyWith({
+    String? original,
+    bool? originalFinal,
+    String? translation,
+    bool? translationFinal,
+    Object? rating = _keep,
+  }) => CaptionTurn(
+    id: id,
+    startedAt: startedAt,
+    original: original ?? this.original,
+    originalFinal: originalFinal ?? this.originalFinal,
+    translation: translation ?? this.translation,
+    translationFinal: translationFinal ?? this.translationFinal,
+    rating: identical(rating, _keep) ? this.rating : rating as TurnRating?,
+  );
 }
 
 /// Partial replaces in place, final commits, translation deltas append and the translation final replaces.
-List<CaptionTurn> applyCaption(List<CaptionTurn> turns, CaptionEvent e) {
+/// A turn is stamped with [now] (default: the current time) when it first appears.
+List<CaptionTurn> applyCaption(List<CaptionTurn> turns, CaptionEvent e, {DateTime? now}) {
   final i = turns.indexWhere((t) => t.id == e.turnId);
-  final cur = i >= 0 ? turns[i] : CaptionTurn(id: e.turnId);
+  final cur = i >= 0 ? turns[i] : CaptionTurn(id: e.turnId, startedAt: now ?? DateTime.now());
   final next = switch (e.kind) {
     CaptionKind.partial => cur.originalFinal ? cur : cur.copyWith(original: e.text),
     CaptionKind.finalText => cur.copyWith(original: e.text, originalFinal: true),
@@ -234,6 +250,27 @@ class SessionNotifier extends Notifier<SessionState> {
       guard('setIncomingAudioMuted', () => _bridge.setIncomingAudioMuted(muted));
 
   Future<void> setBypass(bool enabled) => guard('setBypass', () => _bridge.setBypass(enabled));
+
+  /// Rates a finished turn; tapping the rating it already has clears it.
+  Future<void> rateTurn(Direction direction, int turnId, TurnRating tapped) async {
+    final turns = direction == Direction.out ? state.outTurns : state.inTurns;
+    final turn = turns.where((t) => t.id == turnId).firstOrNull;
+    if (turn == null) return;
+    final next = turn.rating == tapped ? null : tapped;
+    try {
+      await _bridge.rateTurn(direction, turnId, next?.wire ?? 'none');
+    } on Exception catch (e) {
+      if (ref.mounted) reportException(e, 'rateTurn');
+      return;
+    }
+    if (!ref.mounted) return;
+    List<CaptionTurn> rated(List<CaptionTurn> list) => [
+      for (final t in list) t.id == turnId ? t.copyWith(rating: next) : t,
+    ];
+    state = direction == Direction.out
+        ? state.copyWith(outTurns: rated(state.outTurns))
+        : state.copyWith(inTurns: rated(state.inTurns));
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);

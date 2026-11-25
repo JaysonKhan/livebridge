@@ -78,6 +78,16 @@ enum OutCommit implements Wire {
   final String wire;
 }
 
+/// The owner's judgement of one translated turn (`none` is sent over the bridge to clear it).
+enum TurnRating implements Wire {
+  good('good'),
+  bad('bad');
+
+  const TurnRating(this.wire);
+  @override
+  final String wire;
+}
+
 class AudioDevice {
   const AudioDevice({
     required this.uid,
@@ -228,6 +238,7 @@ sealed class BridgeEvent {
           ttsFirstAudioMs: i('ttsFirstAudioMs'),
           ttsTotalMs: i('ttsTotalMs'),
           audioMs: i('audioMs'),
+          model: m['model'] as String?,
         );
       case 'error':
         return ErrorEvent(
@@ -297,6 +308,7 @@ final class MetricsEvent extends BridgeEvent {
     this.ttsFirstAudioMs,
     this.ttsTotalMs,
     this.audioMs,
+    this.model,
   });
 
   final Direction direction;
@@ -308,6 +320,9 @@ final class MetricsEvent extends BridgeEvent {
   final int? ttsFirstAudioMs;
   final int? ttsTotalMs;
   final int? audioMs;
+
+  /// The translation model that answered the turn.
+  final String? model;
 }
 
 final class ErrorEvent extends BridgeEvent {
@@ -321,4 +336,87 @@ final class ErrorEvent extends BridgeEvent {
 
 final class DevicesChangedEvent extends BridgeEvent {
   const DevicesChangedEvent();
+}
+
+/// Percentiles of one timing series, in milliseconds.
+class TimingStat {
+  const TimingStat({required this.count, required this.p50, required this.p95, required this.max});
+
+  static TimingStat? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    int i(String k) => (raw[k] as num?)?.toInt() ?? 0;
+    return TimingStat(count: i('count'), p50: i('p50'), p95: i('p95'), max: i('max'));
+  }
+
+  final int count;
+  final int p50;
+  final int p95;
+  final int max;
+}
+
+/// What `analyticsSummary` returns: numbers only, never transcript text.
+class AnalyticsSummary {
+  const AnalyticsSummary({
+    this.enabled = true,
+    this.path = '',
+    this.fileSizeBytes = 0,
+    this.sessions = 0,
+    this.turns = 0,
+    this.firstAt,
+    this.lastAt,
+    this.e2eMs,
+    this.sttCommitMs,
+    this.translateFirstMs,
+    this.translateTotalMs,
+    this.ttsFirstAudioMs,
+    this.errors = const {},
+    this.reconnects = 0,
+    this.emptyTurns = 0,
+    this.ratedGood = 0,
+    this.ratedBad = 0,
+  });
+
+  factory AnalyticsSummary.fromMap(Map<Object?, Object?> m) {
+    int i(String k) => (m[k] as num?)?.toInt() ?? 0;
+    final rawErrors = m['errors'];
+    return AnalyticsSummary(
+      enabled: m['enabled'] as bool? ?? true,
+      path: m['path'] as String? ?? '',
+      fileSizeBytes: i('fileSizeBytes'),
+      sessions: i('sessions'),
+      turns: i('turns'),
+      firstAt: m['firstAt'] as String?,
+      lastAt: m['lastAt'] as String?,
+      e2eMs: TimingStat.fromMap(m['e2eMs']),
+      sttCommitMs: TimingStat.fromMap(m['sttCommitMs']),
+      translateFirstMs: TimingStat.fromMap(m['translateFirstMs']),
+      translateTotalMs: TimingStat.fromMap(m['translateTotalMs']),
+      ttsFirstAudioMs: TimingStat.fromMap(m['ttsFirstAudioMs']),
+      errors: rawErrors is Map
+          ? {for (final e in rawErrors.entries) e.key.toString(): (e.value as num?)?.toInt() ?? 0}
+          : const {},
+      reconnects: i('reconnects'),
+      emptyTurns: i('emptyTurns'),
+      ratedGood: i('ratedGood'),
+      ratedBad: i('ratedBad'),
+    );
+  }
+
+  final bool enabled;
+  final String path;
+  final int fileSizeBytes;
+  final int sessions;
+  final int turns;
+  final String? firstAt;
+  final String? lastAt;
+  final TimingStat? e2eMs;
+  final TimingStat? sttCommitMs;
+  final TimingStat? translateFirstMs;
+  final TimingStat? translateTotalMs;
+  final TimingStat? ttsFirstAudioMs;
+  final Map<String, int> errors;
+  final int reconnects;
+  final int emptyTurns;
+  final int ratedGood;
+  final int ratedBad;
 }

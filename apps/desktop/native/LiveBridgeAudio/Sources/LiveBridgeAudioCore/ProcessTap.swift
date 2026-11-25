@@ -15,21 +15,37 @@ public struct AudioProcessInfo: Equatable, Sendable {
 }
 
 public enum AudioProcesses {
-    /// Processes that currently own a Core Audio process object — meeting apps and browser audio helpers appear
-    /// here once they have opened an audio device. This app itself is left out.
+    /// Apple processes worth offering as a meeting source. Every other `com.apple.*` process that owns audio is a
+    /// system service (assistant, call services, sound server, ...) and only clutters the list.
+    private static let appleMeetingApps: Set<String> = [
+        "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.WebKit.WebContent", "com.apple.FaceTime",
+    ]
+
+    /// Candidate meeting sources: apps (and their audio helper processes) that currently own a Core Audio process
+    /// object, with whatever is playing right now first. System services and this app itself are left out — unless
+    /// a system process is actually playing, in which case it is still shown.
     public static func all() -> [AudioProcessInfo] {
         let system = AudioObjectID(kAudioObjectSystemObject)
         let own = ProcessInfo.processInfo.processIdentifier
+        let ownBundle = Bundle.main.bundleIdentifier
         return HAL.array(system, kAudioHardwarePropertyProcessObjectList, of: AudioObjectID.self).compactMap { object in
             guard let pid = HAL.value(object, kAudioProcessPropertyPID, default: pid_t(0)), pid > 0, pid != own
             else { return nil }
             let bundleId = HAL.string(object, kAudioProcessPropertyBundleID) ?? ""
+            if let ownBundle, bundleId == ownBundle { return nil }
+            let playing = (HAL.value(object, kAudioProcessPropertyIsRunningOutput, default: UInt32(0)) ?? 0) != 0
+            guard playing || isMeetingCandidate(bundleId: bundleId) else { return nil }
             let name = [NSRunningApplication(processIdentifier: pid)?.localizedName, processName(pid), bundleId]
                 .compactMap { $0 }.first { !$0.isEmpty } ?? "pid \(pid)"
-            let playing = HAL.value(object, kAudioProcessPropertyIsRunningOutput, default: UInt32(0)) ?? 0
-            return AudioProcessInfo(objectID: object, pid: pid, bundleId: bundleId, name: name, isPlaying: playing != 0)
+            return AudioProcessInfo(objectID: object, pid: pid, bundleId: bundleId, name: name, isPlaying: playing)
         }
-        .sorted { ($0.isPlaying ? 0 : 1, $0.name.lowercased()) < ($1.isPlaying ? 0 : 1, $1.name.lowercased()) }
+        .sorted { ($0.isPlaying ? 0 : 1, $0.name.lowercased(), $0.pid) < ($1.isPlaying ? 0 : 1, $1.name.lowercased(), $1.pid) }
+    }
+
+    static func isMeetingCandidate(bundleId: String) -> Bool {
+        if bundleId.isEmpty { return false }
+        if bundleId.hasPrefix("com.apple.") { return appleMeetingApps.contains(bundleId) }
+        return true
     }
 
     private static func processName(_ pid: pid_t) -> String? {

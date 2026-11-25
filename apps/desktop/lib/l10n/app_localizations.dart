@@ -1,0 +1,1356 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart' as intl;
+
+import 'app_localizations_en.dart';
+import 'app_localizations_ru.dart';
+import 'app_localizations_tr.dart';
+import 'app_localizations_uz.dart';
+
+// ignore_for_file: type=lint
+
+/// Callers can lookup localized strings with an instance of AppLocalizations
+/// returned by `AppLocalizations.of(context)`.
+///
+/// Applications need to include `AppLocalizations.delegate()` in their app's
+/// `localizationDelegates` list, and the locales they support in the app's
+/// `supportedLocales` list. For example:
+///
+/// ```dart
+/// import 'l10n/app_localizations.dart';
+///
+/// return MaterialApp(
+///   localizationsDelegates: AppLocalizations.localizationsDelegates,
+///   supportedLocales: AppLocalizations.supportedLocales,
+///   home: MyApplicationHome(),
+/// );
+/// ```
+///
+/// ## Update pubspec.yaml
+///
+/// Please make sure to update your pubspec.yaml to include the following
+/// packages:
+///
+/// ```yaml
+/// dependencies:
+///   # Internationalization support.
+///   flutter_localizations:
+///     sdk: flutter
+///   intl: any # Use the pinned version from flutter_localizations
+///
+///   # Rest of dependencies
+/// ```
+///
+/// ## iOS Applications
+///
+/// iOS applications define key application metadata, including supported
+/// locales, in an Info.plist file that is built into the application bundle.
+/// To configure the locales supported by your app, you’ll need to edit this
+/// file.
+///
+/// First, open your project’s ios/Runner.xcworkspace Xcode workspace file.
+/// Then, in the Project Navigator, open the Info.plist file under the Runner
+/// project’s Runner folder.
+///
+/// Next, select the Information Property List item, select Add Item from the
+/// Editor menu, then select Localizations from the pop-up menu.
+///
+/// Select and expand the newly-created Localizations item then, for each
+/// locale your application supports, add a new item and select the locale
+/// you wish to add from the pop-up menu in the Value field. This list should
+/// be consistent with the languages listed in the AppLocalizations.supportedLocales
+/// property.
+abstract class AppLocalizations {
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+
+  final String localeName;
+
+  static AppLocalizations of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
+  }
+
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+
+  /// A list of this localizations delegate along with the default localizations
+  /// delegates.
+  ///
+  /// Returns a list of localizations delegates containing this delegate along with
+  /// GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
+  /// and GlobalWidgetsLocalizations.delegate.
+  ///
+  /// Additional delegates can be added by appending to this list in
+  /// MaterialApp. This list does not have to be used at all if a custom list
+  /// of delegates is preferred or required.
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
+
+  /// A list of this localizations delegate's supported locales.
+  static const List<Locale> supportedLocales = <Locale>[Locale('en'), Locale('ru'), Locale('tr'), Locale('uz')];
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get copied;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @notSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not selected'**
+  String get notSelected;
+
+  /// No description provided for @dismissError.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss error'**
+  String get dismissError;
+
+  /// No description provided for @dismissNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss notice'**
+  String get dismissNotice;
+
+  /// No description provided for @languagePickerTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface language'**
+  String get languagePickerTooltip;
+
+  /// No description provided for @mockBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'MOCK PROVIDERS — test tones and placeholder text, not a real translation'**
+  String get mockBanner;
+
+  /// No description provided for @bypassBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'BYPASS — your real microphone is going to the call, untranslated'**
+  String get bypassBanner;
+
+  /// No description provided for @errorSessionEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'(the session ended)'**
+  String get errorSessionEnded;
+
+  /// No description provided for @errProviderUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The translation or voice service is unavailable right now.'**
+  String get errProviderUnavailable;
+
+  /// No description provided for @errTranslationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'A phrase could not be translated.'**
+  String get errTranslationFailed;
+
+  /// No description provided for @errTranslationRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'The translation came back unusable, so nothing was spoken.'**
+  String get errTranslationRejected;
+
+  /// No description provided for @errTtsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'A phrase could not be spoken.'**
+  String get errTtsFailed;
+
+  /// No description provided for @errCaptureBacklog.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio is piling up faster than it can be processed.'**
+  String get errCaptureBacklog;
+
+  /// No description provided for @errCaptureOverflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Some audio was dropped because processing fell behind.'**
+  String get errCaptureOverflow;
+
+  /// No description provided for @errSynthesisCongested.
+  ///
+  /// In en, this message translates to:
+  /// **'The voice service is congested; speech may be delayed.'**
+  String get errSynthesisCongested;
+
+  /// No description provided for @errPlaybackOverflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Too much audio is waiting to play; some was skipped.'**
+  String get errPlaybackOverflow;
+
+  /// No description provided for @errSourceGone.
+  ///
+  /// In en, this message translates to:
+  /// **'The meeting app stopped playing audio or was closed.'**
+  String get errSourceGone;
+
+  /// No description provided for @errDeviceRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'An audio device was disconnected.'**
+  String get errDeviceRemoved;
+
+  /// No description provided for @errGatewayUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the gateway. Check the gateway URL and your internet connection.'**
+  String get errGatewayUnreachable;
+
+  /// No description provided for @errUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'The gateway rejected the access token. Check the token in setup.'**
+  String get errUnauthorized;
+
+  /// No description provided for @errSessionLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The gateway\'s session limit is reached. Try again later.'**
+  String get errSessionLimit;
+
+  /// No description provided for @errSessionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'The session expired. Start a new one.'**
+  String get errSessionExpired;
+
+  /// No description provided for @errNoVirtualMic.
+  ///
+  /// In en, this message translates to:
+  /// **'The virtual microphone (BlackHole 2ch) was not found.'**
+  String get errNoVirtualMic;
+
+  /// No description provided for @errNoHeadphones.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected headphones were not found.'**
+  String get errNoHeadphones;
+
+  /// No description provided for @errNoMicrophone.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected microphone was not found.'**
+  String get errNoMicrophone;
+
+  /// No description provided for @errUnsafeRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsafe audio route refused: the microphone or headphones are a virtual device.'**
+  String get errUnsafeRoute;
+
+  /// No description provided for @blockChooseMic.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a microphone.'**
+  String get blockChooseMic;
+
+  /// No description provided for @blockMicIsVirtual.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsafe route: the microphone is the same device as the virtual microphone ({device}). Choose your physical microphone.'**
+  String blockMicIsVirtual(String device);
+
+  /// No description provided for @blockChooseHeadphones.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose headphones.'**
+  String get blockChooseHeadphones;
+
+  /// No description provided for @blockHeadphonesVirtual.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsafe route: the headphones are a virtual device ({device}). Choose your physical headphones.'**
+  String blockHeadphonesVirtual(String device);
+
+  /// No description provided for @blockBidirectionalNeedsVirtual.
+  ///
+  /// In en, this message translates to:
+  /// **'Bidirectional speech needs a virtual microphone (BlackHole 2ch), which is not installed.'**
+  String get blockBidirectionalNeedsVirtual;
+
+  /// No description provided for @blockIncomingNeedsSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming audio needs at least one meeting source.'**
+  String get blockIncomingNeedsSource;
+
+  /// No description provided for @blockEnterGateway.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the gateway URL.'**
+  String get blockEnterGateway;
+
+  /// No description provided for @blockEnterToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the access token.'**
+  String get blockEnterToken;
+
+  /// No description provided for @noticeMicLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone \"{name}\" is no longer available. Choose another microphone.'**
+  String noticeMicLost(String name);
+
+  /// No description provided for @noticeHeadphonesLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Headphones \"{name}\" are no longer available. Choose other headphones.'**
+  String noticeHeadphonesLost(String name);
+
+  /// No description provided for @startSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Start session'**
+  String get startSession;
+
+  /// No description provided for @stopSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop session'**
+  String get stopSession;
+
+  /// No description provided for @setupLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup is locked while a session is running.'**
+  String get setupLocked;
+
+  /// No description provided for @sectionLanguageMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Language and mode'**
+  String get sectionLanguageMode;
+
+  /// No description provided for @pairEn.
+  ///
+  /// In en, this message translates to:
+  /// **'Uzbek ↔ English'**
+  String get pairEn;
+
+  /// No description provided for @pairRu.
+  ///
+  /// In en, this message translates to:
+  /// **'Uzbek ↔ Russian'**
+  String get pairRu;
+
+  /// No description provided for @modeCaptionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Captions only'**
+  String get modeCaptionsTitle;
+
+  /// No description provided for @modeCaptionsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Live captions both ways. Nothing is spoken.'**
+  String get modeCaptionsDesc;
+
+  /// No description provided for @modeIncomingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming audio'**
+  String get modeIncomingTitle;
+
+  /// No description provided for @modeIncomingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Captions both ways, plus their speech translated into Uzbek in your headphones.'**
+  String get modeIncomingDesc;
+
+  /// No description provided for @modeBidirectionalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bidirectional speech'**
+  String get modeBidirectionalTitle;
+
+  /// No description provided for @modeBidirectionalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Also speaks your translation into the call with your own voice, through the virtual microphone.'**
+  String get modeBidirectionalDesc;
+
+  /// No description provided for @sectionDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get sectionDevices;
+
+  /// No description provided for @deviceMicrophone.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get deviceMicrophone;
+
+  /// No description provided for @deviceHeadphones.
+  ///
+  /// In en, this message translates to:
+  /// **'Headphones'**
+  String get deviceHeadphones;
+
+  /// No description provided for @virtualMicFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Virtual microphone: {name} found'**
+  String virtualMicFound(String name);
+
+  /// No description provided for @blackHoleMissingNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'BlackHole 2ch not installed — outgoing speech unavailable; captions still work'**
+  String get blackHoleMissingNotice;
+
+  /// No description provided for @blackHoleInstallWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Install it with: {command}'**
+  String blackHoleInstallWith(String command);
+
+  /// No description provided for @sectionMeetingSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting source'**
+  String get sectionMeetingSource;
+
+  /// No description provided for @noAudioApps.
+  ///
+  /// In en, this message translates to:
+  /// **'No apps are using audio right now. Open your meeting app, then press Refresh.'**
+  String get noAudioApps;
+
+  /// No description provided for @processPid.
+  ///
+  /// In en, this message translates to:
+  /// **'pid {pid}'**
+  String processPid(int pid);
+
+  /// No description provided for @processPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'playing'**
+  String get processPlaying;
+
+  /// No description provided for @sectionGateway.
+  ///
+  /// In en, this message translates to:
+  /// **'Outgoing turns and gateway'**
+  String get sectionGateway;
+
+  /// No description provided for @outgoingTurnMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Outgoing turn mode'**
+  String get outgoingTurnMode;
+
+  /// No description provided for @turnPttTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Push-to-talk'**
+  String get turnPttTitle;
+
+  /// No description provided for @turnPttDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold the button or the Space key while you speak.'**
+  String get turnPttDesc;
+
+  /// No description provided for @turnVadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto: VAD'**
+  String get turnVadTitle;
+
+  /// No description provided for @turnVadDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends your speech when you pause.'**
+  String get turnVadDesc;
+
+  /// No description provided for @turnPredictionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto: turn prediction'**
+  String get turnPredictionTitle;
+
+  /// No description provided for @turnPredictionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Predicts when you have finished a thought.'**
+  String get turnPredictionDesc;
+
+  /// No description provided for @gatewayUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Gateway URL'**
+  String get gatewayUrl;
+
+  /// No description provided for @accessToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Access token'**
+  String get accessToken;
+
+  /// No description provided for @translationModelOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation model (optional)'**
+  String get translationModelOptional;
+
+  /// No description provided for @testDevicesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Test your devices'**
+  String get testDevicesTitle;
+
+  /// No description provided for @testDevicesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available while a session is running'**
+  String get testDevicesUnavailable;
+
+  /// No description provided for @testDevicesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Level meters, test tones, permission'**
+  String get testDevicesSubtitle;
+
+  /// No description provided for @levelMic.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone level'**
+  String get levelMic;
+
+  /// No description provided for @levelSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting source level'**
+  String get levelSource;
+
+  /// No description provided for @levelSilent.
+  ///
+  /// In en, this message translates to:
+  /// **'silent'**
+  String get levelSilent;
+
+  /// No description provided for @testHeadphones.
+  ///
+  /// In en, this message translates to:
+  /// **'Test headphones'**
+  String get testHeadphones;
+
+  /// No description provided for @testVirtualMic.
+  ///
+  /// In en, this message translates to:
+  /// **'Test virtual mic'**
+  String get testVirtualMic;
+
+  /// No description provided for @testToneNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Each test plays one quiet tone. Leave any call that uses BlackHole 2ch before testing.'**
+  String get testToneNote;
+
+  /// No description provided for @micPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone permission: {status}'**
+  String micPermission(String status);
+
+  /// No description provided for @permissionGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'granted'**
+  String get permissionGranted;
+
+  /// No description provided for @permissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'denied'**
+  String get permissionDenied;
+
+  /// No description provided for @permissionUndetermined.
+  ///
+  /// In en, this message translates to:
+  /// **'not asked yet'**
+  String get permissionUndetermined;
+
+  /// No description provided for @permissionRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Request'**
+  String get permissionRequest;
+
+  /// No description provided for @routingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Routing instructions'**
+  String get routingTitle;
+
+  /// No description provided for @routingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to set up Zoom, Meet and Upwork'**
+  String get routingSubtitle;
+
+  /// No description provided for @routingZoomDesktopTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom Desktop'**
+  String get routingZoomDesktopTitle;
+
+  /// No description provided for @routingZoom1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Zoom → Settings → Audio.'**
+  String get routingZoom1;
+
+  /// No description provided for @routingZoom2.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone: BlackHole 2ch.'**
+  String get routingZoom2;
+
+  /// No description provided for @routingZoom3.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker: your headphones.'**
+  String get routingZoom3;
+
+  /// No description provided for @routingZoom4.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the session here before you speak.'**
+  String get routingZoom4;
+
+  /// No description provided for @routingWebTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom Web / Google Meet'**
+  String get routingWebTitle;
+
+  /// No description provided for @routingWeb1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the browser\'s audio settings for the call.'**
+  String get routingWeb1;
+
+  /// No description provided for @routingWeb2.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone: BlackHole 2ch. Speaker: your headphones.'**
+  String get routingWeb2;
+
+  /// No description provided for @routingWeb3.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a dedicated browser window and close other tabs that play audio.'**
+  String get routingWeb3;
+
+  /// No description provided for @routingUpworkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upwork'**
+  String get routingUpworkTitle;
+
+  /// No description provided for @routingUpwork1.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the call from Upwork Messages.'**
+  String get routingUpwork1;
+
+  /// No description provided for @routingUpwork2.
+  ///
+  /// In en, this message translates to:
+  /// **'Then use the same Zoom Desktop or browser settings as above.'**
+  String get routingUpwork2;
+
+  /// No description provided for @routingBackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to return to normal'**
+  String get routingBackTitle;
+
+  /// No description provided for @routingBack1.
+  ///
+  /// In en, this message translates to:
+  /// **'In the meeting app, select your physical microphone again.'**
+  String get routingBack1;
+
+  /// No description provided for @routingBack2.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop the session here.'**
+  String get routingBack2;
+
+  /// No description provided for @routingInstallVirtual.
+  ///
+  /// In en, this message translates to:
+  /// **'Install the virtual microphone: {command}'**
+  String routingInstallVirtual(String command);
+
+  /// No description provided for @consentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell the other participants first'**
+  String get consentTitle;
+
+  /// No description provided for @consentIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Say or paste this sentence into the call chat before you start.'**
+  String get consentIntro;
+
+  /// No description provided for @consentCopyEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy English'**
+  String get consentCopyEnglish;
+
+  /// No description provided for @consentCopyRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Russian'**
+  String get consentCopyRussian;
+
+  /// No description provided for @consentCheckbox.
+  ///
+  /// In en, this message translates to:
+  /// **'The other participants have been informed and agreed'**
+  String get consentCheckbox;
+
+  /// No description provided for @laneOut.
+  ///
+  /// In en, this message translates to:
+  /// **'You → them'**
+  String get laneOut;
+
+  /// No description provided for @laneIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Them → you'**
+  String get laneIn;
+
+  /// No description provided for @noCaptions.
+  ///
+  /// In en, this message translates to:
+  /// **'No captions yet'**
+  String get noCaptions;
+
+  /// No description provided for @turnInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Still in progress'**
+  String get turnInProgress;
+
+  /// No description provided for @stateChip.
+  ///
+  /// In en, this message translates to:
+  /// **'State: {state}'**
+  String stateChip(String state);
+
+  /// No description provided for @stateIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Idle'**
+  String get stateIdle;
+
+  /// No description provided for @stateConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting'**
+  String get stateConnecting;
+
+  /// No description provided for @stateReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get stateReady;
+
+  /// No description provided for @stateActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get stateActive;
+
+  /// No description provided for @stateDegraded.
+  ///
+  /// In en, this message translates to:
+  /// **'Degraded'**
+  String get stateDegraded;
+
+  /// No description provided for @stateStopping.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopping'**
+  String get stateStopping;
+
+  /// No description provided for @outReady.
+  ///
+  /// In en, this message translates to:
+  /// **'OUT: ready'**
+  String get outReady;
+
+  /// No description provided for @outNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'OUT: not ready'**
+  String get outNotReady;
+
+  /// No description provided for @inReady.
+  ///
+  /// In en, this message translates to:
+  /// **'IN: ready'**
+  String get inReady;
+
+  /// No description provided for @inNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'IN: not ready'**
+  String get inNotReady;
+
+  /// No description provided for @capturing.
+  ///
+  /// In en, this message translates to:
+  /// **'Capturing'**
+  String get capturing;
+
+  /// No description provided for @latencyNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Latency: —'**
+  String get latencyNone;
+
+  /// No description provided for @latencyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Latency: {ms} ms'**
+  String latencyValue(int ms);
+
+  /// No description provided for @latencyNoMeasurements.
+  ///
+  /// In en, this message translates to:
+  /// **'No measurements yet'**
+  String get latencyNoMeasurements;
+
+  /// No description provided for @latencyLastTurnOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Last turn (you → them)'**
+  String get latencyLastTurnOut;
+
+  /// No description provided for @latencyLastTurnIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Last turn (them → you)'**
+  String get latencyLastTurnIn;
+
+  /// No description provided for @latencyStt.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition commit: {ms} ms'**
+  String latencyStt(int ms);
+
+  /// No description provided for @latencyTranslateFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation first text: {ms} ms'**
+  String latencyTranslateFirst(int ms);
+
+  /// No description provided for @latencyTranslateTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation total: {ms} ms'**
+  String latencyTranslateTotal(int ms);
+
+  /// No description provided for @latencyTtsFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice first audio: {ms} ms'**
+  String latencyTtsFirst(int ms);
+
+  /// No description provided for @latencyTtsTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice total: {ms} ms'**
+  String latencyTtsTotal(int ms);
+
+  /// No description provided for @latencyAudioLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio length: {ms} ms'**
+  String latencyAudioLength(int ms);
+
+  /// No description provided for @latencyModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation model: {model}'**
+  String latencyModel(String model);
+
+  /// No description provided for @panicStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Panic stop (Esc)'**
+  String get panicStop;
+
+  /// No description provided for @muteOutgoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute my outgoing speech'**
+  String get muteOutgoing;
+
+  /// No description provided for @muteIncoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute incoming audio'**
+  String get muteIncoming;
+
+  /// No description provided for @bypassLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Original-mic bypass'**
+  String get bypassLabel;
+
+  /// No description provided for @switchOn.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}: on'**
+  String switchOn(String label);
+
+  /// No description provided for @switchOff.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}: off'**
+  String switchOff(String label);
+
+  /// No description provided for @bypassDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send your real microphone to the call?'**
+  String get bypassDialogTitle;
+
+  /// No description provided for @bypassDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Original-mic bypass sends your own voice to the call without translation. Use it only when you want to speak directly.'**
+  String get bypassDialogBody;
+
+  /// No description provided for @bypassTurnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on bypass'**
+  String get bypassTurnOn;
+
+  /// No description provided for @pttHintHeld.
+  ///
+  /// In en, this message translates to:
+  /// **'Talking… release to send'**
+  String get pttHintHeld;
+
+  /// No description provided for @pttHintReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to talk (or hold Space)'**
+  String get pttHintReady;
+
+  /// No description provided for @pttHintWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to talk — available when the session is ready'**
+  String get pttHintWaiting;
+
+  /// No description provided for @pttHintOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Push-to-talk is off — outgoing turns are automatic'**
+  String get pttHintOff;
+
+  /// No description provided for @pttSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Push to talk. Press and hold while you speak.'**
+  String get pttSemantics;
+
+  /// No description provided for @showOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'Show original'**
+  String get showOriginal;
+
+  /// No description provided for @showTranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'Show translated'**
+  String get showTranslated;
+
+  /// No description provided for @captionsSmaller.
+  ///
+  /// In en, this message translates to:
+  /// **'Smaller captions'**
+  String get captionsSmaller;
+
+  /// No description provided for @captionsLarger.
+  ///
+  /// In en, this message translates to:
+  /// **'Larger captions'**
+  String get captionsLarger;
+
+  /// No description provided for @captionSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size {size}'**
+  String captionSize(int size);
+
+  /// No description provided for @rateGood.
+  ///
+  /// In en, this message translates to:
+  /// **'Good translation'**
+  String get rateGood;
+
+  /// No description provided for @rateBad.
+  ///
+  /// In en, this message translates to:
+  /// **'Poor translation'**
+  String get rateBad;
+
+  /// No description provided for @exportConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Export conversation'**
+  String get exportConversation;
+
+  /// No description provided for @exportConsentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export the conversation?'**
+  String get exportConsentTitle;
+
+  /// No description provided for @exportConsentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The file will contain the other participant\'s words as well as yours. Confirm that they agreed to this.'**
+  String get exportConsentBody;
+
+  /// No description provided for @exportConsentConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'They agreed — export'**
+  String get exportConsentConfirm;
+
+  /// No description provided for @exportSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to {path}'**
+  String exportSaved(String path);
+
+  /// No description provided for @exportDocTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'LiveBridge AI conversation'**
+  String get exportDocTitle;
+
+  /// No description provided for @exportDocExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported: {time}'**
+  String exportDocExported(String time);
+
+  /// No description provided for @exportDocLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages: {pair}'**
+  String exportDocLanguages(String pair);
+
+  /// No description provided for @exportDocMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode: {mode}'**
+  String exportDocMode(String mode);
+
+  /// No description provided for @exportDocNoTurns.
+  ///
+  /// In en, this message translates to:
+  /// **'No finished turns yet.'**
+  String get exportDocNoTurns;
+
+  /// No description provided for @exportDocOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get exportDocOriginal;
+
+  /// No description provided for @exportDocTranslation.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation'**
+  String get exportDocTranslation;
+
+  /// No description provided for @exportDocRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rating'**
+  String get exportDocRating;
+
+  /// No description provided for @exportDocRatingGood.
+  ///
+  /// In en, this message translates to:
+  /// **'good'**
+  String get exportDocRatingGood;
+
+  /// No description provided for @exportDocRatingBad.
+  ///
+  /// In en, this message translates to:
+  /// **'bad'**
+  String get exportDocRatingBad;
+
+  /// No description provided for @analyticsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics'**
+  String get analyticsTitle;
+
+  /// No description provided for @analyticsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbers about your sessions — never the words'**
+  String get analyticsSubtitle;
+
+  /// No description provided for @analyticsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this Mac.'**
+  String get analyticsPrivacy;
+
+  /// No description provided for @analyticsEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Record analytics on this Mac'**
+  String get analyticsEnabled;
+
+  /// No description provided for @analyticsSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions: {count}'**
+  String analyticsSessions(int count);
+
+  /// No description provided for @analyticsTurns.
+  ///
+  /// In en, this message translates to:
+  /// **'Translated turns: {count}'**
+  String analyticsTurns(int count);
+
+  /// No description provided for @analyticsFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'First record: {time}'**
+  String analyticsFirst(String time);
+
+  /// No description provided for @analyticsLast.
+  ///
+  /// In en, this message translates to:
+  /// **'Last record: {time}'**
+  String analyticsLast(String time);
+
+  /// No description provided for @analyticsTimingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Timing (ms)'**
+  String get analyticsTimingTitle;
+
+  /// No description provided for @analyticsColCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Count'**
+  String get analyticsColCount;
+
+  /// No description provided for @analyticsColP50.
+  ///
+  /// In en, this message translates to:
+  /// **'p50'**
+  String get analyticsColP50;
+
+  /// No description provided for @analyticsColP95.
+  ///
+  /// In en, this message translates to:
+  /// **'p95'**
+  String get analyticsColP95;
+
+  /// No description provided for @analyticsColMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Max'**
+  String get analyticsColMax;
+
+  /// No description provided for @analyticsRowE2e.
+  ///
+  /// In en, this message translates to:
+  /// **'End-to-end'**
+  String get analyticsRowE2e;
+
+  /// No description provided for @analyticsRowStt.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition'**
+  String get analyticsRowStt;
+
+  /// No description provided for @analyticsRowTranslateFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation, first text'**
+  String get analyticsRowTranslateFirst;
+
+  /// No description provided for @analyticsRowTranslateTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation, complete'**
+  String get analyticsRowTranslateTotal;
+
+  /// No description provided for @analyticsRowTtsFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice, first audio'**
+  String get analyticsRowTtsFirst;
+
+  /// No description provided for @analyticsErrorsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors by code'**
+  String get analyticsErrorsTitle;
+
+  /// No description provided for @analyticsNoErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'No errors recorded'**
+  String get analyticsNoErrors;
+
+  /// No description provided for @analyticsReconnects.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnects: {count}'**
+  String analyticsReconnects(int count);
+
+  /// No description provided for @analyticsEmptyTurns.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty turns: {count}'**
+  String analyticsEmptyTurns(int count);
+
+  /// No description provided for @analyticsRatedGood.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated good: {count}'**
+  String analyticsRatedGood(int count);
+
+  /// No description provided for @analyticsRatedBad.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated bad: {count}'**
+  String analyticsRatedBad(int count);
+
+  /// No description provided for @analyticsFileSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Log size: {sizeText}'**
+  String analyticsFileSize(String sizeText);
+
+  /// No description provided for @analyticsPath.
+  ///
+  /// In en, this message translates to:
+  /// **'File: {path}'**
+  String analyticsPath(String path);
+
+  /// No description provided for @analyticsExportLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Export log'**
+  String get analyticsExportLog;
+
+  /// No description provided for @analyticsClearLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear log'**
+  String get analyticsClearLog;
+
+  /// No description provided for @analyticsClearTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the analytics log?'**
+  String get analyticsClearTitle;
+
+  /// No description provided for @analyticsClearBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This deletes all recorded numbers on this Mac. It cannot be undone.'**
+  String get analyticsClearBody;
+}
+
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  }
+
+  @override
+  bool isSupported(Locale locale) => <String>['en', 'ru', 'tr', 'uz'].contains(locale.languageCode);
+
+  @override
+  bool shouldReload(_AppLocalizationsDelegate old) => false;
+}
+
+AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when only language code is specified.
+  switch (locale.languageCode) {
+    case 'en':
+      return AppLocalizationsEn();
+    case 'ru':
+      return AppLocalizationsRu();
+    case 'tr':
+      return AppLocalizationsTr();
+    case 'uz':
+      return AppLocalizationsUz();
+  }
+
+  throw FlutterError(
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
+}

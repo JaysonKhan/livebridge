@@ -386,6 +386,7 @@ export class DirectionPipeline {
       translate_first_ms:
         firstDelta === undefined ? undefined : Math.round(firstDelta - started),
       translate_total_ms: Math.round(nowMs() - started),
+      model: translated.model,
       dropped_frames: this.dropped,
     };
 

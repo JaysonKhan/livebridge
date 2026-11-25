@@ -26,6 +26,7 @@ class MainFlutterWindow: NSWindow {
 /// audio never crosses this boundary.
 final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
   private let engine = Engine()
+  private let analytics = AnalyticsLog(fileURL: AnalyticsLog.defaultURL())
   private var events: FlutterEventSink?
 
   init(messenger: FlutterBinaryMessenger) {
@@ -33,7 +34,11 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
     FlutterMethodChannel(name: "livebridge/control", binaryMessenger: messenger)
       .setMethodCallHandler { [weak self] call, result in self?.handle(call, result) }
     FlutterEventChannel(name: "livebridge/events", binaryMessenger: messenger).setStreamHandler(self)
+    // Automated test runs (ephemeral settings) must not write into the user's analytics either.
+    analytics.isEnabled = !Settings.ephemeral && (Settings.preferences()["analyticsEnabled"] as? Bool ?? true)
     engine.onEvent = { [weak self] event in
+      // The analytics log keeps numbers only (timings, counts, codes); caption text is reduced to its length.
+      self?.analytics.record(event: event)
       DispatchQueue.main.async { self?.events?(event) }
     }
     // Quitting mid-session must leave the virtual microphone silent, not half-way through a sentence.
@@ -67,10 +72,36 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
         DispatchQueue.main.async { result(settings) }
       }
     case "saveSettings":
+      if let enabled = arguments["analyticsEnabled"] as? Bool { analytics.isEnabled = enabled && !Settings.ephemeral }
       Settings.queue.async {
         Settings.save(arguments)
         DispatchQueue.main.async { result(nil) }
       }
+    case "saveTextFile":
+      guard let content = arguments["content"] as? String else { return result(Self.badArguments) }
+      save(suggestedName: arguments["suggestedName"] as? String ?? "livebridge.md", result) { url in
+        try content.write(to: url, atomically: true, encoding: .utf8)
+      }
+    case "rateTurn":
+      guard let direction = arguments["direction"] as? String, let turn = arguments["turnId"] as? Int,
+        let rating = arguments["rating"] as? String
+      else { return result(Self.badArguments) }
+      analytics.rate(direction: direction, turnId: turn, rating: rating)
+      result(nil)
+    case "analyticsSummary":
+      Settings.queue.async { [analytics] in
+        let summary = analytics.summary()
+        DispatchQueue.main.async { result(summary) }
+      }
+    case "analyticsExport":
+      let day = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withFullDate])
+      save(suggestedName: "livebridge-analytics-\(day).jsonl", result) { [analytics] url in
+        let log = (try? Data(contentsOf: analytics.fileURL)) ?? Data()
+        try log.write(to: url, options: .atomic)
+      }
+    case "analyticsClear":
+      analytics.clear()
+      result(nil)
     case "microphonePermission":
       result(Self.microphonePermission())
     case "requestMicrophonePermission":
@@ -115,6 +146,23 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
     }
   }
 
+  /// Shows the system Save dialog and runs `write` with the chosen location. Nothing is written without the user
+  /// choosing where: exports are always an explicit action.
+  private func save(suggestedName: String, _ result: @escaping FlutterResult, write: @escaping (URL) throws -> Void) {
+    let panel = NSSavePanel()
+    panel.nameFieldStringValue = suggestedName
+    panel.canCreateDirectories = true
+    panel.begin { response in
+      guard response == .OK, let url = panel.url else { return result(nil) }
+      do {
+        try write(url)
+        result(url.path)
+      } catch {
+        result(FlutterError(code: "save_failed", message: error.localizedDescription, details: nil))
+      }
+    }
+  }
+
   private static let badArguments = FlutterError(code: "bad_arguments", message: "missing or invalid arguments", details: nil)
 
   private static func pids(_ value: Any?) -> [pid_t] {
@@ -130,13 +178,14 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
   }
 }
 
-/// Last-used configuration. The gateway access token lives in the login Keychain; everything else (device UIDs,
-/// language, mode, URL) is in UserDefaults. No captions, audio or transcripts are ever stored.
+/// Last-used configuration and preferences. The gateway access token lives in the login Keychain; everything else
+/// (device UIDs, language, mode, URL, interface language, caption preferences) is in UserDefaults. No captions,
+/// audio or transcripts are ever stored here.
 private enum Settings {
   static let queue = DispatchQueue(label: "livebridge.settings", qos: .userInitiated)
   /// Set LIVEBRIDGE_EPHEMERAL_SETTINGS=1 to keep nothing between launches (automated tests must not touch the
   /// user's Keychain or preferences).
-  private static let ephemeral = ProcessInfo.processInfo.environment["LIVEBRIDGE_EPHEMERAL_SETTINGS"] != nil
+  static let ephemeral = ProcessInfo.processInfo.environment["LIVEBRIDGE_EPHEMERAL_SETTINGS"] != nil
   private static let defaultsKey = "livebridge.settings"
   private static let tokenKey = "accessToken"
   private static let keychainQuery: [String: Any] = [
@@ -145,9 +194,14 @@ private enum Settings {
     kSecAttrAccount as String: "gateway-access-token",
   ]
 
+  /// Everything except the token — never touches the Keychain, so it is safe on any thread.
+  static func preferences() -> [String: Any] {
+    ephemeral ? [:] : UserDefaults.standard.dictionary(forKey: defaultsKey) ?? [:]
+  }
+
   static func load() -> [String: Any] {
     if ephemeral { return [:] }
-    var settings = UserDefaults.standard.dictionary(forKey: defaultsKey) ?? [:]
+    var settings = preferences()
     var query = keychainQuery
     query[kSecReturnData as String] = true
     var item: CFTypeRef?
@@ -159,10 +213,15 @@ private enum Settings {
     return settings
   }
 
+  /// Merges the given keys into what is stored; a null value removes a key.
   static func save(_ values: [String: Any]) {
     if ephemeral { return }
-    var settings = values.filter { !($0.value is NSNull) }
-    if let token = settings.removeValue(forKey: tokenKey) as? String {
+    var settings = preferences()
+    for (key, value) in values where key != tokenKey && key != "sourcePids" {
+      // Process ids are only meaningful while those processes run, so they are never stored.
+      if value is NSNull { settings.removeValue(forKey: key) } else { settings[key] = value }
+    }
+    if let token = values[tokenKey] as? String {
       SecItemDelete(keychainQuery as CFDictionary)
       if !token.isEmpty {
         var item = keychainQuery
@@ -170,8 +229,6 @@ private enum Settings {
         SecItemAdd(item as CFDictionary, nil)
       }
     }
-    // Process ids are only meaningful while those processes run; do not restore them into a later launch.
-    settings.removeValue(forKey: "sourcePids")
     UserDefaults.standard.set(settings, forKey: defaultsKey)
   }
 }

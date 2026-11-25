@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
+import '../l10n/labels.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
 
 class CaptionLane extends ConsumerStatefulWidget {
-  const CaptionLane({super.key, required this.direction, required this.title});
+  const CaptionLane({super.key, required this.direction});
 
   final Direction direction;
-  final String title;
 
   @override
   ConsumerState<CaptionLane> createState() => _CaptionLaneState();
@@ -39,6 +39,7 @@ class _CaptionLaneState extends ConsumerState<CaptionLane> {
     final showOriginal = ref.watch(setupProvider.select((s) => s.showOriginal));
     final showTranslated = ref.watch(setupProvider.select((s) => s.showTranslated));
     ref.listen(sessionProvider.select(_turns), (_, _) => _scrollToEnd());
+    final l = context.l10n;
     final scheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -50,18 +51,21 @@ class _CaptionLaneState extends ConsumerState<CaptionLane> {
           Container(
             color: scheme.surfaceContainerHighest,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(widget.title, style: Theme.of(context).textTheme.titleSmall),
+            child: Text(l.laneTitle(widget.direction), style: Theme.of(context).textTheme.titleSmall),
           ),
           Expanded(
             child: turns.isEmpty
-                ? const Center(child: Text('No captions yet'))
+                ? Center(child: Text(l.noCaptions))
                 : ListView.separated(
                     controller: _scroll,
                     padding: const EdgeInsets.all(12),
                     itemCount: turns.length,
                     separatorBuilder: (_, _) => const Divider(height: 16),
                     itemBuilder: (_, i) => _TurnView(
+                      direction: widget.direction,
                       turn: turns[i],
+                      onRate: (rating) =>
+                          ref.read(sessionProvider.notifier).rateTurn(widget.direction, turns[i].id, rating),
                       fontSize: fontSize,
                       showOriginal: showOriginal,
                       showTranslated: showTranslated,
@@ -76,13 +80,17 @@ class _CaptionLaneState extends ConsumerState<CaptionLane> {
 
 class _TurnView extends StatelessWidget {
   const _TurnView({
+    required this.direction,
     required this.turn,
+    required this.onRate,
     required this.fontSize,
     required this.showOriginal,
     required this.showTranslated,
   });
 
+  final Direction direction;
   final CaptionTurn turn;
+  final ValueChanged<TurnRating> onRate;
   final double fontSize;
   final bool showOriginal;
   final bool showTranslated;
@@ -114,8 +122,63 @@ class _TurnView extends StatelessWidget {
             ],
           ),
         ),
-        if (turn.isLive) const Icon(Icons.more_horiz, size: 18, semanticLabel: 'Still in progress'),
+        if (turn.isLive) Icon(Icons.more_horiz, size: 18, semanticLabel: context.l10n.turnInProgress),
+        if (turn.translationFinal) ...[
+          _RateButton(
+            key: Key('rate-good-${direction.name}-${turn.id}'),
+            label: context.l10n.rateGood,
+            icon: Icons.thumb_up_outlined,
+            activeIcon: Icons.thumb_up,
+            active: turn.rating == TurnRating.good,
+            onPressed: () => onRate(TurnRating.good),
+          ),
+          _RateButton(
+            key: Key('rate-bad-${direction.name}-${turn.id}'),
+            label: context.l10n.rateBad,
+            icon: Icons.thumb_down_outlined,
+            activeIcon: Icons.thumb_down,
+            active: turn.rating == TurnRating.bad,
+            onPressed: () => onRate(TurnRating.bad),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+/// A small thumbs button. The selected state is shown by a filled icon, not by colour alone.
+class _RateButton extends StatelessWidget {
+  const _RateButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+    required this.active,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+  final bool active;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      onTap: onPressed,
+      excludeSemantics: true,
+      child: IconButton(
+        tooltip: label,
+        iconSize: 18,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+        icon: Icon(active ? activeIcon : icon),
+        onPressed: onPressed,
+      ),
     );
   }
 }

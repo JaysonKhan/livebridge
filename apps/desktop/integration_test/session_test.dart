@@ -9,12 +9,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:livebridge/l10n/app_localizations.dart';
 import 'package:livebridge/main.dart' as app;
-import 'package:livebridge/ui/banners.dart';
-import 'package:livebridge/ui/consent_dialog.dart';
 
 const gatewayUrl = String.fromEnvironment('LB_GATEWAY', defaultValue: 'http://127.0.0.1:8201');
 const accessToken = String.fromEnvironment('LB_TOKEN');
+
+/// The test drives the English UI whatever the Mac's language is (see `forcedLocale` below).
+final en = lookupAppLocalizations(const Locale('en'));
 
 Future<void> pumpUntil(WidgetTester tester, Finder finder, String what, {int seconds = 10}) async {
   for (var i = 0; i < seconds * 20; i++) {
@@ -36,7 +38,7 @@ void main() {
 
   testWidgets('captions-only session: real devices, real mic, gateway with fake providers, panic stop', (tester) async {
     expect(accessToken, isNotEmpty, reason: 'pass --dart-define=LB_TOKEN=<gateway access token>');
-    app.main();
+    app.runLiveBridge(forcedLocale: const Locale('en'));
 
     // Devices come from the Core Audio HAL through the native bridge; a Mac always has a built-in microphone.
     await pumpUntil(tester, find.byKey(const Key('start-button')), 'the home screen');
@@ -45,8 +47,11 @@ void main() {
       find.descendant(of: find.byKey(const Key('mic-dropdown')), matching: find.textContaining('MacBook')),
       'the built-in microphone in the device list',
     );
-    // This machine has no BlackHole driver, and the app says so instead of pretending.
-    expect(find.byKey(const Key('blackhole-missing')), findsOneWidget);
+    // The app states the real virtual-microphone situation of this machine: either the driver was found, or the
+    // "not installed" notice is shown — never neither.
+    final virtualMicMissing = find.byKey(const Key('blackhole-missing')).evaluate().isNotEmpty;
+    final virtualMicFound = find.textContaining('Virtual microphone:').evaluate().isNotEmpty;
+    expect(virtualMicMissing != virtualMicFound, isTrue);
 
     await tapVisible(tester, find.text('Captions only'));
     // The setup panel is a lazily built list: scroll the gateway section into existence.
@@ -61,15 +66,15 @@ void main() {
 
     // Start is gated on the consent dialog.
     await tapVisible(tester, find.byKey(const Key('start-button')));
-    await pumpUntil(tester, find.text(consentCheckboxLabel), 'the consent dialog');
+    await pumpUntil(tester, find.text(en.consentCheckbox), 'the consent dialog');
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Confirm')).onPressed, isNull);
-    await tester.tap(find.text(consentCheckboxLabel));
+    await tester.tap(find.text(en.consentCheckbox));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
 
     // Readiness is reported by the gateway, and the mock banner makes clear this is not a real translation.
     await pumpUntil(tester, find.text('OUT: ready'), 'OUT: ready');
-    expect(find.text(mockBannerText), findsOneWidget);
+    expect(find.text(en.mockBanner), findsOneWidget);
     expect(find.text('IN: not ready'), findsOneWidget);
 
     // Hold push-to-talk for 1.5 s: real microphone audio goes to the gateway only during this window.

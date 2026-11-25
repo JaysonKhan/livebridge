@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
+import '../l10n/labels.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
 import 'banners.dart';
 import 'consent_dialog.dart';
+import 'language_picker.dart';
 import 'session_panel.dart';
 import 'setup_panel.dart';
 
@@ -78,14 +80,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final mock = ref.watch(sessionProvider.select((s) => s.mock));
     final bypass = ref.watch(sessionProvider.select((s) => s.bypass));
     final error = ref.watch(sessionProvider.select((s) => s.error));
-    final notice = ref.watch(setupProvider.select((s) => s.deviceNotice));
+    final lostDevices = ref.watch(setupProvider.select((s) => s.lostDevices));
+    final l = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return Focus(
       focusNode: _focus,
       autofocus: true,
       onKeyEvent: _onKey,
       child: Scaffold(
-        appBar: AppBar(title: const Text('LiveBridge AI')),
+        appBar: AppBar(title: const Text('LiveBridge AI'), actions: const [LanguagePicker(), SizedBox(width: 16)]),
         body: Column(
           children: [
             if (bypass) const BypassBanner(),
@@ -93,21 +96,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (error != null)
               StatusBanner(
                 icon: Icons.error_outline,
-                text: '${error.code}: ${error.message}${error.fatal ? ' (the session ended)' : ''}',
+                text:
+                    '${error.code}: ${l.errorMessage(error.code) ?? error.message}'
+                    '${error.fatal ? ' ${l.errorSessionEnded}' : ''}',
                 background: scheme.errorContainer,
                 foreground: scheme.onErrorContainer,
                 bold: false,
-                dismissLabel: 'Dismiss error',
+                dismissLabel: l.dismissError,
                 onDismiss: ref.read(sessionProvider.notifier).dismissError,
               ),
-            if (notice != null)
+            if (lostDevices.isNotEmpty)
               StatusBanner(
                 icon: Icons.usb_off,
-                text: notice,
+                text: lostDevices
+                    .map(
+                      (d) => d.kind == LostDeviceKind.microphone
+                          ? l.noticeMicLost(d.name)
+                          : l.noticeHeadphonesLost(d.name),
+                    )
+                    .join('\n'),
                 background: scheme.secondaryContainer,
                 foreground: scheme.onSecondaryContainer,
                 bold: false,
-                dismissLabel: 'Dismiss notice',
+                dismissLabel: l.dismissNotice,
                 onDismiss: ref.read(setupProvider.notifier).dismissNotice,
               ),
             const Expanded(
@@ -156,7 +167,8 @@ class _StartFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final engine = ref.watch(sessionProvider.select((s) => s.engine));
     final setup = ref.watch(setupProvider);
-    final blockers = startBlockers(setup);
+    final l = context.l10n;
+    final blockers = startBlockers(setup, l);
     final running = engine != EngineState.idle;
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -169,14 +181,14 @@ class _StartFooter extends ConsumerWidget {
               key: const Key('stop-button'),
               onPressed: engine == EngineState.stopping ? null : ref.read(sessionProvider.notifier).stop,
               icon: const Icon(Icons.stop),
-              label: const Text('Stop session'),
+              label: Text(l.stopSession),
             )
           else ...[
             FilledButton.icon(
               key: const Key('start-button'),
               onPressed: blockers.isEmpty ? () => _start(context, ref) : null,
               icon: const Icon(Icons.play_arrow),
-              label: const Text('Start session'),
+              label: Text(l.startSession),
             ),
             for (final reason in blockers)
               Padding(

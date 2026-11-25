@@ -8,11 +8,27 @@
 | Meeting app audio (the other participant) | Only the processes you selected, only during a session. Mac → gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
 | Transcripts and translations | Gateway → Gemini (translation) → ElevenLabs (speech synthesis) → back to the Mac. Shown as captions. | In RAM only; gone when the session or app closes. The last 4 turns per direction are sent with each translation request as context. |
 | Gateway access token | macOS login Keychain. | Until you change it. |
-| Device choices, language, mode, gateway URL | macOS UserDefaults. | Until changed. No content. |
+| Device choices, language, mode, gateway URL, interface language | macOS UserDefaults. | Until changed. No content. |
+| **Conversation export** (text of both speakers) | Only when you press **Export conversation** and choose where to save. A Markdown file on your disk. | Until you delete the file. |
+| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on this Mac; never sent anywhere. | Until you press **Clear log** (capped at 20 MB plus one previous file). |
 
 Nothing is captured before **Start session** and the consent confirmation, and nothing after stop, panic or app
-exit. There is no recording, archive, analytics or transcript export. `STORE_CONTENT` must be `false`; any other
-value stops the gateway at startup.
+exit. There is no audio recording and no automatic transcript storage: the gateway keeps nothing (`STORE_CONTENT`
+must be `false`; any other value stops it at startup), and the app keeps captions in RAM only unless you export them.
+
+### Conversation export
+
+The export contains what **both** people said, with the translations. It is written only on an explicit action, to a
+location you pick, and the app asks once per run whether the other participant agreed to it. Treat the file like a
+recording: the same consent, confidentiality and platform rules apply.
+
+### Analytics log
+
+To judge speed and quality over time the app logs, per turn: stage timings (speech-to-text, translation, speech
+synthesis, end to end), length of the audio, **length** of the texts in characters, the model that answered, error
+codes, reconnects, turns where nothing was recognised, and your thumbs-up / thumbs-down. It never contains the text
+itself (covered by a test). It can be switched off, exported and cleared from the Analytics panel. Sessions against
+fake providers are excluded from the figures.
 
 ## Logs
 

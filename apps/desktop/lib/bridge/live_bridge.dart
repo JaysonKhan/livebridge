@@ -10,6 +10,14 @@ abstract class LiveBridge {
   Future<List<AudioProcess>> listAudioProcesses();
   Future<Map<String, Object?>> loadSettings();
   Future<void> saveSettings(StartConfig config);
+
+  /// Saves preference keys (contract `saveSettings`: the given keys are merged, `null` removes a key).
+  Future<void> savePreferences(Map<String, Object?> preferences);
+  Future<String?> saveTextFile({required String suggestedName, required String content});
+  Future<void> rateTurn(Direction direction, int turnId, String rating);
+  Future<AnalyticsSummary> analyticsSummary();
+  Future<String?> analyticsExport();
+  Future<void> analyticsClear();
   Future<String> microphonePermission();
   Future<bool> requestMicrophonePermission();
   Future<void> startMeters({required String? micUid, required List<int> sourcePids});
@@ -58,6 +66,28 @@ class MethodChannelLiveBridge implements LiveBridge {
 
   @override
   Future<void> saveSettings(StartConfig config) => _control.invokeMethod<void>('saveSettings', config.toMap());
+
+  @override
+  Future<void> savePreferences(Map<String, Object?> preferences) =>
+      _control.invokeMethod<void>('saveSettings', preferences);
+
+  @override
+  Future<String?> saveTextFile({required String suggestedName, required String content}) =>
+      _control.invokeMethod<String>('saveTextFile', {'suggestedName': suggestedName, 'content': content});
+
+  @override
+  Future<void> rateTurn(Direction direction, int turnId, String rating) =>
+      _control.invokeMethod<void>('rateTurn', {'direction': direction.wire, 'turnId': turnId, 'rating': rating});
+
+  @override
+  Future<AnalyticsSummary> analyticsSummary() async =>
+      AnalyticsSummary.fromMap(await _control.invokeMapMethod<Object?, Object?>('analyticsSummary') ?? const {});
+
+  @override
+  Future<String?> analyticsExport() => _control.invokeMethod<String>('analyticsExport');
+
+  @override
+  Future<void> analyticsClear() => _control.invokeMethod<void>('analyticsClear');
 
   @override
   Future<String> microphonePermission() async =>

@@ -1,55 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
-import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/route_check.dart';
 import 'package:livebridge/state/setup_state.dart';
-import 'package:livebridge/ui/app.dart';
-import 'package:livebridge/ui/banners.dart';
 import 'package:livebridge/ui/consent_dialog.dart';
-import 'package:livebridge/ui/home_screen.dart';
 import 'package:livebridge/ui/setup_panel.dart';
 
 import 'fake_live_bridge.dart';
-
-late FakeLiveBridge fake;
-late WidgetTester tt;
-
-Future<ProviderContainer> pumpApp(
-  WidgetTester tester, {
-  FakeLiveBridge? bridge,
-  Size size = const Size(1280, 2400),
-}) async {
-  tt = tester;
-  fake = bridge ?? FakeLiveBridge();
-  // Tall enough that the whole (lazy) setup list is built; the test font is much wider than a real one.
-  tester.view.physicalSize = const Size(1280, 2400);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  addTearDown(fake.dispose);
-  await tester.pumpWidget(
-    ProviderScope(overrides: [bridgeProvider.overrideWithValue(fake)], child: const LiveBridgeApp()),
-  );
-  await tester.pumpAndSettle();
-  return ProviderScope.containerOf(tester.element(find.byType(HomeScreen)));
-}
-
-Future<void> push(BridgeEvent e) async {
-  fake.push(e);
-  await tt.pump();
-}
-
-const readyState = StateEvent(state: EngineState.ready, outReady: true, inReady: true);
-
-Finder get startButton => find.byKey(const Key('start-button'));
-bool startEnabled() => tt.widget<FilledButton>(startButton).onPressed != null;
-
-Future<void> fillToken() async {
-  await tt.enterText(find.byKey(const Key('access-token')), 'secret-token');
-  await tt.pump();
-}
+import 'harness.dart';
 
 void main() {
   group('unsafe routes', () {
@@ -113,13 +72,13 @@ void main() {
 
     testWidgets('BlackHole-missing notice shows only when no BlackHole device is listed', (tester) async {
       await pumpApp(tester, bridge: FakeLiveBridge(devices: [FakeLiveBridge.mic, FakeLiveBridge.headphones]));
-      expect(find.text(blackHoleMissingNotice), findsOneWidget);
+      expect(find.text(en.blackHoleMissingNotice), findsOneWidget);
       expect(find.textContaining(blackHoleInstallHint), findsWidgets);
     });
 
     testWidgets('no notice when BlackHole is present', (tester) async {
       await pumpApp(tester);
-      expect(find.text(blackHoleMissingNotice), findsNothing);
+      expect(find.text(en.blackHoleMissingNotice), findsNothing);
       expect(find.textContaining('Virtual microphone: BlackHole 2ch'), findsOneWidget);
     });
   });
@@ -144,7 +103,7 @@ void main() {
       expect(confirm().onPressed, isNull);
       expect(fake.calls, isNot(contains('start')));
 
-      await tester.tap(find.text(consentCheckboxLabel));
+      await tester.tap(find.text(en.consentCheckbox));
       await tester.pump();
       expect(confirm().onPressed, isNotNull);
       expect(fake.calls, isNot(contains('start')));
@@ -176,7 +135,7 @@ void main() {
       await tester.pump();
       await tester.tap(startButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(consentCheckboxLabel));
+      await tester.tap(find.text(en.consentCheckbox));
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
@@ -287,9 +246,6 @@ void main() {
       return texts.map((t) => t.data).join('|');
     }
 
-    CaptionEvent cap(Direction d, int id, CaptionKind k, String t) =>
-        CaptionEvent(direction: d, turnId: id, kind: k, text: t);
-
     testWidgets('partial, final, translation deltas and final render in the right lane', (tester) async {
       await pumpApp(tester);
       await push(readyState);
@@ -347,14 +303,14 @@ void main() {
   group('status and banners', () {
     testWidgets('mock and bypass banners follow state events', (tester) async {
       await pumpApp(tester);
-      expect(find.text(mockBannerText), findsNothing);
-      expect(find.text(bypassBannerText), findsNothing);
+      expect(find.text(en.mockBanner), findsNothing);
+      expect(find.text(en.bypassBanner), findsNothing);
       await push(const StateEvent(state: EngineState.ready, mock: true, bypass: true));
-      expect(find.text(mockBannerText), findsOneWidget);
-      expect(find.text(bypassBannerText), findsOneWidget);
+      expect(find.text(en.mockBanner), findsOneWidget);
+      expect(find.text(en.bypassBanner), findsOneWidget);
       await push(const StateEvent(state: EngineState.ready));
-      expect(find.text(mockBannerText), findsNothing);
-      expect(find.text(bypassBannerText), findsNothing);
+      expect(find.text(en.mockBanner), findsNothing);
+      expect(find.text(en.bypassBanner), findsNothing);
     });
 
     testWidgets('OUT and IN readiness reflect the event flags', (tester) async {
@@ -456,7 +412,7 @@ void main() {
       expect(find.text('State: Idle'), findsOneWidget);
       expect(find.text('OUT: not ready'), findsOneWidget);
       expect(find.text('Capturing'), findsNothing);
-      expect(find.text(mockBannerText), findsNothing);
+      expect(find.text(en.mockBanner), findsNothing);
       expect(find.textContaining('gateway_lost: Connection closed'), findsOneWidget);
     });
 
@@ -514,7 +470,7 @@ void main() {
       await fillToken();
       await tester.tap(startButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(consentCheckboxLabel));
+      await tester.tap(find.text(en.consentCheckbox));
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();

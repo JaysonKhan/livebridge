@@ -112,6 +112,21 @@ Ekranda ikki alohida yo'lak bor: **You → them** (sizning nutqingiz va tarjimas
 
 Naushnikda suhbatdoshning asl ovozi ham, o'zbekcha tarjima ham eshitiladi (asl ovozni o'chirish hali qilinmagan).
 
+## 3a. Til, eksport va analitika
+
+- **Interfeys tili:** ilova tepasidagi ro'yxatdan O'zbekcha / Русский / Türkçe / English ni tanlang. Tanlov saqlanadi.
+  Bu faqat ilova yozuvlari tili; tarjima yo'nalishlari o'zgarmaydi (o'zbek ↔ ingliz/rus).
+- **Avtomatik rejim:** *Outgoing turn mode* da `Auto: VAD` yoki `Auto: turn prediction` tanlansa, Space bosish
+  kerak emas. Naushnik taqing: karnay bilan suhbatdosh ovozi mikrofonga qaytib tushadi. (Tarjima ovozi o'ynayotgan
+  paytda ilova mikrofonni vaqtincha yopadi, lekin bu faqat o'z tarjima ovozidan himoya qiladi.)
+- **Suhbatni eksport qilish:** *Export conversation* tugmasi ikkala tomon gaplari va tarjimalarini vaqt belgilari
+  bilan Markdown faylga saqlaydi. Fayl faqat siz tugmani bosganda va joyini tanlaganda yoziladi. Unda suhbatdoshning
+  so'zlari ham bo'ladi — uning roziligi kerak.
+- **Baholash:** har bir tarjima yonida 👍 / 👎 bor. Belgilaganingiz analitikaga yoziladi (matn emas, faqat belgi).
+- **Analitika:** chap paneldagi *Analytics* bo'limi tezlik (boshdan-oxir, nutqni tanish, tarjima, ovoz sintezi —
+  o'rtacha va eng yomon holatlar), xatolar, uzilishlar va baholaringizni ko'rsatadi. Jurnalda faqat raqamlar
+  saqlanadi, matn yo'q; u shu Mac'da qoladi. Bo'limdan o'chirish, eksport qilish va tozalash mumkin.
+
 ## 4. Oddiy mikrofonga qaytish
 
 Uchrashuv ilovasida Microphone'ni yana haqiqiy mikrofoningizga o'zgartiring. LiveBridge macOS'ning standart

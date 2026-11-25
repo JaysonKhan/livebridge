@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/labels.dart';
+
 /// A full-width, high-visibility strip. Always icon + text, never colour alone.
 class StatusBanner extends StatelessWidget {
   const StatusBanner({
@@ -9,16 +11,16 @@ class StatusBanner extends StatelessWidget {
     required this.background,
     required this.foreground,
     this.onDismiss,
-    this.dismissLabel = 'Dismiss',
+    this.dismissLabel,
     this.bold = true,
-  });
+  }) : assert(onDismiss == null || dismissLabel != null, 'a dismissible banner needs a dismissLabel');
 
   final IconData icon;
   final String text;
   final Color background;
   final Color foreground;
   final VoidCallback? onDismiss;
-  final String dismissLabel;
+  final String? dismissLabel;
   final bool bold;
 
   @override
@@ -61,9 +63,6 @@ class StatusBanner extends StatelessWidget {
   }
 }
 
-const mockBannerText = 'MOCK PROVIDERS — test tones and placeholder text, not a real translation';
-const bypassBannerText = 'BYPASS — your real microphone is going to the call, untranslated';
-
 class MockBanner extends StatelessWidget {
   const MockBanner({super.key});
 
@@ -72,7 +71,7 @@ class MockBanner extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     return StatusBanner(
       icon: Icons.science_outlined,
-      text: mockBannerText,
+      text: context.l10n.mockBanner,
       background: c.tertiaryContainer,
       foreground: c.onTertiaryContainer,
     );
@@ -87,7 +86,7 @@ class BypassBanner extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     return StatusBanner(
       icon: Icons.warning_amber_rounded,
-      text: bypassBannerText,
+      text: context.l10n.bypassBanner,
       background: c.error,
       foreground: c.onError,
     );

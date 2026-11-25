@@ -1,38 +1,31 @@
 import '../bridge/models.dart';
+import '../l10n/app_localizations.dart';
 import 'setup_state.dart';
 
-const blackHoleMissingNotice = 'BlackHole 2ch not installed — outgoing speech unavailable; captions still work';
 const blackHoleInstallHint = 'brew install blackhole-2ch';
 
 /// Reasons why Start must stay disabled. Empty means the route is safe to start.
-List<String> startBlockers(SetupState s) {
+List<String> startBlockers(SetupState s, AppLocalizations l) {
   final reasons = <String>[];
   final mic = s.deviceByUid(s.micUid);
   final phones = s.deviceByUid(s.headphonesUid);
   final virtualMic = s.virtualMic;
 
   if (s.micUid == null) {
-    reasons.add('Choose a microphone.');
+    reasons.add(l.blockChooseMic);
   } else if (virtualMic != null && s.micUid == virtualMic.uid) {
-    reasons.add(
-      'Unsafe route: the microphone is the same device as the virtual microphone (${mic?.name}). '
-      'Choose your physical microphone.',
-    );
+    reasons.add(l.blockMicIsVirtual(mic?.name ?? ''));
   }
 
   if (s.headphonesUid == null) {
-    reasons.add('Choose headphones.');
+    reasons.add(l.blockChooseHeadphones);
   } else if (phones != null && phones.isVirtual) {
-    reasons.add('Unsafe route: the headphones are a virtual device (${phones.name}). Choose your physical headphones.');
+    reasons.add(l.blockHeadphonesVirtual(phones.name));
   }
 
-  if (s.mode == SessionMode.bidirectional && virtualMic == null) {
-    reasons.add('Bidirectional speech needs a virtual microphone (BlackHole 2ch), which is not installed.');
-  }
-  if (s.mode == SessionMode.incoming && s.sourcePids.isEmpty) {
-    reasons.add('Incoming audio needs at least one meeting source.');
-  }
-  if (s.gatewayUrl.trim().isEmpty) reasons.add('Enter the gateway URL.');
-  if (s.accessToken.trim().isEmpty) reasons.add('Enter the access token.');
+  if (s.mode == SessionMode.bidirectional && virtualMic == null) reasons.add(l.blockBidirectionalNeedsVirtual);
+  if (s.mode == SessionMode.incoming && s.sourcePids.isEmpty) reasons.add(l.blockIncomingNeedsSource);
+  if (s.gatewayUrl.trim().isEmpty) reasons.add(l.blockEnterGateway);
+  if (s.accessToken.trim().isEmpty) reasons.add(l.blockEnterToken);
   return reasons;
 }

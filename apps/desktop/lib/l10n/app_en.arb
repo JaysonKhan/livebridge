@@ -1,0 +1,452 @@
+{
+  "@@locale": "en",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "refresh": "Refresh",
+  "copied": "Copied",
+  "delete": "Delete",
+  "notSelected": "Not selected",
+  "dismissError": "Dismiss error",
+  "dismissNotice": "Dismiss notice",
+  "languagePickerTooltip": "Interface language",
+  "mockBanner": "MOCK PROVIDERS — test tones and placeholder text, not a real translation",
+  "bypassBanner": "BYPASS — your real microphone is going to the call, untranslated",
+  "errorSessionEnded": "(the session ended)",
+  "errProviderUnavailable": "The translation or voice service is unavailable right now.",
+  "errTranslationFailed": "A phrase could not be translated.",
+  "errTranslationRejected": "The translation came back unusable, so nothing was spoken.",
+  "errTtsFailed": "A phrase could not be spoken.",
+  "errCaptureBacklog": "Audio is piling up faster than it can be processed.",
+  "errCaptureOverflow": "Some audio was dropped because processing fell behind.",
+  "errSynthesisCongested": "The voice service is congested; speech may be delayed.",
+  "errPlaybackOverflow": "Too much audio is waiting to play; some was skipped.",
+  "errSourceGone": "The meeting app stopped playing audio or was closed.",
+  "errDeviceRemoved": "An audio device was disconnected.",
+  "errGatewayUnreachable": "Cannot reach the gateway. Check the gateway URL and your internet connection.",
+  "errUnauthorized": "The gateway rejected the access token. Check the token in setup.",
+  "errSessionLimit": "The gateway's session limit is reached. Try again later.",
+  "errSessionExpired": "The session expired. Start a new one.",
+  "errNoVirtualMic": "The virtual microphone (BlackHole 2ch) was not found.",
+  "errNoHeadphones": "The selected headphones were not found.",
+  "errNoMicrophone": "The selected microphone was not found.",
+  "errUnsafeRoute": "Unsafe audio route refused: the microphone or headphones are a virtual device.",
+  "blockChooseMic": "Choose a microphone.",
+  "blockMicIsVirtual": "Unsafe route: the microphone is the same device as the virtual microphone ({device}). Choose your physical microphone.",
+  "@blockMicIsVirtual": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "blockChooseHeadphones": "Choose headphones.",
+  "blockHeadphonesVirtual": "Unsafe route: the headphones are a virtual device ({device}). Choose your physical headphones.",
+  "@blockHeadphonesVirtual": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "blockBidirectionalNeedsVirtual": "Bidirectional speech needs a virtual microphone (BlackHole 2ch), which is not installed.",
+  "blockIncomingNeedsSource": "Incoming audio needs at least one meeting source.",
+  "blockEnterGateway": "Enter the gateway URL.",
+  "blockEnterToken": "Enter the access token.",
+  "noticeMicLost": "Microphone \"{name}\" is no longer available. Choose another microphone.",
+  "@noticeMicLost": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noticeHeadphonesLost": "Headphones \"{name}\" are no longer available. Choose other headphones.",
+  "@noticeHeadphonesLost": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startSession": "Start session",
+  "stopSession": "Stop session",
+  "setupLocked": "Setup is locked while a session is running.",
+  "sectionLanguageMode": "Language and mode",
+  "pairEn": "Uzbek ↔ English",
+  "pairRu": "Uzbek ↔ Russian",
+  "modeCaptionsTitle": "Captions only",
+  "modeCaptionsDesc": "Live captions both ways. Nothing is spoken.",
+  "modeIncomingTitle": "Incoming audio",
+  "modeIncomingDesc": "Captions both ways, plus their speech translated into Uzbek in your headphones.",
+  "modeBidirectionalTitle": "Bidirectional speech",
+  "modeBidirectionalDesc": "Also speaks your translation into the call with your own voice, through the virtual microphone.",
+  "sectionDevices": "Devices",
+  "deviceMicrophone": "Microphone",
+  "deviceHeadphones": "Headphones",
+  "virtualMicFound": "Virtual microphone: {name} found",
+  "@virtualMicFound": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blackHoleMissingNotice": "BlackHole 2ch not installed — outgoing speech unavailable; captions still work",
+  "blackHoleInstallWith": "Install it with: {command}",
+  "@blackHoleInstallWith": {
+    "placeholders": {
+      "command": {
+        "type": "String"
+      }
+    }
+  },
+  "sectionMeetingSource": "Meeting source",
+  "noAudioApps": "No apps are using audio right now. Open your meeting app, then press Refresh.",
+  "processPid": "pid {pid}",
+  "@processPid": {
+    "placeholders": {
+      "pid": {
+        "type": "int"
+      }
+    }
+  },
+  "processPlaying": "playing",
+  "sectionGateway": "Outgoing turns and gateway",
+  "outgoingTurnMode": "Outgoing turn mode",
+  "turnPttTitle": "Push-to-talk",
+  "turnPttDesc": "Hold the button or the Space key while you speak.",
+  "turnVadTitle": "Auto: VAD",
+  "turnVadDesc": "Sends your speech when you pause.",
+  "turnPredictionTitle": "Auto: turn prediction",
+  "turnPredictionDesc": "Predicts when you have finished a thought.",
+  "gatewayUrl": "Gateway URL",
+  "accessToken": "Access token",
+  "translationModelOptional": "Translation model (optional)",
+  "testDevicesTitle": "Test your devices",
+  "testDevicesUnavailable": "Not available while a session is running",
+  "testDevicesSubtitle": "Level meters, test tones, permission",
+  "levelMic": "Microphone level",
+  "levelSource": "Meeting source level",
+  "levelSilent": "silent",
+  "testHeadphones": "Test headphones",
+  "testVirtualMic": "Test virtual mic",
+  "testToneNote": "Each test plays one quiet tone. Leave any call that uses BlackHole 2ch before testing.",
+  "micPermission": "Microphone permission: {status}",
+  "@micPermission": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "permissionGranted": "granted",
+  "permissionDenied": "denied",
+  "permissionUndetermined": "not asked yet",
+  "permissionRequest": "Request",
+  "routingTitle": "Routing instructions",
+  "routingSubtitle": "How to set up Zoom, Meet and Upwork",
+  "routingZoomDesktopTitle": "Zoom Desktop",
+  "routingZoom1": "Open Zoom → Settings → Audio.",
+  "routingZoom2": "Microphone: BlackHole 2ch.",
+  "routingZoom3": "Speaker: your headphones.",
+  "routingZoom4": "Start the session here before you speak.",
+  "routingWebTitle": "Zoom Web / Google Meet",
+  "routingWeb1": "Open the browser's audio settings for the call.",
+  "routingWeb2": "Microphone: BlackHole 2ch. Speaker: your headphones.",
+  "routingWeb3": "Use a dedicated browser window and close other tabs that play audio.",
+  "routingUpworkTitle": "Upwork",
+  "routingUpwork1": "Start the call from Upwork Messages.",
+  "routingUpwork2": "Then use the same Zoom Desktop or browser settings as above.",
+  "routingBackTitle": "How to return to normal",
+  "routingBack1": "In the meeting app, select your physical microphone again.",
+  "routingBack2": "Stop the session here.",
+  "routingInstallVirtual": "Install the virtual microphone: {command}",
+  "@routingInstallVirtual": {
+    "placeholders": {
+      "command": {
+        "type": "String"
+      }
+    }
+  },
+  "consentTitle": "Tell the other participants first",
+  "consentIntro": "Say or paste this sentence into the call chat before you start.",
+  "consentCopyEnglish": "Copy English",
+  "consentCopyRussian": "Copy Russian",
+  "consentCheckbox": "The other participants have been informed and agreed",
+  "laneOut": "You → them",
+  "laneIn": "Them → you",
+  "noCaptions": "No captions yet",
+  "turnInProgress": "Still in progress",
+  "stateChip": "State: {state}",
+  "@stateChip": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "stateIdle": "Idle",
+  "stateConnecting": "Connecting",
+  "stateReady": "Ready",
+  "stateActive": "Active",
+  "stateDegraded": "Degraded",
+  "stateStopping": "Stopping",
+  "outReady": "OUT: ready",
+  "outNotReady": "OUT: not ready",
+  "inReady": "IN: ready",
+  "inNotReady": "IN: not ready",
+  "capturing": "Capturing",
+  "latencyNone": "Latency: —",
+  "latencyValue": "Latency: {ms} ms",
+  "@latencyValue": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyNoMeasurements": "No measurements yet",
+  "latencyLastTurnOut": "Last turn (you → them)",
+  "latencyLastTurnIn": "Last turn (them → you)",
+  "latencyStt": "Speech recognition commit: {ms} ms",
+  "@latencyStt": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyTranslateFirst": "Translation first text: {ms} ms",
+  "@latencyTranslateFirst": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyTranslateTotal": "Translation total: {ms} ms",
+  "@latencyTranslateTotal": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyTtsFirst": "Voice first audio: {ms} ms",
+  "@latencyTtsFirst": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyTtsTotal": "Voice total: {ms} ms",
+  "@latencyTtsTotal": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyAudioLength": "Audio length: {ms} ms",
+  "@latencyAudioLength": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "latencyModel": "Translation model: {model}",
+  "@latencyModel": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "panicStop": "Panic stop (Esc)",
+  "muteOutgoing": "Mute my outgoing speech",
+  "muteIncoming": "Mute incoming audio",
+  "bypassLabel": "Original-mic bypass",
+  "switchOn": "{label}: on",
+  "@switchOn": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "switchOff": "{label}: off",
+  "@switchOff": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "bypassDialogTitle": "Send your real microphone to the call?",
+  "bypassDialogBody": "Original-mic bypass sends your own voice to the call without translation. Use it only when you want to speak directly.",
+  "bypassTurnOn": "Turn on bypass",
+  "pttHintHeld": "Talking… release to send",
+  "pttHintReady": "Hold to talk (or hold Space)",
+  "pttHintWaiting": "Hold to talk — available when the session is ready",
+  "pttHintOff": "Push-to-talk is off — outgoing turns are automatic",
+  "pttSemantics": "Push to talk. Press and hold while you speak.",
+  "showOriginal": "Show original",
+  "showTranslated": "Show translated",
+  "captionsSmaller": "Smaller captions",
+  "captionsLarger": "Larger captions",
+  "captionSize": "Size {size}",
+  "@captionSize": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "rateGood": "Good translation",
+  "rateBad": "Poor translation",
+  "exportConversation": "Export conversation",
+  "exportConsentTitle": "Export the conversation?",
+  "exportConsentBody": "The file will contain the other participant's words as well as yours. Confirm that they agreed to this.",
+  "exportConsentConfirm": "They agreed — export",
+  "exportSaved": "Saved to {path}",
+  "@exportSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDocTitle": "LiveBridge AI conversation",
+  "exportDocExported": "Exported: {time}",
+  "@exportDocExported": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDocLanguages": "Languages: {pair}",
+  "@exportDocLanguages": {
+    "placeholders": {
+      "pair": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDocMode": "Mode: {mode}",
+  "@exportDocMode": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDocNoTurns": "No finished turns yet.",
+  "exportDocOriginal": "Original",
+  "exportDocTranslation": "Translation",
+  "exportDocRating": "Your rating",
+  "exportDocRatingGood": "good",
+  "exportDocRatingBad": "bad",
+  "analyticsTitle": "Analytics",
+  "analyticsSubtitle": "Numbers about your sessions — never the words",
+  "analyticsPrivacy": "The log holds numbers only — timings, counts, error codes and your ratings. It contains no transcript text and stays on this Mac.",
+  "analyticsEnabled": "Record analytics on this Mac",
+  "analyticsSessions": "Sessions: {count}",
+  "@analyticsSessions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsTurns": "Translated turns: {count}",
+  "@analyticsTurns": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsFirst": "First record: {time}",
+  "@analyticsFirst": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsLast": "Last record: {time}",
+  "@analyticsLast": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsTimingTitle": "Timing (ms)",
+  "analyticsColCount": "Count",
+  "analyticsColP50": "p50",
+  "analyticsColP95": "p95",
+  "analyticsColMax": "Max",
+  "analyticsRowE2e": "End-to-end",
+  "analyticsRowStt": "Speech recognition",
+  "analyticsRowTranslateFirst": "Translation, first text",
+  "analyticsRowTranslateTotal": "Translation, complete",
+  "analyticsRowTtsFirst": "Voice, first audio",
+  "analyticsErrorsTitle": "Errors by code",
+  "analyticsNoErrors": "No errors recorded",
+  "analyticsReconnects": "Reconnects: {count}",
+  "@analyticsReconnects": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsEmptyTurns": "Empty turns: {count}",
+  "@analyticsEmptyTurns": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsRatedGood": "Rated good: {count}",
+  "@analyticsRatedGood": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsRatedBad": "Rated bad: {count}",
+  "@analyticsRatedBad": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsFileSize": "Log size: {sizeText}",
+  "@analyticsFileSize": {
+    "placeholders": {
+      "sizeText": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsPath": "File: {path}",
+  "@analyticsPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsExportLog": "Export log",
+  "analyticsClearLog": "Clear log",
+  "analyticsClearTitle": "Clear the analytics log?",
+  "analyticsClearBody": "This deletes all recorded numbers on this Mac. It cannot be undone."
+}

@@ -11,8 +11,13 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 |---|---|---|
 | `listDevices` | — | `List<Map>`: `uid` String, `name` String, `inputChannels` int, `outputChannels` int, `sampleRate` double, `transport` String (`builtin`, `usb`, `bluetooth`, `virtual`, `aggregate`, `other`), `isDefaultInput` bool, `isDefaultOutput` bool |
 | `listAudioProcesses` | — | `List<Map>`: `pid` int, `bundleId` String, `name` String, `isPlaying` bool — processes that currently own an audio object |
-| `loadSettings` | — | `Map` of the last saved `start` config keys (missing keys absent). `accessToken` comes from the Keychain, the rest from UserDefaults |
-| `saveSettings` | same keys as the `start` config, all optional | — |
+| `loadSettings` | — | `Map` of everything saved so far (missing keys absent): the `start` config keys plus the preference keys below. `accessToken` comes from the Keychain, the rest from UserDefaults |
+| `saveSettings` | any subset of the `start` config keys and preference keys | — (the given keys are **merged** into what is stored; a `null` value removes a key) |
+| `saveTextFile` | `suggestedName` String, `content` String | String? — shows the system Save dialog and writes UTF-8 text; returns the saved path, or `null` if the user cancelled |
+| `rateTurn` | `direction` String, `turnId` int, `rating` String (`good`, `bad`, `none`) | — (records the owner's judgement of a translation in the analytics log; no text is stored) |
+| `analyticsSummary` | — | `Map`, see "Analytics" below |
+| `analyticsExport` | — | String? — Save dialog for the raw analytics file (JSON Lines); saved path or `null` |
+| `analyticsClear` | — | — (deletes the analytics file) |
 | `microphonePermission` | — | String: `granted`, `denied`, `undetermined` |
 | `requestMicrophonePermission` | — | bool |
 | `startMeters` | `micUid` String?, `sourcePids` List<int> | — (setup-screen level meters; no network) |
@@ -41,6 +46,15 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `outCommit` | String | `manual` (push-to-talk), `vad`, `turn_prediction` |
 | `translationModel` | String? | must be allowed by the gateway |
 
+### Preference keys (stored with the settings, not part of `start`)
+
+| Key | Type | Meaning |
+|---|---|---|
+| `uiLanguage` | String | `uz`, `ru`, `tr` or `en`; absent = follow the system language if supported, else English |
+| `analyticsEnabled` | bool | default `true`; `false` stops writing the analytics log |
+| `captionFontSize` | double | caption text size |
+| `showOriginal` / `showTranslated` | bool | caption line visibility |
+
 Mode semantics: `captions` — both directions transcribe and translate, nothing is synthesized, no virtual mic needed.
 `incoming` — captions both ways plus Uzbek audio in the headphones. `bidirectional` — also synthesizes the owner's
 clone into the virtual mic.
@@ -59,3 +73,27 @@ Each event is a map with a `type` key.
 | `devicesChanged` | — (re-query `listDevices`) |
 
 `translationDelta` text is the incremental piece; `partial` text replaces the previous partial for that turn.
+
+## Analytics
+
+The native side keeps a local log of **numbers only** — timings, counts, error codes, ratings. It never contains
+transcript or translation text, and nothing is sent anywhere. One JSON object per line in
+`~/Library/Application Support/LiveBridge/analytics.jsonl`.
+
+`analyticsSummary` returns:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `enabled` | bool | whether logging is on |
+| `path` | String | where the log file is |
+| `fileSizeBytes` | int | size of the log |
+| `sessions` | int | sessions started (mock sessions excluded) |
+| `turns` | int | translated turns (both directions) |
+| `firstAt` / `lastAt` | String? | ISO-8601 time of the first and last record |
+| `e2eMs`, `sttCommitMs`, `translateFirstMs`, `translateTotalMs`, `ttsFirstAudioMs` | Map? | each `{count, p50, p95, max}` in milliseconds; absent when there is no data. `e2eMs` is push-to-talk release → first audible translated sample |
+| `errors` | Map<String,int> | error code → count |
+| `reconnects` | int | times the gateway connection was lost |
+| `emptyTurns` | int | turns that ended with nothing recognised |
+| `ratedGood` / `ratedBad` | int | turns the owner marked |
+
+`metrics` events gain an optional `model` String (the translation model that answered the turn).

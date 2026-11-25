@@ -1,10 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
+import '../l10n/app_localizations.dart';
 import 'providers.dart';
 import 'session_state.dart';
 
 const Object _keep = Object();
+
+enum LostDeviceKind { microphone, headphones }
+
+/// A selected device that disappeared; the UI words the notice in the current language.
+class LostDevice {
+  const LostDevice(this.kind, this.name);
+
+  final LostDeviceKind kind;
+  final String name;
+}
 
 class SetupState {
   const SetupState({
@@ -20,10 +33,11 @@ class SetupState {
     this.accessToken = '',
     this.translationModel = '',
     this.micPermission = 'undetermined',
-    this.deviceNotice,
+    this.lostDevices = const [],
     this.captionFontSize = 18,
     this.showOriginal = true,
     this.showTranslated = true,
+    this.uiLanguage,
   });
 
   final List<AudioDevice> devices;
@@ -38,10 +52,13 @@ class SetupState {
   final String accessToken;
   final String translationModel;
   final String micPermission;
-  final String? deviceNotice;
+  final List<LostDevice> lostDevices;
   final double captionFontSize;
   final bool showOriginal;
   final bool showTranslated;
+
+  /// The saved interface language (`uz`, `ru`, `tr`, `en`); null follows the system language.
+  final String? uiLanguage;
 
   SetupState copyWith({
     List<AudioDevice>? devices,
@@ -56,10 +73,11 @@ class SetupState {
     String? accessToken,
     String? translationModel,
     String? micPermission,
-    Object? deviceNotice = _keep,
+    List<LostDevice>? lostDevices,
     double? captionFontSize,
     bool? showOriginal,
     bool? showTranslated,
+    Object? uiLanguage = _keep,
   }) => SetupState(
     devices: devices ?? this.devices,
     processes: processes ?? this.processes,
@@ -73,10 +91,11 @@ class SetupState {
     accessToken: accessToken ?? this.accessToken,
     translationModel: translationModel ?? this.translationModel,
     micPermission: micPermission ?? this.micPermission,
-    deviceNotice: identical(deviceNotice, _keep) ? this.deviceNotice : deviceNotice as String?,
+    lostDevices: lostDevices ?? this.lostDevices,
     captionFontSize: captionFontSize ?? this.captionFontSize,
     showOriginal: showOriginal ?? this.showOriginal,
     showTranslated: showTranslated ?? this.showTranslated,
+    uiLanguage: identical(uiLanguage, _keep) ? this.uiLanguage : uiLanguage as String?,
   );
 
   /// Physical microphones (anything with input channels; a virtual one is refused by the route check).
@@ -145,6 +164,12 @@ class SetupNotifier extends Notifier<SetupState> {
         targetLang: parseWire(TargetLang.values, saved['targetLang']),
         mode: parseWire(SessionMode.values, saved['mode']),
         outCommit: parseWire(OutCommit.values, saved['outCommit']),
+        captionFontSize: (saved['captionFontSize'] as num?)?.clamp(12, 40).toDouble(),
+        showOriginal: saved['showOriginal'] as bool?,
+        showTranslated: saved['showTranslated'] as bool?,
+        uiLanguage: AppLocalizations.supportedLocales.any((l) => l.languageCode == saved['uiLanguage'])
+            ? saved['uiLanguage'] as String
+            : null,
       );
     } on Exception catch (e) {
       ref.read(sessionProvider.notifier).reportException(e, 'loadSettings');
@@ -157,23 +182,17 @@ class SetupNotifier extends Notifier<SetupState> {
       final devices = await ref.read(bridgeProvider).listDevices();
       if (!ref.mounted) return;
       final old = state;
-      final notices = <String>[];
+      final lost = <LostDevice>[];
       var next = old.copyWith(devices: devices);
       if (old.micUid != null && !next.inputDevices.any((d) => d.uid == old.micUid)) {
-        notices.add(
-          'Microphone "${old.deviceByUid(old.micUid)?.name ?? old.micUid}" is no longer available. '
-          'Choose another microphone.',
-        );
+        lost.add(LostDevice(LostDeviceKind.microphone, old.deviceByUid(old.micUid)?.name ?? old.micUid!));
         next = next.copyWith(micUid: null);
       }
       if (old.headphonesUid != null && !devices.any((d) => d.uid == old.headphonesUid && d.outputChannels > 0)) {
-        notices.add(
-          'Headphones "${old.deviceByUid(old.headphonesUid)?.name ?? old.headphonesUid}" are no longer '
-          'available. Choose other headphones.',
-        );
+        lost.add(LostDevice(LostDeviceKind.headphones, old.deviceByUid(old.headphonesUid)?.name ?? old.headphonesUid!));
         next = next.copyWith(headphonesUid: null);
       }
-      state = notices.isEmpty ? next : next.copyWith(deviceNotice: notices.join('\n'));
+      state = lost.isEmpty ? next : next.copyWith(lostDevices: lost);
     } on Exception catch (e) {
       ref.read(sessionProvider.notifier).reportException(e, 'listDevices');
     }
@@ -215,11 +234,34 @@ class SetupNotifier extends Notifier<SetupState> {
   void setGatewayUrl(String v) => state = state.copyWith(gatewayUrl: v);
   void setAccessToken(String v) => state = state.copyWith(accessToken: v);
   void setTranslationModel(String v) => state = state.copyWith(translationModel: v);
-  void dismissNotice() => state = state.copyWith(deviceNotice: null);
-  void setShowOriginal(bool v) => state = state.copyWith(showOriginal: v);
-  void setShowTranslated(bool v) => state = state.copyWith(showTranslated: v);
-  void changeFontSize(double delta) =>
-      state = state.copyWith(captionFontSize: (state.captionFontSize + delta).clamp(12, 40).toDouble());
+  void dismissNotice() => state = state.copyWith(lostDevices: const []);
+
+  /// Saves preference keys; a failure shows up in the error strip.
+  void _persist(Map<String, Object?> preferences) => unawaited(
+    ref
+        .read(sessionProvider.notifier)
+        .guard('saveSettings', () => ref.read(bridgeProvider).savePreferences(preferences)),
+  );
+
+  void setShowOriginal(bool v) {
+    state = state.copyWith(showOriginal: v);
+    _persist({'showOriginal': v});
+  }
+
+  void setShowTranslated(bool v) {
+    state = state.copyWith(showTranslated: v);
+    _persist({'showTranslated': v});
+  }
+
+  void changeFontSize(double delta) {
+    state = state.copyWith(captionFontSize: (state.captionFontSize + delta).clamp(12, 40).toDouble());
+    _persist({'captionFontSize': state.captionFontSize});
+  }
+
+  void setUiLanguage(String code) {
+    state = state.copyWith(uiLanguage: code);
+    _persist({'uiLanguage': code});
+  }
 }
 
 final setupProvider = NotifierProvider<SetupNotifier, SetupState>(SetupNotifier.new);

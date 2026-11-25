@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
+import '../l10n/labels.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
+import 'analytics_section.dart';
 import 'device_test.dart';
 import 'routing_help.dart';
 
@@ -14,6 +16,7 @@ class SetupPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final running = ref.watch(sessionProvider.select((s) => s.running));
+    final l = context.l10n;
     return IgnorePointer(
       ignoring: running,
       child: Opacity(
@@ -22,10 +25,10 @@ class SetupPanel extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           children: [
             if (running)
-              const Padding(
-                key: ValueKey('locked-note'),
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text('Setup is locked while a session is running.'),
+              Padding(
+                key: const ValueKey('locked-note'),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(l.setupLocked),
               ),
             const _LanguageAndMode(key: ValueKey('lang')),
             const _DevicesSection(key: ValueKey('devices')),
@@ -33,6 +36,7 @@ class SetupPanel extends ConsumerWidget {
             const _GatewaySection(key: ValueKey('gateway')),
             const Card(key: ValueKey('wizard'), child: DeviceTestSection()),
             const Card(key: ValueKey('routing'), child: RoutingHelp()),
+            const Card(key: ValueKey('analytics'), child: AnalyticsSection()),
           ],
         ),
       ),
@@ -110,27 +114,19 @@ class ChoiceList<T> extends StatelessWidget {
 class _LanguageAndMode extends ConsumerWidget {
   const _LanguageAndMode({super.key});
 
-  static const _modes = [
-    ChoiceOption(SessionMode.captions, 'Captions only', 'Live captions both ways. Nothing is spoken.'),
-    ChoiceOption(
-      SessionMode.incoming,
-      'Incoming audio',
-      'Captions both ways, plus their speech translated into Uzbek in your headphones.',
-    ),
-    ChoiceOption(
-      SessionMode.bidirectional,
-      'Bidirectional speech',
-      'Also speaks your translation into the call with your own voice, through the virtual microphone.',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final modes = [
+      ChoiceOption(SessionMode.captions, l.modeCaptionsTitle, l.modeCaptionsDesc),
+      ChoiceOption(SessionMode.incoming, l.modeIncomingTitle, l.modeIncomingDesc),
+      ChoiceOption(SessionMode.bidirectional, l.modeBidirectionalTitle, l.modeBidirectionalDesc),
+    ];
     final lang = ref.watch(setupProvider.select((s) => s.targetLang));
     final mode = ref.watch(setupProvider.select((s) => s.mode));
     final notifier = ref.read(setupProvider.notifier);
     return SectionCard(
-      title: 'Language and mode',
+      title: l.sectionLanguageMode,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -138,19 +134,19 @@ class _LanguageAndMode extends ConsumerWidget {
             spacing: 8,
             children: [
               ChoiceChip(
-                label: const Text('Uzbek ↔ English'),
+                label: Text(l.pairEn),
                 selected: lang == TargetLang.en,
                 onSelected: (_) => notifier.setTargetLang(TargetLang.en),
               ),
               ChoiceChip(
-                label: const Text('Uzbek ↔ Russian'),
+                label: Text(l.pairRu),
                 selected: lang == TargetLang.ru,
                 onSelected: (_) => notifier.setTargetLang(TargetLang.ru),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ChoiceList<SessionMode>(options: _modes, value: mode, onChanged: notifier.setMode),
+          ChoiceList<SessionMode>(options: modes, value: mode, onChanged: notifier.setMode),
         ],
       ),
     );
@@ -181,7 +177,7 @@ class _DeviceDropdown extends StatelessWidget {
           isExpanded: true,
           isDense: true,
           value: value,
-          hint: const Text('Not selected'),
+          hint: Text(context.l10n.notSelected),
           items: [
             for (final d in devices)
               DropdownMenuItem(
@@ -204,15 +200,16 @@ class _DevicesSection extends ConsumerWidget {
     final s = ref.watch(setupProvider);
     final notifier = ref.read(setupProvider.notifier);
     final virtualMic = s.virtualMic;
+    final l = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return SectionCard(
-      title: 'Devices',
+      title: l.sectionDevices,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _DeviceDropdown(
             key: const Key('mic-dropdown'),
-            label: 'Microphone',
+            label: l.deviceMicrophone,
             devices: s.inputDevices,
             selectedUid: s.micUid,
             onChanged: notifier.setMic,
@@ -220,7 +217,7 @@ class _DevicesSection extends ConsumerWidget {
           const SizedBox(height: 12),
           _DeviceDropdown(
             key: const Key('headphones-dropdown'),
-            label: 'Headphones',
+            label: l.deviceHeadphones,
             devices: s.outputDevices,
             selectedUid: s.headphonesUid,
             onChanged: notifier.setHeadphones,
@@ -231,7 +228,7 @@ class _DevicesSection extends ConsumerWidget {
               children: [
                 const Icon(Icons.check_circle_outline),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Virtual microphone: ${virtualMic.name} found')),
+                Expanded(child: Text(l.virtualMicFound(virtualMic.name))),
               ],
             )
           else
@@ -249,12 +246,12 @@ class _DevicesSection extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          blackHoleMissingNotice,
+                          l.blackHoleMissingNotice,
                           style: TextStyle(color: scheme.onTertiaryContainer, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         SelectableText(
-                          'Install it with: $blackHoleInstallHint',
+                          l.blackHoleInstallWith(blackHoleInstallHint),
                           style: TextStyle(color: scheme.onTertiaryContainer),
                         ),
                       ],
@@ -278,15 +275,16 @@ class _MeetingSourceSection extends ConsumerWidget {
     final selected = ref.watch(setupProvider.select((s) => s.sourcePids));
     final notifier = ref.read(setupProvider.notifier);
     final sorted = [...processes]..sort((a, b) => a.isPlaying == b.isPlaying ? 0 : (a.isPlaying ? -1 : 1));
+    final l = context.l10n;
     return SectionCard(
-      title: 'Meeting source',
+      title: l.sectionMeetingSource,
       trailing: TextButton.icon(
         onPressed: notifier.refreshProcesses,
         icon: const Icon(Icons.refresh),
-        label: const Text('Refresh'),
+        label: Text(l.refresh),
       ),
       child: sorted.isEmpty
-          ? const Text('No apps are using audio right now. Open your meeting app, then press Refresh.')
+          ? Text(l.noAudioApps)
           : ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 200),
               child: ListView(
@@ -300,11 +298,15 @@ class _MeetingSourceSection extends ConsumerWidget {
                       value: selected.contains(p.pid),
                       onChanged: (v) => notifier.toggleSource(p.pid, v ?? false),
                       title: Text(p.name),
-                      subtitle: Text('pid ${p.pid}'),
+                      subtitle: Text(l.processPid(p.pid)),
                       secondary: p.isPlaying
-                          ? const Row(
+                          ? Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: [Icon(Icons.volume_up, size: 18), SizedBox(width: 4), Text('playing')],
+                              children: [
+                                const Icon(Icons.volume_up, size: 18),
+                                const SizedBox(width: 4),
+                                Text(l.processPlaying),
+                              ],
                             )
                           : null,
                     ),
@@ -318,37 +320,37 @@ class _MeetingSourceSection extends ConsumerWidget {
 class _GatewaySection extends ConsumerWidget {
   const _GatewaySection({super.key});
 
-  static const _turnModes = [
-    ChoiceOption(OutCommit.manual, 'Push-to-talk', 'Hold the button or the Space key while you speak.'),
-    ChoiceOption(OutCommit.vad, 'Auto: VAD', 'Sends your speech when you pause.'),
-    ChoiceOption(OutCommit.turnPrediction, 'Auto: turn prediction', 'Predicts when you have finished a thought.'),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final turnModes = [
+      ChoiceOption(OutCommit.manual, l.turnPttTitle, l.turnPttDesc),
+      ChoiceOption(OutCommit.vad, l.turnVadTitle, l.turnVadDesc),
+      ChoiceOption(OutCommit.turnPrediction, l.turnPredictionTitle, l.turnPredictionDesc),
+    ];
     final outCommit = ref.watch(setupProvider.select((s) => s.outCommit));
     final gatewayUrl = ref.watch(setupProvider.select((s) => s.gatewayUrl));
     final token = ref.watch(setupProvider.select((s) => s.accessToken));
     final model = ref.watch(setupProvider.select((s) => s.translationModel));
     final notifier = ref.read(setupProvider.notifier);
     return SectionCard(
-      title: 'Outgoing turns and gateway',
+      title: l.sectionGateway,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Outgoing turn mode', style: Theme.of(context).textTheme.labelLarge),
-          ChoiceList<OutCommit>(options: _turnModes, value: outCommit, onChanged: notifier.setOutCommit),
+          Text(l.outgoingTurnMode, style: Theme.of(context).textTheme.labelLarge),
+          ChoiceList<OutCommit>(options: turnModes, value: outCommit, onChanged: notifier.setOutCommit),
           const SizedBox(height: 8),
           StateTextField(
             key: const Key('gateway-url'),
-            label: 'Gateway URL',
+            label: l.gatewayUrl,
             value: gatewayUrl,
             onChanged: notifier.setGatewayUrl,
           ),
           const SizedBox(height: 12),
           StateTextField(
             key: const Key('access-token'),
-            label: 'Access token',
+            label: l.accessToken,
             value: token,
             obscure: true,
             onChanged: notifier.setAccessToken,
@@ -356,7 +358,7 @@ class _GatewaySection extends ConsumerWidget {
           const SizedBox(height: 12),
           StateTextField(
             key: const Key('translation-model'),
-            label: 'Translation model (optional)',
+            label: l.translationModelOptional,
             value: model,
             onChanged: notifier.setTranslationModel,
           ),
