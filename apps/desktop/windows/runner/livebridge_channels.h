@@ -10,19 +10,21 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "livebridge/analytics_log.h"
 #include "livebridge/json.h"
 
 class WinEngineHost;
+class WinTelemetry;
 
 // The Windows side of docs/bridge-contract.md: the `livebridge/control` method channel and the
 // `livebridge/events` event channel.
 //
-// This stage is "captions on Windows": devices, the microphone, the gateway connection, captions, level meters
-// and the analytics log are real. Per-process capture, playback (and with it the test tone), the Save dialogs,
-// telemetry, feedback and system language names are not ported yet; those methods answer without doing anything.
+// Everything in the contract is real except `languageNames`, which answers with no names (the app then uses its own
+// and the English ones).
 //
 // Threads: Flutter's channels belong to the platform (UI) thread, and so does every method here except
 // OnEngineEvent(). The audio engine lives on its own thread (win_engine_host.h); its events are queued here and
@@ -36,7 +38,7 @@ class LiveBridgeChannels {
   // Stops the engine thread (closing a running session) before anything else goes away.
   ~LiveBridgeChannels();
 
-  // Hands the queued engine events to Flutter.
+  // Hands the queued engine events, and the answers to feedback sent in the background, to Flutter.
   void DrainEvents();
 
  private:
@@ -44,6 +46,8 @@ class LiveBridgeChannels {
                         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
   // Engine thread: logs the event's numbers, then queues it for the platform thread.
   void OnEngineEvent(const livebridge::Json& event);
+  // Any thread: asks the window for a DrainEvents() call unless one is already on its way. Takes pending_mutex_.
+  void RequestDrain();
 
   const HWND window_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> control_;
@@ -57,8 +61,17 @@ class LiveBridgeChannels {
   // Engine events on their way to the platform thread.
   std::mutex pending_mutex_;
   std::vector<livebridge::Json> pending_;
+  // Feedback results from the telemetry worker, waiting to be answered on the platform thread.
+  std::vector<std::pair<std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>, std::string>> replies_;
   // A kEventsMessage is on its way to the window and has not been answered yet.
   bool drain_requested_ = false;
+
+  // A session is running; engine thread only. Its end triggers an upload of the statistics (when sharing is on).
+  bool session_running_ = false;
+
+  // Opt-in statistics and feedback. Before host_: the engine thread asks it to upload until host_ is joined; reset
+  // right after host_ in the destructor, before the members its feedback callback uses.
+  std::unique_ptr<WinTelemetry> telemetry_;
 
   // Last, and reset first in the destructor: its thread calls OnEngineEvent() until it is joined.
   std::unique_ptr<WinEngineHost> host_;
