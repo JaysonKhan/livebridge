@@ -547,7 +547,7 @@ abstract class AppLocalizations {
   /// No description provided for @sectionGateway.
   ///
   /// In en, this message translates to:
-  /// **'Outgoing turns and gateway'**
+  /// **'Outgoing turns and connection'**
   String get sectionGateway;
 
   /// No description provided for @outgoingTurnMode.
@@ -1911,6 +1911,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You were signed out. Sign in again.'**
   String get noticeSignedOut;
+
+  /// No description provided for @topUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Top up'**
+  String get topUp;
+
+  /// No description provided for @accountPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Account page'**
+  String get accountPage;
+
+  /// No description provided for @signOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get signOut;
+
+  /// No description provided for @changeConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Change connection'**
+  String get changeConnection;
+
+  /// No description provided for @connectionOwnKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Own keys'**
+  String get connectionOwnKeys;
+
+  /// No description provided for @connectionChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get connectionChange;
+
+  /// No description provided for @chipMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'≈ {minutes} min'**
+  String chipMinutes(int minutes);
+
+  /// No description provided for @topUpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Top up your balance'**
+  String get topUpTitle;
+
+  /// No description provided for @topUpMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String topUpMinutes(int minutes);
+
+  /// No description provided for @topUpTaxNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices are before tax; the checkout page shows the total.'**
+  String get topUpTaxNote;
+
+  /// No description provided for @topUpNoPackages.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the packages.'**
+  String get topUpNoPackages;
+
+  /// No description provided for @topUpTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get topUpTryAgain;
+
+  /// No description provided for @topUpRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a minute and try again.'**
+  String get topUpRateLimited;
+
+  /// No description provided for @topUpNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the site. Check your internet connection.'**
+  String get topUpNetwork;
+
+  /// No description provided for @topUpUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The checkout page could not be opened right now. Try again later.'**
+  String get topUpUnavailable;
+
+  /// No description provided for @bannerBalanceEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance is empty — top up'**
+  String get bannerBalanceEmpty;
+
+  /// No description provided for @bannerBillingUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing could not be reached. Try again.'**
+  String get bannerBillingUnavailable;
+
+  /// No description provided for @bannerIdleTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The session ended after 10 minutes without speech.'**
+  String get bannerIdleTimeout;
+
+  /// No description provided for @bannerSessionReplaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The session continued on another device.'**
+  String get bannerSessionReplaced;
+
+  /// No description provided for @bannerSessionLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The service is busy. Try again in a minute.'**
+  String get bannerSessionLimit;
+
+  /// No description provided for @connectionAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account'**
+  String get connectionAccount;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

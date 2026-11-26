@@ -259,7 +259,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get processPlaying => 'playing';
 
   @override
-  String get sectionGateway => 'Outgoing turns and gateway';
+  String get sectionGateway => 'Outgoing turns and connection';
 
   @override
   String get outgoingTurnMode => 'Outgoing turn mode';
@@ -1016,4 +1016,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noticeSignedOut => 'You were signed out. Sign in again.';
+
+  @override
+  String get topUp => 'Top up';
+
+  @override
+  String get accountPage => 'Account page';
+
+  @override
+  String get signOut => 'Sign out';
+
+  @override
+  String get changeConnection => 'Change connection';
+
+  @override
+  String get connectionOwnKeys => 'Own keys';
+
+  @override
+  String get connectionChange => 'Change';
+
+  @override
+  String chipMinutes(int minutes) {
+    return '≈ $minutes min';
+  }
+
+  @override
+  String get topUpTitle => 'Top up your balance';
+
+  @override
+  String topUpMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get topUpTaxNote => 'Prices are before tax; the checkout page shows the total.';
+
+  @override
+  String get topUpNoPackages => 'Could not load the packages.';
+
+  @override
+  String get topUpTryAgain => 'Try again';
+
+  @override
+  String get topUpRateLimited => 'Too many attempts. Wait a minute and try again.';
+
+  @override
+  String get topUpNetwork => 'Could not reach the site. Check your internet connection.';
+
+  @override
+  String get topUpUnavailable => 'The checkout page could not be opened right now. Try again later.';
+
+  @override
+  String get bannerBalanceEmpty => 'Balance is empty — top up';
+
+  @override
+  String get bannerBillingUnavailable => 'Billing could not be reached. Try again.';
+
+  @override
+  String get bannerIdleTimeout => 'The session ended after 10 minutes without speech.';
+
+  @override
+  String get bannerSessionReplaced => 'The session continued on another device.';
+
+  @override
+  String get bannerSessionLimit => 'The service is busy. Try again in a minute.';
+
+  @override
+  String get connectionAccount => 'Your account';
 }

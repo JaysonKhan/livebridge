@@ -232,11 +232,97 @@ void main() {
     }
   }
 
+  /// The signed-in main screen at the smallest window (980×680): the header chip with its menu, the top-up sheet with
+  /// its longest sentences, every banner with its button, and the keys and gateway chips. Nothing may overflow.
+  Future<void> exerciseAccount(WidgetTester tester, HostPlatform platform, String code) async {
+    final site = FakeAccountClient()
+      ..meAnswer = FakeAccountClient.info(123456789)
+      ..packageList = const [
+        Package(code: 'starter', priceCents: 600, units: 300000, minutes: 50),
+        Package(code: 'standard', priceCents: 1550, units: 900000, minutes: 150),
+        Package(code: 'pro', priceCents: 4000, units: 3000000, minutes: 500),
+      ]
+      ..checkoutAnswer = const AccountError('rate_limited');
+    final bridge = FakeLiveBridge()
+      ..settings = {
+        'connectionMode': 'account',
+        'accountRefreshToken': 'refresh-0',
+        'gatewayUrl': 'https://${'g' * 60}.example',
+      };
+    await pumpApp(
+      tester,
+      bridge: bridge,
+      size: const Size(980, 680),
+      forceLocale: Locale(code),
+      platform: platform,
+      site: site,
+      overrides: [delayProvider.overrideWithValue((_) => Completer<void>().future)],
+    );
+    final l = lookupAppLocalizations(Locale(code));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('account-chip')));
+    await tester.pumpAndSettle();
+    expect(find.text(l.signOut), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text(l.topUp));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('top-up-sheet')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('package-pro')));
+    await tester.pumpAndSettle();
+    expect(find.text(l.topUpRateLimited), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.widgetWithText(OutlinedButton, l.cancel));
+    await tester.pumpAndSettle();
+
+    for (final error in [
+      'balance_exhausted',
+      'billing_unavailable',
+      'idle_timeout',
+      'session_replaced',
+      'session_limit',
+    ]) {
+      await push(ErrorEvent(code: error, message: 'raw', fatal: true));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: error);
+    }
+  }
+
+  /// The chip of the two other connections, and the summary line with a long address.
+  Future<void> exerciseOtherChips(WidgetTester tester, HostPlatform platform, String code, String mode) async {
+    final bridge = FakeLiveBridge()
+      ..settings = {
+        'connectionMode': mode,
+        'gatewayUrl': 'https://${'g' * 60}.example',
+        'elevenlabsApiKey': 'k',
+        'geminiApiKey': 'g',
+      };
+    await pumpApp(tester, bridge: bridge, size: const Size(980, 680), forceLocale: Locale(code), platform: platform);
+    final l = lookupAppLocalizations(Locale(code));
+    await tester.tap(find.byKey(const Key('account-chip')));
+    await tester.pumpAndSettle();
+    expect(find.text(l.changeConnection), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }
+
   for (final platform in HostPlatform.values) {
     for (final code in ['uz', 'ru', 'tr', 'en']) {
       testWidgets('${platform.name} / $code: the onboarding fits 980×680', (tester) async {
         await exerciseOnboarding(tester, platform, code);
       });
+    }
+  }
+
+  for (final platform in HostPlatform.values) {
+    for (final code in ['uz', 'ru', 'tr', 'en']) {
+      testWidgets('${platform.name} / $code: the account screen, menu, sheet and banners fit 980×680', (tester) async {
+        await exerciseAccount(tester, platform, code);
+      });
+      for (final mode in ['keys', 'gateway']) {
+        testWidgets('${platform.name} / $code: the $mode chip and summary fit 980×680', (tester) async {
+          await exerciseOtherChips(tester, platform, code, mode);
+        });
+      }
     }
   }
 }

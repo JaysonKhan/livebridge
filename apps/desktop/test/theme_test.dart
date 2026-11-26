@@ -86,12 +86,12 @@ void main() {
         testWidgets('text boxes and drop-downs have the control height and the platform border', (tester) async {
           await _pump(tester, platform, brightness);
           // A text box, an editable drop-down (with its menu button) and a plain drop-down.
-          for (final key in ['access-token', 'my-language', 'mic-dropdown']) {
+          for (final key in ['translation-model', 'my-language', 'mic-dropdown']) {
             final box = find.descendant(of: find.byKey(Key(key)), matching: find.byType(InputDecorator));
             expect(tester.getSize(box).height, windows ? 32 : 24, reason: key);
           }
           final field = tester.widget<InputDecorator>(
-            find.descendant(of: find.byKey(const Key('access-token')), matching: find.byType(InputDecorator)),
+            find.descendant(of: find.byKey(const Key('translation-model')), matching: find.byType(InputDecorator)),
           );
           final border = WidgetStateProperty.resolveAs(field.decoration.border, <WidgetState>{}) as ControlInputBorder;
           final focused =

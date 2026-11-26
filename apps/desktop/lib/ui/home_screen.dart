@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +11,7 @@ import '../state/host_platform.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
+import 'account_chip.dart';
 import 'adaptive/platform_header.dart';
 import 'banners.dart';
 import 'consent_dialog.dart';
@@ -16,6 +19,7 @@ import 'language_picker.dart';
 import 'session_panel.dart';
 import 'setup_panel.dart';
 import 'theme/tokens.dart';
+import 'top_up_sheet.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -27,8 +31,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _focus = FocusNode(debugLabel: 'home');
 
+  /// Back from the browser after a purchase (or after the site could not be reached at launch): read the balance
+  /// again.
+  late final AppLifecycleListener _lifecycle;
+
+  void _refreshAccount() {
+    if (ref.read(connectionProvider).mode == ConnectionMode.account) {
+      unawaited(ref.read(connectionProvider.notifier).refreshAccount());
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _refreshAccount);
+  }
+
   @override
   void dispose() {
+    _lifecycle.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -93,20 +114,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Scaffold(
         body: Column(
           children: [
-            const PlatformHeader(trailing: LanguagePicker()),
+            const PlatformHeader(
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [AccountChip(), SizedBox(width: 8), LanguagePicker()],
+              ),
+            ),
             if (bypass) const BypassBanner(),
             if (mock) const MockBanner(),
-            if (error != null)
-              StatusBanner(
-                icon: Icons.error_outline,
-                text:
-                    '${error.code}: ${l.errorMessage(error.code, ref.watch(hostPlatformProvider)) ?? error.message}'
-                    '${error.fatal ? ' ${l.errorSessionEnded}' : ''}',
-                severity: StatusSeverity.critical,
-                bold: false,
-                dismissLabel: l.dismissError,
-                onDismiss: ref.read(sessionProvider.notifier).dismissError,
-              ),
+            if (error != null) _ErrorStrip(error),
             if (lostDevices.isNotEmpty)
               StatusBanner(
                 icon: Icons.usb_off,
@@ -141,6 +157,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+/// Starts a session after the other participants agreed (the consent dialog).
+Future<void> _startWithConsent(BuildContext context, WidgetRef ref) async {
+  final agreed = await showConsentDialog(context);
+  if (!agreed || !context.mounted) return;
+  await ref.read(connectionProvider.notifier).start(ref.read(setupProvider).toConfig());
+}
+
+/// The strip under the header for the last session error. The codes people can act on get their own sentence (and a
+/// button); the rest show the engine's code and message.
+class _ErrorStrip extends ConsumerWidget {
+  const _ErrorStrip(this.error);
+
+  final ErrorEvent error;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final account = ref.watch(connectionProvider.select((s) => s.mode)) == ConnectionMode.account;
+    // An account's refused token is retried once and then signs out (the onboarding explains); not an error here.
+    if (account && error.code == 'invalid_token') return const SizedBox.shrink();
+    final dismiss = ref.read(sessionProvider.notifier).dismissError;
+    StatusBanner banner(IconData icon, String text, StatusSeverity severity, [Widget? action]) => StatusBanner(
+      icon: icon,
+      text: text,
+      severity: severity,
+      bold: false,
+      action: action,
+      dismissLabel: l.dismissError,
+      onDismiss: dismiss,
+    );
+    switch (error.code) {
+      case 'balance_empty' || 'balance_exhausted':
+        return banner(
+          Icons.account_balance_wallet_outlined,
+          l.bannerBalanceEmpty,
+          StatusSeverity.caution,
+          account
+              ? FilledButton(
+                  key: const Key('banner-top-up'),
+                  onPressed: () => showTopUpSheet(context),
+                  child: Text(l.topUp),
+                )
+              : null,
+        );
+      case 'billing_unavailable':
+        return banner(Icons.cloud_off_outlined, l.bannerBillingUnavailable, StatusSeverity.critical);
+      case 'idle_timeout':
+        final blocked = startBlockers(
+          ref.watch(setupProvider),
+          l,
+          ref.watch(hostPlatformProvider),
+          connection: ref.watch(connectionProvider),
+        ).isNotEmpty;
+        return banner(
+          Icons.timer_off_outlined,
+          l.bannerIdleTimeout,
+          StatusSeverity.caution,
+          FilledButton(
+            key: const Key('banner-start'),
+            onPressed: blocked ? null : () => _startWithConsent(context, ref),
+            child: Text(l.startSession),
+          ),
+        );
+      case 'session_replaced':
+        return banner(Icons.devices_outlined, l.bannerSessionReplaced, StatusSeverity.caution);
+      case 'session_limit':
+        return banner(Icons.hourglass_empty, l.bannerSessionLimit, StatusSeverity.caution);
+    }
+    return banner(
+      Icons.error_outline,
+      '${error.code}: ${l.errorMessage(error.code, ref.watch(hostPlatformProvider)) ?? error.message}'
+      '${error.fatal ? ' ${l.errorSessionEnded}' : ''}',
+      StatusSeverity.critical,
+    );
+  }
+}
+
 /// The setup column: 400 px in the default window, growing with the window (a quarter of it) up to 480 px on large
 /// screens.
 double setupColumnWidth(double windowWidth) => (windowWidth / 4).clamp(400, 480);
@@ -163,12 +256,6 @@ class _SetupColumn extends StatelessWidget {
 
 class _StartFooter extends ConsumerWidget {
   const _StartFooter();
-
-  Future<void> _start(BuildContext context, WidgetRef ref) async {
-    final agreed = await showConsentDialog(context);
-    if (!agreed || !context.mounted) return;
-    await ref.read(connectionProvider.notifier).start(ref.read(setupProvider).toConfig());
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -199,7 +286,7 @@ class _StartFooter extends ConsumerWidget {
           else ...[
             FilledButton.icon(
               key: const Key('start-button'),
-              onPressed: blockers.isEmpty ? () => _start(context, ref) : null,
+              onPressed: blockers.isEmpty ? () => _startWithConsent(context, ref) : null,
               icon: const Icon(Icons.play_arrow),
               label: Text(l.startSession),
             ),

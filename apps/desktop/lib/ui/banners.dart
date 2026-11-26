@@ -24,6 +24,7 @@ class StatusBanner extends StatelessWidget {
     this.onDismiss,
     this.dismissLabel,
     this.bold = true,
+    this.action,
   }) : assert(onDismiss == null || dismissLabel != null, 'a dismissible banner needs a dismissLabel');
 
   final IconData icon;
@@ -32,6 +33,9 @@ class StatusBanner extends StatelessWidget {
   final VoidCallback? onDismiss;
   final String? dismissLabel;
   final bool bold;
+
+  /// A button after the text (Top up, Start).
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +67,7 @@ class StatusBanner extends StatelessWidget {
                         .copyWith(color: t.textPrimary, fontWeight: bold ? FontWeight.w600 : null),
                   ),
                 ),
+                if (action != null) ...[const SizedBox(width: 12), action!],
                 if (onDismiss != null)
                   Semantics(
                     button: true,

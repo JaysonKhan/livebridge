@@ -262,7 +262,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get processPlaying => 'çalıyor';
 
   @override
-  String get sectionGateway => 'Giden konuşmalar ve gateway';
+  String get sectionGateway => 'Giden konuşmalar ve bağlantı';
 
   @override
   String get outgoingTurnMode => 'Konuşmanın gönderilme şekli';
@@ -1020,4 +1020,71 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get noticeSignedOut => 'Oturumunuz kapandı. Yeniden giriş yapın.';
+
+  @override
+  String get topUp => 'Bakiye yükle';
+
+  @override
+  String get accountPage => 'Hesap sayfası';
+
+  @override
+  String get signOut => 'Çıkış yap';
+
+  @override
+  String get changeConnection => 'Bağlantıyı değiştir';
+
+  @override
+  String get connectionOwnKeys => 'Kendi anahtarlarım';
+
+  @override
+  String get connectionChange => 'Değiştir';
+
+  @override
+  String chipMinutes(int minutes) {
+    return '≈ $minutes dk';
+  }
+
+  @override
+  String get topUpTitle => 'Bakiyeni yükle';
+
+  @override
+  String topUpMinutes(int minutes) {
+    return '$minutes dk';
+  }
+
+  @override
+  String get topUpTaxNote => 'Fiyatlara vergi dahil değildir; toplam tutar ödeme sayfasında gösterilir.';
+
+  @override
+  String get topUpNoPackages => 'Paketler yüklenemedi.';
+
+  @override
+  String get topUpTryAgain => 'Tekrar dene';
+
+  @override
+  String get topUpRateLimited => 'Çok fazla deneme. Bir dakika bekleyip tekrar deneyin.';
+
+  @override
+  String get topUpNetwork => 'Siteye ulaşılamadı. İnternet bağlantınızı kontrol edin.';
+
+  @override
+  String get topUpUnavailable => 'Ödeme sayfası şu an açılamadı. Daha sonra tekrar deneyin.';
+
+  @override
+  String get bannerBalanceEmpty => 'Bakiye bitti — bakiye yükleyin';
+
+  @override
+  String get bannerBillingUnavailable => 'Ödeme hizmetine ulaşılamadı. Tekrar deneyin.';
+
+  @override
+  String get bannerIdleTimeout => 'Oturum, 10 dakika konuşma olmadığı için sona erdi.';
+
+  @override
+  String get bannerSessionReplaced => 'Oturum başka bir cihazda devam ettirildi.';
+
+  @override
+  String get bannerSessionLimit => 'Hizmet meşgul. Bir dakika sonra tekrar deneyin.';
+
+  @override
+  String get connectionAccount => 'Hesabınız';
 }

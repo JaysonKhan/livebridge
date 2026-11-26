@@ -75,7 +75,7 @@
   "noAudioApps": "Şu anda sesi kullanan uygulama yok. Toplantı uygulamasını açın ve Yenile düğmesine basın.",
   "processPid": "pid {pid}",
   "processPlaying": "çalıyor",
-  "sectionGateway": "Giden konuşmalar ve gateway",
+  "sectionGateway": "Giden konuşmalar ve bağlantı",
   "outgoingTurnMode": "Konuşmanın gönderilme şekli",
   "turnPttTitle": "Bas-konuş",
   "turnPttDesc": "Konuşurken düğmeyi veya Boşluk tuşunu basılı tutun.",
@@ -302,5 +302,40 @@
   "signInDenied": "Giriş tarayıcıda reddedildi.",
   "signInNetwork": "Giriş hizmetine ulaşılamadı. İnternet bağlantınızı kontrol edin.",
   "signInRateLimited": "Çok fazla deneme yapıldı. Bir dakika bekleyip tekrar deneyin.",
-  "noticeSignedOut": "Oturumunuz kapandı. Yeniden giriş yapın."
+  "noticeSignedOut": "Oturumunuz kapandı. Yeniden giriş yapın.",
+  "topUp": "Bakiye yükle",
+  "accountPage": "Hesap sayfası",
+  "signOut": "Çıkış yap",
+  "changeConnection": "Bağlantıyı değiştir",
+  "connectionOwnKeys": "Kendi anahtarlarım",
+  "connectionChange": "Değiştir",
+  "chipMinutes": "≈ {minutes} dk",
+  "@chipMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTitle": "Bakiyeni yükle",
+  "topUpMinutes": "{minutes} dk",
+  "@topUpMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTaxNote": "Fiyatlara vergi dahil değildir; toplam tutar ödeme sayfasında gösterilir.",
+  "topUpNoPackages": "Paketler yüklenemedi.",
+  "topUpTryAgain": "Tekrar dene",
+  "topUpRateLimited": "Çok fazla deneme. Bir dakika bekleyip tekrar deneyin.",
+  "topUpNetwork": "Siteye ulaşılamadı. İnternet bağlantınızı kontrol edin.",
+  "topUpUnavailable": "Ödeme sayfası şu an açılamadı. Daha sonra tekrar deneyin.",
+  "bannerBalanceEmpty": "Bakiye bitti — bakiye yükleyin",
+  "bannerBillingUnavailable": "Ödeme hizmetine ulaşılamadı. Tekrar deneyin.",
+  "bannerIdleTimeout": "Oturum, 10 dakika konuşma olmadığı için sona erdi.",
+  "bannerSessionReplaced": "Oturum başka bir cihazda devam ettirildi.",
+  "bannerSessionLimit": "Hizmet meşgul. Bir dakika sonra tekrar deneyin.",
+  "connectionAccount": "Hesabınız"
 }

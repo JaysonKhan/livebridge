@@ -8,6 +8,7 @@ import 'package:livebridge/state/connection_state.dart';
 import 'package:livebridge/state/host_platform.dart';
 import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/sample_player.dart';
+import 'package:livebridge/state/setup_state.dart';
 import 'package:livebridge/ui/app.dart';
 
 import 'fake_account_client.dart';
@@ -84,7 +85,9 @@ Finder get startButton => find.byKey(const Key('start-button'));
 bool startEnabled() => tt.widget<FilledButton>(startButton).onPressed != null;
 
 Future<void> fillToken() async {
-  await tt.enterText(find.byKey(const Key('access-token')), 'secret-token');
+  ProviderScope.containerOf(tt.element(find.byType(MaterialApp)))
+      .read(setupProvider.notifier)
+      .setAccessToken('secret-token');
   await tt.pump();
 }
 

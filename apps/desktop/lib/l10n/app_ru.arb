@@ -75,7 +75,7 @@
   "noAudioApps": "Сейчас ни одно приложение не использует звук. Откройте приложение встречи и нажмите «Обновить».",
   "processPid": "pid {pid}",
   "processPlaying": "играет",
-  "sectionGateway": "Исходящие фразы и шлюз",
+  "sectionGateway": "Исходящие фразы и подключение",
   "outgoingTurnMode": "Как отправлять вашу речь",
   "turnPttTitle": "Нажми и говори",
   "turnPttDesc": "Удерживайте кнопку или пробел, пока говорите.",
@@ -302,5 +302,40 @@
   "signInDenied": "Вход отклонён в браузере.",
   "signInNetwork": "Не удалось связаться со службой входа. Проверьте подключение к интернету.",
   "signInRateLimited": "Слишком много попыток. Подождите минуту и повторите.",
-  "noticeSignedOut": "Вы вышли из аккаунта. Войдите снова."
+  "noticeSignedOut": "Вы вышли из аккаунта. Войдите снова.",
+  "topUp": "Пополнить",
+  "accountPage": "Страница аккаунта",
+  "signOut": "Выйти",
+  "changeConnection": "Сменить подключение",
+  "connectionOwnKeys": "Свои ключи",
+  "connectionChange": "Изменить",
+  "chipMinutes": "≈ {minutes} мин",
+  "@chipMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTitle": "Пополнение баланса",
+  "topUpMinutes": "{minutes} мин",
+  "@topUpMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTaxNote": "Цены указаны без налога; итоговая сумма показана на странице оплаты.",
+  "topUpNoPackages": "Не удалось загрузить пакеты.",
+  "topUpTryAgain": "Повторить",
+  "topUpRateLimited": "Слишком много попыток. Подождите минуту и повторите.",
+  "topUpNetwork": "Не удалось связаться с сайтом. Проверьте подключение к интернету.",
+  "topUpUnavailable": "Страницу оплаты сейчас открыть не удалось. Попробуйте позже.",
+  "bannerBalanceEmpty": "Баланс пуст — пополните",
+  "bannerBillingUnavailable": "Не удалось связаться со службой оплаты. Повторите попытку.",
+  "bannerIdleTimeout": "Сеанс завершён: 10 минут без речи.",
+  "bannerSessionReplaced": "Сеанс продолжен на другом устройстве.",
+  "bannerSessionLimit": "Сервис занят. Повторите через минуту.",
+  "connectionAccount": "Ваш аккаунт"
 }

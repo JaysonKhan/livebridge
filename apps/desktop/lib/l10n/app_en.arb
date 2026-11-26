@@ -145,7 +145,7 @@
     }
   },
   "processPlaying": "playing",
-  "sectionGateway": "Outgoing turns and gateway",
+  "sectionGateway": "Outgoing turns and connection",
   "outgoingTurnMode": "Outgoing turn mode",
   "turnPttTitle": "Push-to-talk",
   "turnPttDesc": "Hold the button or the Space key while you speak.",
@@ -603,5 +603,40 @@
   "signInDenied": "Sign-in was declined in the browser.",
   "signInNetwork": "Could not reach the sign-in service. Check your internet connection.",
   "signInRateLimited": "Too many attempts. Wait a minute and try again.",
-  "noticeSignedOut": "You were signed out. Sign in again."
+  "noticeSignedOut": "You were signed out. Sign in again.",
+  "topUp": "Top up",
+  "accountPage": "Account page",
+  "signOut": "Sign out",
+  "changeConnection": "Change connection",
+  "connectionOwnKeys": "Own keys",
+  "connectionChange": "Change",
+  "chipMinutes": "≈ {minutes} min",
+  "@chipMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTitle": "Top up your balance",
+  "topUpMinutes": "{minutes} min",
+  "@topUpMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTaxNote": "Prices are before tax; the checkout page shows the total.",
+  "topUpNoPackages": "Could not load the packages.",
+  "topUpTryAgain": "Try again",
+  "topUpRateLimited": "Too many attempts. Wait a minute and try again.",
+  "topUpNetwork": "Could not reach the site. Check your internet connection.",
+  "topUpUnavailable": "The checkout page could not be opened right now. Try again later.",
+  "bannerBalanceEmpty": "Balance is empty — top up",
+  "bannerBillingUnavailable": "Billing could not be reached. Try again.",
+  "bannerIdleTimeout": "The session ended after 10 minutes without speech.",
+  "bannerSessionReplaced": "The session continued on another device.",
+  "bannerSessionLimit": "The service is busy. Try again in a minute.",
+  "connectionAccount": "Your account"
 }

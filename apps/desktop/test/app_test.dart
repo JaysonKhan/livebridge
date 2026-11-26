@@ -256,8 +256,11 @@ void main() {
 
     testWidgets('nothing is sent while a text field is focused', (tester) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const Key('gateway-url')));
+      final field = find.descendant(of: find.byKey(const Key('translation-model')), matching: find.byType(TextField));
+      await tester.ensureVisible(field);
+      await tester.tap(field);
       await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>(), isNotNull);
       await push(readyState);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.space);

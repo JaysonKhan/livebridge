@@ -261,7 +261,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get processPlaying => 'играет';
 
   @override
-  String get sectionGateway => 'Исходящие фразы и шлюз';
+  String get sectionGateway => 'Исходящие фразы и подключение';
 
   @override
   String get outgoingTurnMode => 'Как отправлять вашу речь';
@@ -1019,4 +1019,71 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noticeSignedOut => 'Вы вышли из аккаунта. Войдите снова.';
+
+  @override
+  String get topUp => 'Пополнить';
+
+  @override
+  String get accountPage => 'Страница аккаунта';
+
+  @override
+  String get signOut => 'Выйти';
+
+  @override
+  String get changeConnection => 'Сменить подключение';
+
+  @override
+  String get connectionOwnKeys => 'Свои ключи';
+
+  @override
+  String get connectionChange => 'Изменить';
+
+  @override
+  String chipMinutes(int minutes) {
+    return '≈ $minutes мин';
+  }
+
+  @override
+  String get topUpTitle => 'Пополнение баланса';
+
+  @override
+  String topUpMinutes(int minutes) {
+    return '$minutes мин';
+  }
+
+  @override
+  String get topUpTaxNote => 'Цены указаны без налога; итоговая сумма показана на странице оплаты.';
+
+  @override
+  String get topUpNoPackages => 'Не удалось загрузить пакеты.';
+
+  @override
+  String get topUpTryAgain => 'Повторить';
+
+  @override
+  String get topUpRateLimited => 'Слишком много попыток. Подождите минуту и повторите.';
+
+  @override
+  String get topUpNetwork => 'Не удалось связаться с сайтом. Проверьте подключение к интернету.';
+
+  @override
+  String get topUpUnavailable => 'Страницу оплаты сейчас открыть не удалось. Попробуйте позже.';
+
+  @override
+  String get bannerBalanceEmpty => 'Баланс пуст — пополните';
+
+  @override
+  String get bannerBillingUnavailable => 'Не удалось связаться со службой оплаты. Повторите попытку.';
+
+  @override
+  String get bannerIdleTimeout => 'Сеанс завершён: 10 минут без речи.';
+
+  @override
+  String get bannerSessionReplaced => 'Сеанс продолжен на другом устройстве.';
+
+  @override
+  String get bannerSessionLimit => 'Сервис занят. Повторите через минуту.';
+
+  @override
+  String get connectionAccount => 'Ваш аккаунт';
 }

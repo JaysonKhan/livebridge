@@ -75,7 +75,7 @@
   "noAudioApps": "Hozir hech bir ilova ovoz ishlatmayapti. Uchrashuv ilovasini oching va «Yangilash» tugmasini bosing.",
   "processPid": "pid {pid}",
   "processPlaying": "ovoz chiqarmoqda",
-  "sectionGateway": "Chiquvchi gaplar va gateway",
+  "sectionGateway": "Chiquvchi gaplar va ulanish",
   "outgoingTurnMode": "Gapni yuborish usuli",
   "turnPttTitle": "Bosib turib gapirish",
   "turnPttDesc": "Gapirayotganda tugmani yoki Probel klavishini bosib turing.",
@@ -302,5 +302,40 @@
   "signInDenied": "Brauzerda kirish rad etildi.",
   "signInNetwork": "Kirish xizmatiga ulanib bo'lmadi. Internet aloqasini tekshiring.",
   "signInRateLimited": "Urinishlar juda ko'p. Bir daqiqa kutib, qayta urinib ko'ring.",
-  "noticeSignedOut": "Hisobingizdan chiqarildingiz. Qaytadan kiring."
+  "noticeSignedOut": "Hisobingizdan chiqarildingiz. Qaytadan kiring.",
+  "topUp": "Hisobni to'ldirish",
+  "accountPage": "Hisob sahifasi",
+  "signOut": "Chiqish",
+  "changeConnection": "Ulanishni o'zgartirish",
+  "connectionOwnKeys": "O'z kalitlarim",
+  "connectionChange": "O'zgartirish",
+  "chipMinutes": "≈ {minutes} daq",
+  "@chipMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTitle": "Hisobni to'ldiring",
+  "topUpMinutes": "{minutes} daqiqa",
+  "@topUpMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "topUpTaxNote": "Narxlar soliqsiz; to'lov sahifasida jami summa ko'rsatiladi.",
+  "topUpNoPackages": "Paketlarni yuklab bo'lmadi.",
+  "topUpTryAgain": "Qayta urinish",
+  "topUpRateLimited": "Urinishlar juda ko'p. Bir daqiqa kutib, qayta urinib ko'ring.",
+  "topUpNetwork": "Saytga ulanib bo'lmadi. Internet aloqasini tekshiring.",
+  "topUpUnavailable": "To'lov sahifasini hozir ochib bo'lmadi. Keyinroq urinib ko'ring.",
+  "bannerBalanceEmpty": "Balans tugadi — hisobni to'ldiring",
+  "bannerBillingUnavailable": "To'lov xizmatiga ulanib bo'lmadi. Qayta urinib ko'ring.",
+  "bannerIdleTimeout": "Seans 10 daqiqa gapirilmagani uchun tugadi.",
+  "bannerSessionReplaced": "Seans boshqa qurilmada davom ettirildi.",
+  "bannerSessionLimit": "Xizmat band. Bir daqiqadan so'ng qayta urinib ko'ring.",
+  "connectionAccount": "Hisobingiz"
 }

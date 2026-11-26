@@ -261,7 +261,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get processPlaying => 'ovoz chiqarmoqda';
 
   @override
-  String get sectionGateway => 'Chiquvchi gaplar va gateway';
+  String get sectionGateway => 'Chiquvchi gaplar va ulanish';
 
   @override
   String get outgoingTurnMode => 'Gapni yuborish usuli';
@@ -1020,4 +1020,71 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get noticeSignedOut => 'Hisobingizdan chiqarildingiz. Qaytadan kiring.';
+
+  @override
+  String get topUp => 'Hisobni to\'ldirish';
+
+  @override
+  String get accountPage => 'Hisob sahifasi';
+
+  @override
+  String get signOut => 'Chiqish';
+
+  @override
+  String get changeConnection => 'Ulanishni o\'zgartirish';
+
+  @override
+  String get connectionOwnKeys => 'O\'z kalitlarim';
+
+  @override
+  String get connectionChange => 'O\'zgartirish';
+
+  @override
+  String chipMinutes(int minutes) {
+    return '≈ $minutes daq';
+  }
+
+  @override
+  String get topUpTitle => 'Hisobni to\'ldiring';
+
+  @override
+  String topUpMinutes(int minutes) {
+    return '$minutes daqiqa';
+  }
+
+  @override
+  String get topUpTaxNote => 'Narxlar soliqsiz; to\'lov sahifasida jami summa ko\'rsatiladi.';
+
+  @override
+  String get topUpNoPackages => 'Paketlarni yuklab bo\'lmadi.';
+
+  @override
+  String get topUpTryAgain => 'Qayta urinish';
+
+  @override
+  String get topUpRateLimited => 'Urinishlar juda ko\'p. Bir daqiqa kutib, qayta urinib ko\'ring.';
+
+  @override
+  String get topUpNetwork => 'Saytga ulanib bo\'lmadi. Internet aloqasini tekshiring.';
+
+  @override
+  String get topUpUnavailable => 'To\'lov sahifasini hozir ochib bo\'lmadi. Keyinroq urinib ko\'ring.';
+
+  @override
+  String get bannerBalanceEmpty => 'Balans tugadi — hisobni to\'ldiring';
+
+  @override
+  String get bannerBillingUnavailable => 'To\'lov xizmatiga ulanib bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get bannerIdleTimeout => 'Seans 10 daqiqa gapirilmagani uchun tugadi.';
+
+  @override
+  String get bannerSessionReplaced => 'Seans boshqa qurilmada davom ettirildi.';
+
+  @override
+  String get bannerSessionLimit => 'Xizmat band. Bir daqiqadan so\'ng qayta urinib ko\'ring.';
+
+  @override
+  String get connectionAccount => 'Hisobingiz';
 }

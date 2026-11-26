@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/languages.dart';
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
+import '../state/connection_state.dart';
 import '../state/host_platform.dart';
 import '../state/providers.dart';
 import '../state/route_check.dart';
@@ -445,8 +446,6 @@ class _GatewaySection extends ConsumerWidget {
       ChoiceOption(OutCommit.turnPrediction, l.turnPredictionTitle, l.turnPredictionDesc),
     ];
     final outCommit = ref.watch(setupProvider.select((s) => s.outCommit));
-    final gatewayUrl = ref.watch(setupProvider.select((s) => s.gatewayUrl));
-    final token = ref.watch(setupProvider.select((s) => s.accessToken));
     final model = ref.watch(setupProvider.select((s) => s.translationModel));
     final notifier = ref.read(setupProvider.notifier);
     return SectionCard(
@@ -457,20 +456,7 @@ class _GatewaySection extends ConsumerWidget {
           Text(l.outgoingTurnMode, style: Theme.of(context).textTheme.labelLarge),
           ChoiceList<OutCommit>(options: turnModes, value: outCommit, onChanged: notifier.setOutCommit),
           const SizedBox(height: 8),
-          StateTextField(
-            key: const Key('gateway-url'),
-            label: l.gatewayUrl,
-            value: gatewayUrl,
-            onChanged: notifier.setGatewayUrl,
-          ),
-          const SizedBox(height: 12),
-          StateTextField(
-            key: const Key('access-token'),
-            label: l.accessToken,
-            value: token,
-            obscure: true,
-            onChanged: notifier.setAccessToken,
-          ),
+          const _ConnectionSummary(),
           const SizedBox(height: 12),
           StateTextField(
             key: const Key('translation-model'),
@@ -484,20 +470,53 @@ class _GatewaySection extends ConsumerWidget {
   }
 }
 
+/// One line naming how sessions are paid for (the account's e-mail, own keys, or the gateway's address) with a button
+/// back to the connection choice.
+class _ConnectionSummary extends ConsumerWidget {
+  const _ConnectionSummary();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final t = context.tokens;
+    final connection = ref.watch(connectionProvider);
+    final gatewayUrl = ref.watch(setupProvider.select((s) => s.gatewayUrl)).trim();
+    final (icon, text) = switch (connection.mode) {
+      ConnectionMode.account => (Icons.person_outline, connection.account?.email ?? l.connectionAccount),
+      ConnectionMode.keys => (Icons.key_outlined, l.connectionOwnKeys),
+      _ => (Icons.dns_outlined, gatewayUrl.isEmpty ? l.onboardingOwnGateway : gatewayUrl),
+    };
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: t.textSecondary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            key: const Key('connection-summary'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: t.textPrimary),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          key: const Key('connection-change'),
+          onPressed: ref.read(connectionProvider.notifier).changeConnection,
+          child: Text(l.connectionChange),
+        ),
+      ],
+    );
+  }
+}
+
 /// A text field backed by state: follows outside changes (settings load) without fighting the user's typing.
 class StateTextField extends StatefulWidget {
-  const StateTextField({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    this.obscure = false,
-  });
+  const StateTextField({super.key, required this.label, required this.value, required this.onChanged});
 
   final String label;
   final String value;
   final ValueChanged<String> onChanged;
-  final bool obscure;
 
   @override
   State<StateTextField> createState() => _StateTextFieldState();
@@ -524,9 +543,7 @@ class _StateTextFieldState extends State<StateTextField> {
       label: widget.label,
       child: TextField(
         controller: _controller,
-        obscureText: widget.obscure,
         autocorrect: false,
-        enableSuggestions: !widget.obscure,
         onChanged: widget.onChanged,
         style: Theme.of(context).textTheme.bodyLarge!.copyWith(color: context.tokens.textPrimary),
         decoration: const InputDecoration(),
