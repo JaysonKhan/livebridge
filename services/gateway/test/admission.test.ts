@@ -71,8 +71,10 @@ test("admission: a second admit for an account replaces the first, even when ful
 
 test("admission: replace also works for a trial account at its reduced cap", () => {
   const a = new Admission(caps);
-  for (const id of ["a1", "a2", "a3"]) a.admit(paid(id));
-  const r = a.admit(paid("a1"));
+  // Trial cap is account - paidReserved = 3; fill it with trial accounts.
+  for (const id of ["t1", "t2", "t3"]) assert.ok(a.admit(trial(id)).ok);
+  assert.equal(a.admit(trial("t4")).ok, false);
+  const r = a.admit(trial("t1"));
   assert.ok(r.ok && r.replaces);
 });
 
@@ -83,6 +85,7 @@ test("admission: releasing the replaced ticket is a no-op; releasing the new one
   const fresh = ticketOf(r);
   a.release(old);
   assert.equal(a.admit(token).ok, false, "old release must not free the slot");
+  assert.equal(a.admit(paid("b")).ok, false, "nor the account slot");
   a.release(fresh);
   assert.ok(a.admit(token).ok, "new release frees it");
 });
@@ -112,4 +115,18 @@ test("admission: tickets expose mode and accountId read-only", () => {
   assert.equal(t.mode, "account");
   assert.equal(t.accountId, "a1");
   assert.equal(ticketOf(a.admit(token)).mode, "token");
+});
+
+test("admission: releasing frees the per-mode slot, not just the total", () => {
+  const k = new Admission({ total: 10, account: 10, keys: 1, paidReserved: 0 });
+  const kt = ticketOf(k.admit(keys));
+  assert.equal(k.admit(keys).ok, false);
+  k.release(kt);
+  assert.ok(k.admit(keys).ok, "keys slot reopens");
+
+  const a = new Admission({ total: 10, account: 1, keys: 10, paidReserved: 0 });
+  const at = ticketOf(a.admit(paid("a1")));
+  assert.equal(a.admit(paid("a2")).ok, false);
+  a.release(at);
+  assert.ok(a.admit(paid("a2")).ok, "account slot reopens");
 });
