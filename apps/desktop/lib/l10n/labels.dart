@@ -63,7 +63,9 @@ extension AppLocalizationsLabels on AppLocalizations {
   };
 
   /// A localized message for a known engine/gateway error code, or null (the caller then shows the raw message).
-  String? errorMessage(String code, HostPlatform platform) => switch (code) {
+  /// [connection] words the refusals by how the session was paid for: an own gateway's token, the hosted service
+  /// with an account, or with the user's own keys.
+  String? errorMessage(String code, HostPlatform platform, {ConnectionMode? connection}) => switch (code) {
     'provider_unavailable' => errProviderUnavailable,
     'translation_failed' => errTranslationFailed,
     'translation_rejected' => errTranslationRejected,
@@ -76,7 +78,16 @@ extension AppLocalizationsLabels on AppLocalizations {
     'source_gone' => errSourceGone,
     'device_removed' => errDeviceRemoved,
     'gateway_unreachable' => errGatewayUnreachable,
-    'unauthorized' => errUnauthorized,
+    'unauthorized' || 'invalid_token' => switch (connection) {
+      ConnectionMode.account => errSignInRefused,
+      ConnectionMode.keys => errServiceRefused,
+      ConnectionMode.gateway || null => errUnauthorized,
+    },
+    'bad_request' => connection == ConnectionMode.keys ? errBadRequestKeys : errBadRequest,
+    'accounts_unavailable' => errAccountsUnavailable,
+    'rate_limited' => errRateLimited,
+    'gateway_error' => errGatewayError,
+    'settings_failed' => errSettingsFailed,
     'session_limit' => errSessionLimit,
     'session_expired' => errSessionExpired,
     'no_virtual_mic' => platform == HostPlatform.windows ? errNoVirtualMicWindows : errNoVirtualMic,

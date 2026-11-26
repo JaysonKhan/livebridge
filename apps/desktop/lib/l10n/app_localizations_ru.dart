@@ -79,7 +79,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errGatewayUnreachable => 'Не удаётся связаться со шлюзом. Проверьте адрес шлюза и интернет.';
 
   @override
-  String get errUnauthorized => 'Шлюз отклонил токен доступа. Проверьте токен в настройках.';
+  String get errUnauthorized => 'Шлюз отклонил токен доступа. Проверьте его: нажмите «Изменить» рядом с подключением.';
 
   @override
   String get errSessionLimit => 'Достигнут лимит сессий на шлюзе. Попробуйте позже.';
@@ -102,6 +102,31 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get errUnsafeRoute =>
       'Небезопасная маршрутизация звука отклонена: микрофон или наушники — виртуальное устройство.';
+
+  @override
+  String get errAccountsUnavailable => 'Не удалось связаться со службой аккаунтов. Проверьте подключение к интернету.';
+
+  @override
+  String get errBadRequest => 'Шлюз не принял запрос на сессию.';
+
+  @override
+  String get errBadRequestKeys =>
+      'Сервис не принял формат ваших ключей. Проверьте их: нажмите «Изменить» рядом с подключением.';
+
+  @override
+  String get errRateLimited => 'Слишком много попыток. Подождите минуту и повторите.';
+
+  @override
+  String get errSettingsFailed => 'Не удалось сохранить настройки. Попробуйте ещё раз.';
+
+  @override
+  String get errGatewayError => 'На шлюзе произошла ошибка. Повторите попытку чуть позже.';
+
+  @override
+  String get errSignInRefused => 'Сервис не принял ваш вход. Попробуйте позже.';
+
+  @override
+  String get errServiceRefused => 'Сервис отклонил сессию. Попробуйте позже.';
 
   @override
   String get blockChooseMic => 'Выберите микрофон.';
@@ -139,10 +164,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get blockSameLanguages => 'Выберите два разных языка.';
 
   @override
-  String get blockEnterGateway => 'Введите адрес шлюза.';
+  String get blockEnterGateway => 'Укажите адрес шлюза: нажмите «Изменить» рядом с подключением.';
 
   @override
-  String get blockEnterToken => 'Введите токен доступа.';
+  String get blockEnterToken => 'Укажите токен доступа: нажмите «Изменить» рядом с подключением.';
 
   @override
   String get blockEnterKeys => 'Введите свои ключи ElevenLabs и Gemini.';
@@ -886,7 +911,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get voiceChange => 'Изменить';
 
   @override
-  String get voiceNeedsToken => 'Чтобы выбрать голос, введите токен доступа.';
+  String get voiceNeedsToken => 'Чтобы выбрать голос, укажите токен шлюза: нажмите «Изменить» рядом с подключением.';
 
   @override
   String get voicePickerTitleOut => 'Мой голос';

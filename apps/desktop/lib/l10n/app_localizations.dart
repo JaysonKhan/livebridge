@@ -235,7 +235,7 @@ abstract class AppLocalizations {
   /// No description provided for @errUnauthorized.
   ///
   /// In en, this message translates to:
-  /// **'The gateway rejected the access token. Check the token in setup.'**
+  /// **'The gateway rejected the access token. Check it: press Change beside the connection.'**
   String get errUnauthorized;
 
   /// No description provided for @errSessionLimit.
@@ -279,6 +279,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unsafe audio route refused: the microphone or headphones are a virtual device.'**
   String get errUnsafeRoute;
+
+  /// No description provided for @errAccountsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The account service could not be reached. Check your internet connection.'**
+  String get errAccountsUnavailable;
+
+  /// No description provided for @errBadRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'The gateway did not accept the session request.'**
+  String get errBadRequest;
+
+  /// No description provided for @errBadRequestKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'The service did not accept the format of your keys. Check them: press Change beside the connection.'**
+  String get errBadRequestKeys;
+
+  /// No description provided for @errRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a minute and try again.'**
+  String get errRateLimited;
+
+  /// No description provided for @errSettingsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The settings could not be saved. Try again.'**
+  String get errSettingsFailed;
+
+  /// No description provided for @errGatewayError.
+  ///
+  /// In en, this message translates to:
+  /// **'The gateway ran into an error. Try again in a moment.'**
+  String get errGatewayError;
+
+  /// No description provided for @errSignInRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'The service did not accept your sign-in. Try again later.'**
+  String get errSignInRefused;
+
+  /// No description provided for @errServiceRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'The service refused the session. Try again later.'**
+  String get errServiceRefused;
 
   /// No description provided for @blockChooseMic.
   ///
@@ -337,13 +385,13 @@ abstract class AppLocalizations {
   /// No description provided for @blockEnterGateway.
   ///
   /// In en, this message translates to:
-  /// **'Enter the gateway URL.'**
+  /// **'Enter the gateway address: press Change beside the connection.'**
   String get blockEnterGateway;
 
   /// No description provided for @blockEnterToken.
   ///
   /// In en, this message translates to:
-  /// **'Enter the access token.'**
+  /// **'Enter the access token: press Change beside the connection.'**
   String get blockEnterToken;
 
   /// No description provided for @blockEnterKeys.
@@ -1645,7 +1693,7 @@ abstract class AppLocalizations {
   /// No description provided for @voiceNeedsToken.
   ///
   /// In en, this message translates to:
-  /// **'Enter the gateway token to choose voices.'**
+  /// **'To choose voices, enter the gateway token: press Change beside the connection.'**
   String get voiceNeedsToken;
 
   /// No description provided for @voicePickerTitleOut.

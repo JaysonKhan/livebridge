@@ -58,4 +58,13 @@ void main() {
     ];
     expect(bad, isEmpty);
   });
+
+  test('the own-gateway hints point at Change beside the connection, where the address and token now are', () {
+    for (final lang in ['en', 'uz', 'ru', 'tr']) {
+      final strings = _load(lang);
+      for (final key in ['blockEnterGateway', 'blockEnterToken', 'voiceNeedsToken', 'errUnauthorized']) {
+        expect(strings[key], contains(strings['connectionChange']), reason: '$lang $key');
+      }
+    }
+  });
 }

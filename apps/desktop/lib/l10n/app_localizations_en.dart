@@ -79,7 +79,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errGatewayUnreachable => 'Cannot reach the gateway. Check the gateway URL and your internet connection.';
 
   @override
-  String get errUnauthorized => 'The gateway rejected the access token. Check the token in setup.';
+  String get errUnauthorized => 'The gateway rejected the access token. Check it: press Change beside the connection.';
 
   @override
   String get errSessionLimit => 'The gateway\'s session limit is reached. Try again later.';
@@ -101,6 +101,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errUnsafeRoute => 'Unsafe audio route refused: the microphone or headphones are a virtual device.';
+
+  @override
+  String get errAccountsUnavailable => 'The account service could not be reached. Check your internet connection.';
+
+  @override
+  String get errBadRequest => 'The gateway did not accept the session request.';
+
+  @override
+  String get errBadRequestKeys =>
+      'The service did not accept the format of your keys. Check them: press Change beside the connection.';
+
+  @override
+  String get errRateLimited => 'Too many attempts. Wait a minute and try again.';
+
+  @override
+  String get errSettingsFailed => 'The settings could not be saved. Try again.';
+
+  @override
+  String get errGatewayError => 'The gateway ran into an error. Try again in a moment.';
+
+  @override
+  String get errSignInRefused => 'The service did not accept your sign-in. Try again later.';
+
+  @override
+  String get errServiceRefused => 'The service refused the session. Try again later.';
 
   @override
   String get blockChooseMic => 'Choose a microphone.';
@@ -138,10 +163,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockSameLanguages => 'Choose two different languages.';
 
   @override
-  String get blockEnterGateway => 'Enter the gateway URL.';
+  String get blockEnterGateway => 'Enter the gateway address: press Change beside the connection.';
 
   @override
-  String get blockEnterToken => 'Enter the access token.';
+  String get blockEnterToken => 'Enter the access token: press Change beside the connection.';
 
   @override
   String get blockEnterKeys => 'Enter your ElevenLabs and Gemini keys.';
@@ -883,7 +908,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceChange => 'Change';
 
   @override
-  String get voiceNeedsToken => 'Enter the gateway token to choose voices.';
+  String get voiceNeedsToken => 'To choose voices, enter the gateway token: press Change beside the connection.';
 
   @override
   String get voicePickerTitleOut => 'My voice';

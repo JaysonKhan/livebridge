@@ -167,7 +167,8 @@ Future<void> _startWithConsent(BuildContext context, WidgetRef ref) async {
 }
 
 /// The strip under the header for the last session error. The codes people can act on get their own sentence (and a
-/// button); the rest show the engine's code and message.
+/// button); the rest show the code with its localized sentence, or the engine's message for a code the app does not
+/// know.
 class _ErrorStrip extends ConsumerWidget {
   const _ErrorStrip(this.error);
 
@@ -176,9 +177,11 @@ class _ErrorStrip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final account = ref.watch(connectionProvider.select((s) => s.mode)) == ConnectionMode.account;
-    // An account's refused token is retried once and then signs out (the onboarding explains); not an error here.
-    if (account && error.code == 'invalid_token') return const SizedBox.shrink();
+    final connection = ref.watch(connectionProvider.select((s) => s.mode));
+    final account = connection == ConnectionMode.account;
+    // On the hosted service a full house means it is busy; an own gateway keeps its own sentence (it already has a
+    // session).
+    final hosted = account || connection == ConnectionMode.keys;
     final dismiss = ref.read(sessionProvider.notifier).dismissError;
     StatusBanner banner(IconData icon, String text, StatusSeverity severity, [Widget? action]) => StatusBanner(
       icon: icon,
@@ -224,12 +227,13 @@ class _ErrorStrip extends ConsumerWidget {
         );
       case 'session_replaced':
         return banner(Icons.devices_outlined, l.bannerSessionReplaced, StatusSeverity.caution);
-      case 'session_limit':
+      case 'session_limit' when hosted:
         return banner(Icons.hourglass_empty, l.bannerSessionLimit, StatusSeverity.caution);
     }
+    final sentence = l.errorMessage(error.code, ref.watch(hostPlatformProvider), connection: connection);
     return banner(
       Icons.error_outline,
-      '${error.code}: ${l.errorMessage(error.code, ref.watch(hostPlatformProvider)) ?? error.message}'
+      '${error.code}: ${sentence ?? error.message}'
       '${error.fatal ? ' ${l.errorSessionEnded}' : ''}',
       StatusSeverity.critical,
     );

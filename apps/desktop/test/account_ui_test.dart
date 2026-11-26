@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/account_client.dart';
 import 'package:livebridge/bridge/models.dart';
+import 'package:livebridge/l10n/app_localizations.dart';
 import 'package:livebridge/state/connection_state.dart';
 import 'package:livebridge/state/providers.dart';
-import 'package:livebridge/state/session_state.dart';
 import 'package:livebridge/state/setup_state.dart';
 import 'package:livebridge/ui/home_screen.dart';
 import 'package:livebridge/ui/onboarding_screen.dart';
@@ -32,6 +32,7 @@ Future<(ProviderContainer, FakeAccountClient, List<Uri>)> pumpAccount(
   int balance = 54000,
   String mode = 'account',
   Map<String, Object?> settings = const {},
+  Locale locale = const Locale('en'),
 }) async {
   final site = FakeAccountClient()
     ..meAnswer = FakeAccountClient.info(balance)
@@ -42,6 +43,7 @@ Future<(ProviderContainer, FakeAccountClient, List<Uri>)> pumpAccount(
     tester,
     bridge: bridge,
     site: site,
+    forceLocale: locale,
     opener: (url) async {
       opened.add(url);
       return true;
@@ -287,12 +289,63 @@ void main() {
       expect(find.textContaining('tts_failed'), findsOneWidget);
     });
 
-    testWidgets('invalid_token is not shown in account mode', (tester) async {
-      final (c, _, _) = await pumpAccount(tester);
+    testWidgets('a refused account token is retried unseen; a second refusal is worded and keeps the account', (
+      tester,
+    ) async {
+      final (c, site, _) = await pumpAccount(tester);
+      await c.read(connectionProvider.notifier).start(c.read(setupProvider).toConfig(ConnectionMode.account));
+      await tester.pumpAndSettle();
       await pushError('invalid_token');
-      expect(c.read(sessionProvider).error?.code, 'invalid_token');
+      await tester.pumpAndSettle();
+      expect(site.refreshedWith, hasLength(2), reason: 'one forced refresh for the retry');
       expect(find.textContaining('invalid_token'), findsNothing);
+      await pushError('invalid_token');
+      await tester.pumpAndSettle();
+      expect(find.textContaining(en.errSignInRefused), findsOneWidget);
+      expect(c.read(connectionProvider).mode, ConnectionMode.account);
+      expect(find.byType(HomeScreen), findsOneWidget);
     });
+  });
+
+  group('every error code the app can receive is worded in the interface language', () {
+    final ru = lookupAppLocalizations(const Locale('ru'));
+    const keys = {'elevenlabsApiKey': 'k', 'geminiApiKey': 'g'};
+    for (final (mode, code, sentence) in [
+      ('gateway', 'unauthorized', () => ru.errUnauthorized),
+      ('gateway', 'invalid_token', () => ru.errUnauthorized),
+      ('gateway', 'bad_request', () => ru.errBadRequest),
+      ('gateway', 'session_limit', () => ru.errSessionLimit),
+      ('gateway', 'rate_limited', () => ru.errRateLimited),
+      ('gateway', 'gateway_error', () => ru.errGatewayError),
+      ('gateway', 'gateway_unreachable', () => ru.errGatewayUnreachable),
+      ('gateway', 'settings_failed', () => ru.errSettingsFailed),
+      ('keys', 'unauthorized', () => ru.errServiceRefused),
+      ('keys', 'invalid_token', () => ru.errServiceRefused),
+      ('keys', 'bad_request', () => ru.errBadRequestKeys),
+      ('keys', 'accounts_unavailable', () => ru.errAccountsUnavailable),
+      ('keys', 'rate_limited', () => ru.errRateLimited),
+      ('keys', 'session_limit', () => ru.bannerSessionLimit),
+      ('keys', 'gateway_error', () => ru.errGatewayError),
+      ('account', 'unauthorized', () => ru.errSignInRefused),
+      ('account', 'invalid_token', () => ru.errSignInRefused),
+      ('account', 'accounts_unavailable', () => ru.errAccountsUnavailable),
+      ('account', 'bad_request', () => ru.errBadRequest),
+      ('account', 'rate_limited', () => ru.errRateLimited),
+      ('account', 'session_limit', () => ru.bannerSessionLimit),
+      ('account', 'balance_empty', () => ru.bannerBalanceEmpty),
+      ('account', 'balance_exhausted', () => ru.bannerBalanceEmpty),
+      ('account', 'billing_unavailable', () => ru.bannerBillingUnavailable),
+      ('account', 'idle_timeout', () => ru.bannerIdleTimeout),
+      ('account', 'session_replaced', () => ru.bannerSessionReplaced),
+      ('account', 'settings_failed', () => ru.errSettingsFailed),
+    ]) {
+      testWidgets('$mode: $code', (tester) async {
+        await pumpAccount(tester, mode: mode, settings: mode == 'keys' ? keys : const {}, locale: const Locale('ru'));
+        await pushError(code);
+        expect(find.textContaining(sentence()), findsOneWidget);
+        expect(find.textContaining('raw $code'), findsNothing, reason: 'never the English text from the host');
+      });
+    }
   });
 
   group('the connection summary', () {

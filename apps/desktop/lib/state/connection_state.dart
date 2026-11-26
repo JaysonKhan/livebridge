@@ -609,23 +609,21 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   void _reportStartFailure(Exception e) {
     final session = ref.read(sessionProvider.notifier);
     if (e is AccountError) {
-      session.reportError(
-        const ErrorEvent(code: 'accounts_unavailable', message: 'The account service could not be reached.'),
-      );
+      // A code only: the error strip words it in the interface language.
+      session.reportError(const ErrorEvent(code: 'accounts_unavailable', message: ''));
     } else {
       session.reportException(e, 'saveSettings');
     }
   }
 
-  /// The gateway refused the account session's access token: refresh it and start the same session once more. A
-  /// second refusal means the site no longer knows this computer.
+  /// The gateway refused the account session's access token: refresh it and start the same session once more, without
+  /// showing the refusal. A second refusal stays on the error strip and keeps the account: the site still accepted the
+  /// refresh token, so the next Start tries again. Only the site refusing the refresh token signs out.
   Future<void> _retryStart(StartConfig refused) async {
     final run = _accountRun;
-    if (_startRetried) {
-      await _signedOutDuring(run);
-      return;
-    }
+    if (_startRetried) return;
     _startRetried = true;
+    ref.read(sessionProvider.notifier).dismissError();
     final String token;
     try {
       token = await _keeper.accessToken(force: true);

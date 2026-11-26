@@ -79,7 +79,8 @@ class AppLocalizationsUz extends AppLocalizations {
   String get errGatewayUnreachable => 'Gateway\'ga ulanib bo\'lmadi. Gateway manzilini va internetni tekshiring.';
 
   @override
-  String get errUnauthorized => 'Gateway kirish tokenini qabul qilmadi. Sozlamalardagi tokenni tekshiring.';
+  String get errUnauthorized =>
+      'Gateway kirish tokenini qabul qilmadi. Uni tekshiring: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
 
   @override
   String get errSessionLimit => 'Gateway sessiyalar chegarasiga yetdi. Keyinroq urinib ko\'ring.';
@@ -101,6 +102,31 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get errUnsafeRoute => 'Xavfli audio yo\'nalish rad etildi: mikrofon yoki naushnik virtual qurilma.';
+
+  @override
+  String get errAccountsUnavailable => 'Hisob xizmatiga ulanib bo\'lmadi. Internet aloqasini tekshiring.';
+
+  @override
+  String get errBadRequest => 'Gateway sessiya so\'rovini qabul qilmadi.';
+
+  @override
+  String get errBadRequestKeys =>
+      'Xizmat kalitlaringiz formatini qabul qilmadi. Ularni tekshiring: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
+
+  @override
+  String get errRateLimited => 'Urinishlar juda ko\'p. Bir daqiqa kutib, qayta urinib ko\'ring.';
+
+  @override
+  String get errSettingsFailed => 'Sozlamalarni saqlab bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get errGatewayError => 'Gateway\'da xatolik yuz berdi. Birozdan so\'ng qayta urinib ko\'ring.';
+
+  @override
+  String get errSignInRefused => 'Xizmat hisobingizga kirishni qabul qilmadi. Keyinroq urinib ko\'ring.';
+
+  @override
+  String get errServiceRefused => 'Xizmat sessiyani rad etdi. Keyinroq urinib ko\'ring.';
 
   @override
   String get blockChooseMic => 'Mikrofonni tanlang.';
@@ -138,10 +164,10 @@ class AppLocalizationsUz extends AppLocalizations {
   String get blockSameLanguages => 'Ikki xil til tanlang.';
 
   @override
-  String get blockEnterGateway => 'Gateway manzilini kiriting.';
+  String get blockEnterGateway => 'Gateway manzilini kiriting: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
 
   @override
-  String get blockEnterToken => 'Kirish tokenini kiriting.';
+  String get blockEnterToken => 'Kirish tokenini kiriting: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
 
   @override
   String get blockEnterKeys => 'ElevenLabs va Gemini kalitlaringizni kiriting.';
@@ -887,7 +913,8 @@ class AppLocalizationsUz extends AppLocalizations {
   String get voiceChange => 'O\'zgartirish';
 
   @override
-  String get voiceNeedsToken => 'Ovoz tanlash uchun kirish tokenini kiriting.';
+  String get voiceNeedsToken =>
+      'Ovoz tanlash uchun gateway tokenini kiriting: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
 
   @override
   String get voicePickerTitleOut => 'Mening ovozim';

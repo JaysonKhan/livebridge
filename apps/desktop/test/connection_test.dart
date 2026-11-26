@@ -427,23 +427,57 @@ void main() {
       expect(bridge.savedPrefs, isEmpty, reason: 'a Start never writes a secret');
     });
 
-    test('invalid_token on start: one retry with a refreshed token, then sign-out', () async {
+    test('invalid_token on start: one retry with a refreshed token; a second refusal keeps the account', () async {
+      const refused = ErrorEvent(code: 'invalid_token', message: 'refused', fatal: true);
       final c = await load(accountSettings);
       await notifier(c).start(base);
       expect(bridge.startedWith!.accessToken, 'access-1');
 
-      bridge.push(const ErrorEvent(code: 'invalid_token', message: 'refused', fatal: true));
+      bridge.push(refused);
       await flush();
       expect(bridge.count('start'), 2);
       expect(bridge.startedWith!.accessToken, 'access-2');
       expect(site.refreshedWith, ['refresh-0', 'refresh-1'], reason: 'one forced refresh');
+      expect(c.read(sessionProvider).error, isNull, reason: 'the refusal that is retried is not shown');
 
-      bridge.push(const ErrorEvent(code: 'invalid_token', message: 'refused', fatal: true));
+      bridge.push(refused);
       await flush();
       expect(bridge.count('start'), 2, reason: 'no second retry');
+      expect(c.read(connectionProvider).mode, ConnectionMode.account);
+      expect(c.read(connectionProvider).notice, isNull);
+      expect(bridge.savedPrefs.where(deletesRefreshToken), isEmpty, reason: 'the refresh token is kept');
+      expect(bridge.settings['accountRefreshToken'], 'refresh-2');
+      expect(c.read(sessionProvider).error?.code, 'invalid_token', reason: 'shown, worded by the UI');
+
+      // The next Start gets its own retry.
+      await notifier(c).start(base);
+      bridge.push(refused);
+      await flush();
+      expect(bridge.count('start'), 4);
+      expect(bridge.startedWith!.accessToken, 'access-3');
+    });
+
+    test('invalid_token, and the forced refresh is refused: signed out', () async {
+      final c = await load(accountSettings);
+      await notifier(c).start(base);
+      site.refreshError = const AccountSignedOut();
+      bridge.push(const ErrorEvent(code: 'invalid_token', message: 'refused', fatal: true));
+      await flush();
+      expect(bridge.count('start'), 1);
       expect(c.read(connectionProvider).mode, isNull);
       expect(c.read(connectionProvider).notice, 'signed_out');
       expect(bridge.savedPrefs.last, {'accountRefreshToken': null, 'connectionMode': 'none'});
+    });
+
+    test('the site unreachable at Start: accounts_unavailable, carrying no English text', () async {
+      final c = await load(accountSettings);
+      now = now.add(const Duration(minutes: 16));
+      site.refreshError = const AccountError('network');
+      await notifier(c).start(base);
+      final error = c.read(sessionProvider).error!;
+      expect(error.code, 'accounts_unavailable');
+      expect(error.message, isEmpty);
+      expect(bridge.count('start'), 0);
     });
 
     test('other fatal codes reach the session untouched', () async {

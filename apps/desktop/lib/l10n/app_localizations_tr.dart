@@ -80,7 +80,8 @@ class AppLocalizationsTr extends AppLocalizations {
       'Gateway\'e ulaşılamıyor. Gateway adresini ve internet bağlantınızı kontrol edin.';
 
   @override
-  String get errUnauthorized => 'Gateway erişim jetonunu reddetti. Kurulumdaki jetonu kontrol edin.';
+  String get errUnauthorized =>
+      'Gateway erişim jetonunu reddetti. Kontrol etmek için bağlantının yanındaki \"Değiştir\" düğmesine basın.';
 
   @override
   String get errSessionLimit => 'Gateway oturum sınırına ulaştı. Daha sonra tekrar deneyin.';
@@ -102,6 +103,31 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get errUnsafeRoute => 'Güvenli olmayan ses yönlendirmesi reddedildi: mikrofon veya kulaklık sanal bir cihaz.';
+
+  @override
+  String get errAccountsUnavailable => 'Hesap hizmetine ulaşılamadı. İnternet bağlantınızı kontrol edin.';
+
+  @override
+  String get errBadRequest => 'Gateway oturum isteğini kabul etmedi.';
+
+  @override
+  String get errBadRequestKeys =>
+      'Hizmet, anahtarlarınızın biçimini kabul etmedi. Kontrol etmek için bağlantının yanındaki \"Değiştir\" düğmesine basın.';
+
+  @override
+  String get errRateLimited => 'Çok fazla deneme yapıldı. Bir dakika bekleyip tekrar deneyin.';
+
+  @override
+  String get errSettingsFailed => 'Ayarlar kaydedilemedi. Tekrar deneyin.';
+
+  @override
+  String get errGatewayError => 'Gateway\'de bir hata oluştu. Biraz sonra tekrar deneyin.';
+
+  @override
+  String get errSignInRefused => 'Hizmet oturum açma isteğinizi kabul etmedi. Daha sonra tekrar deneyin.';
+
+  @override
+  String get errServiceRefused => 'Hizmet oturumu reddetti. Daha sonra tekrar deneyin.';
 
   @override
   String get blockChooseMic => 'Bir mikrofon seçin.';
@@ -139,10 +165,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get blockSameLanguages => 'İki farklı dil seçin.';
 
   @override
-  String get blockEnterGateway => 'Gateway adresini girin.';
+  String get blockEnterGateway => 'Gateway adresini girin: bağlantının yanındaki \"Değiştir\" düğmesine basın.';
 
   @override
-  String get blockEnterToken => 'Erişim jetonunu girin.';
+  String get blockEnterToken => 'Erişim jetonunu girin: bağlantının yanındaki \"Değiştir\" düğmesine basın.';
 
   @override
   String get blockEnterKeys => 'ElevenLabs ve Gemini anahtarlarınızı girin.';
@@ -887,7 +913,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get voiceChange => 'Değiştir';
 
   @override
-  String get voiceNeedsToken => 'Ses seçmek için erişim jetonunu girin.';
+  String get voiceNeedsToken =>
+      'Ses seçmek için gateway jetonunu girin: bağlantının yanındaki \"Değiştir\" düğmesine basın.';
 
   @override
   String get voicePickerTitleOut => 'Benim sesim';
