@@ -655,7 +655,7 @@ void main() {
       c.read(setupProvider.notifier).setMode(SessionMode.bidirectional);
       await tester.pumpAndSettle();
       final refreshes = site.refreshedWith.length;
-      final signOuts = () => fake.savedPrefs.where((p) => p['connectionMode'] == 'none').length;
+      int signOuts() => fake.savedPrefs.where((p) => p['connectionMode'] == 'none').length;
       expect(signOuts(), 0);
 
       // The access token has run out and the site no longer knows this computer.
