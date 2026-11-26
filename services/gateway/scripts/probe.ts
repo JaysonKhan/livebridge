@@ -62,7 +62,7 @@ const eleven = async (path: string) => {
 };
 
 async function synthesize(
-  voice: "owner" | "incoming",
+  voice: "owner" | "incoming" | { id: string },
   language: Lang,
   text: string,
   outputFormat = config.TTS_OUTPUT_FORMAT,
@@ -76,7 +76,9 @@ async function synthesize(
     voiceId:
       voice === "owner"
         ? config.ELEVENLABS_OWNER_VOICE_ID
-        : config.ELEVENLABS_INCOMING_VOICE_ID,
+        : voice === "incoming"
+          ? config.ELEVENLABS_INCOMING_VOICE_ID
+          : voice.id,
     language,
     outputFormat,
     onMarkerMissing: () => (markerMissing = true),
@@ -248,6 +250,72 @@ for (const [role, id] of [
     const voice = await eleven(`/v1/voices/${id}`);
     return { name: voice.name, category: voice.category };
   });
+}
+
+// Voice choice: what the picker relies on. The list needs a key that may read voices; without it all three skip.
+interface ListedVoice {
+  voice_id: string;
+  name: string;
+  category?: string;
+  preview_url?: string | null;
+}
+const listed: ListedVoice[] = [];
+let listFailure: unknown;
+await check("voices.list", async () => {
+  try {
+    let pages = 0;
+    for (let token: string | undefined; pages < 20; ) {
+      const page = await eleven(
+        `/v2/voices?page_size=100&include_total_count=false${token ? `&next_page_token=${encodeURIComponent(token)}` : ""}`,
+      );
+      pages++;
+      listed.push(...(page.voices as ListedVoice[]));
+      token = page.has_more ? page.next_page_token : undefined;
+      if (!token) break;
+    }
+    if (!listed.some((v) => v.voice_id && v.name)) throw new Error("no voice with voice_id and name");
+    const perCategory: Record<string, number> = {};
+    for (const v of listed) perCategory[v.category ?? "unknown"] = (perCategory[v.category ?? "unknown"] ?? 0) + 1;
+    return { voices: listed.length, pages, perCategory };
+  } catch (error) {
+    listFailure = error;
+    throw error;
+  }
+});
+await check("voices.sample", async () => {
+  if (listFailure) throw listFailure;
+  const url = listed.find((v) => v.preview_url)?.preview_url;
+  if (!url) throw new Error("no listed voice has a preview_url");
+  // No headers on purpose: the app plays sample addresses directly, without any key.
+  const response = await fetch(url);
+  const contentType = response.headers.get("content-type") ?? "";
+  await response.body?.cancel();
+  if (response.status !== 200 || !contentType.startsWith("audio/"))
+    throw new Error(`HTTP ${response.status}, content type ${contentType || "none"}`);
+  return { host: new URL(url).host, contentType };
+});
+if (listFailure) {
+  await check("voices.realtime", async () => {
+    throw listFailure;
+  });
+} else {
+  // Every listed voice must work with the realtime model in use; a category that does not is left out of the list.
+  for (const category of new Set(listed.map((v) => v.category ?? "unknown"))) {
+    await check(`voices.realtime.${category}`, async () => {
+      const sample = listed.filter((v) => (v.category ?? "unknown") === category).slice(0, 3);
+      const failed: string[] = [];
+      for (const v of sample) {
+        try {
+          const audio = await synthesize({ id: v.voice_id }, "en", "Hi.");
+          if (!audio.pcm.length) failed.push(`${v.name}: no audio`);
+        } catch (error) {
+          failed.push(`${v.name}: ${(error as { code?: string }).code ?? (error as Error).message}`);
+        }
+      }
+      if (failed.length) throw new Error(`${failed.length}/${sample.length} voices failed with ${config.TTS_MODEL} — ${failed.join("; ")}`);
+      return { model: config.TTS_MODEL, voicesTried: sample.length };
+    });
+  }
 }
 
 const formats = [
