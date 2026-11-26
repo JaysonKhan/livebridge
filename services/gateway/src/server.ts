@@ -1,6 +1,9 @@
 // HTTP + WebSocket surface:
 //   GET  /healthz       no credentials
-//   POST /v1/sessions   Authorization: Bearer <GATEWAY_ACCESS_TOKEN> -> short-lived single-use session token
+//   POST /v1/sessions   -> short-lived single-use session token, in one of three modes (body `mode`):
+//                         token (no body): Authorization: Bearer <GATEWAY_ACCESS_TOKEN>
+//                         account: Authorization: Bearer <account access token>, authorized by the owner's site
+//                         keys: the caller's own provider keys in the body
 //   GET  /v1/voices     Authorization: Bearer <GATEWAY_ACCESS_TOKEN> -> the voices a session may choose from
 //   WSS  /v1/realtime   Authorization: Bearer <session token>
 // TLS is terminated by the reverse proxy; this process listens on localhost.
@@ -16,19 +19,24 @@ import { WebSocketServer } from "ws";
 import {
   FRAME_HEADER_BYTES,
   MAX_PAYLOAD_BYTES,
+  parseSessionRequest,
 } from "../../../packages/protocol/src/index.ts";
+import { Admission, type Ticket } from "./admission.ts";
 import type { Config } from "./config.ts";
 import type { Logger } from "./log.ts";
+import { createRealProviders } from "./providers/real.ts";
 import {
   ProviderError,
   type ProviderFactory,
   type Voice,
 } from "./providers/types.ts";
-import { Session } from "./session.ts";
+import { Session, type SessionAuth } from "./session.ts";
+import { SiteError, type SiteClient } from "./site.ts";
 
 const SESSION_TOKEN_TTL_MS = 60_000;
 const SESSION_REQUESTS_PER_MINUTE = 20;
 const VOICES_CACHE_MS = 600_000;
+const MAX_SESSION_REQUEST_BYTES = 4096;
 
 export interface Gateway {
   listen(): Promise<number>;
@@ -43,6 +51,10 @@ export interface GatewayOptions {
   retryDelayMs?: (attempt: number) => number;
   /** How long a voice list is served without asking the provider again. Default 10 minutes. */
   voicesCacheMs?: number;
+  /** The owner's site, which authorizes account sessions. Absent = account sessions are unavailable. */
+  site?: SiteClient;
+  /** Builds an own-keys session's providers. Default: the real adapters with those keys; the fakes in fake mode. */
+  providersFor?: (keys: { elevenlabs: string; gemini: string }) => ProviderFactory;
 }
 
 function bearer(req: IncomingMessage): string {
@@ -69,16 +81,55 @@ function safeEqual(a: string, b: string) {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
+/** The body as text, or null once it passes `limit` bytes: the rest is discarded, never buffered. */
+function readBody(req: IncomingMessage, limit: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const onData = (chunk: Buffer) => {
+      size += chunk.byteLength;
+      if (size <= limit) return void chunks.push(chunk);
+      req.off("data", onData);
+      req.resume();
+      resolve(null);
+    };
+    req.on("data", onData);
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", () => resolve(null));
+  });
+}
+
 export function createGateway({
   config,
   factory,
   log,
   retryDelayMs,
   voicesCacheMs = VOICES_CACHE_MS,
+  site,
+  providersFor = (keys) =>
+    config.PROVIDER_MODE === "real"
+      ? createRealProviders(
+          { ...config, ELEVENLABS_API_KEY: keys.elevenlabs, GEMINI_API_KEY: keys.gemini },
+          log,
+        )
+      : factory,
 }: GatewayOptions): Gateway {
-  /** Issued but not yet connected: token -> session id + expiry. A token is consumed by the first upgrade. */
-  const pending = new Map<string, { id: string; expires: number }>();
-  const sessions = new Set<Session>();
+  /**
+   * Issued but not yet connected: token -> what the session needs. A token is consumed by the first upgrade; a keys
+   * session's providers (and with them its keys) leave this map at that moment.
+   */
+  const pending = new Map<
+    string,
+    { id: string; expires: number; auth: SessionAuth; ticket: Ticket; factory: ProviderFactory }
+  >();
+  /** Connected sessions by the admission ticket each holds. */
+  const sessions = new Map<Ticket, Session>();
+  const admission = new Admission({
+    total: config.MAX_SESSIONS,
+    account: config.MAX_ACCOUNT_SESSIONS,
+    keys: config.MAX_KEYS_SESSIONS,
+    paidReserved: config.PAID_RESERVED_SESSIONS,
+  });
   const recentRequests = new Map<string, number[]>();
 
   const json = (res: ServerResponse, status: number, body: object) => {
@@ -92,7 +143,21 @@ export function createGateway({
   const prune = () => {
     const now = Date.now();
     for (const [token, entry] of pending)
-      if (entry.expires <= now) pending.delete(token);
+      if (entry.expires <= now) {
+        pending.delete(token);
+        admission.release(entry.ticket);
+      }
+  };
+
+  /** The static token, when one is configured. An empty one never matches, not even an empty bearer. */
+  const staticTokenOk = (req: IncomingMessage) =>
+    config.GATEWAY_ACCESS_TOKEN !== "" && safeEqual(bearer(req), config.GATEWAY_ACCESS_TOKEN);
+
+  /** The account's newer session has taken this ticket's slot: void the older token, or end the older session. */
+  const replace = (old: Ticket) => {
+    for (const [token, entry] of pending)
+      if (entry.ticket === old) return void pending.delete(token);
+    sessions.get(old)?.end("session_replaced", "a newer session of this account started");
   };
 
   const rateLimited = (ip: string) => {
@@ -121,33 +186,97 @@ export function createGateway({
     }
   };
 
+  /** Who the caller is, or the refusal to send. Account mode asks the site, once. */
+  const authorize = async (
+    req: IncomingMessage,
+    mode: SessionAuth["mode"],
+  ): Promise<SessionAuth | { status: number; error: string }> => {
+    if (mode === "token")
+      return staticTokenOk(req) ? { mode } : { status: 401, error: "unauthorized" };
+    // Keys sessions carry their own credentials; any Authorization header is ignored.
+    if (mode === "keys") return { mode };
+    if (!site) return { status: 503, error: "accounts_unavailable" };
+    const accessToken = bearer(req);
+    if (!accessToken) return { status: 401, error: "invalid_token" };
+    try {
+      const account = await site.authorize(accessToken);
+      if (account.balanceUnits <= 0) return { status: 402, error: "balance_empty" };
+      return { mode, ...account };
+    } catch (error) {
+      if (error instanceof SiteError && error.code === "invalid_token")
+        return { status: 401, error: "invalid_token" };
+      log.warn("site.authorize_failed", {
+        code: error instanceof SiteError ? error.code : "unknown",
+      });
+      return { status: 503, error: "billing_unavailable" };
+    }
+  };
+
+  const issueSession = async (req: IncomingMessage, res: ServerResponse) => {
+    const body = await readBody(req, MAX_SESSION_REQUEST_BYTES);
+    if (body === null) {
+      // What was not read is not wanted: drop the connection after the answer instead of reading on.
+      res.setHeader("connection", "close");
+      return json(res, 400, { error: "bad_request" });
+    }
+    const request = parseSessionRequest(body);
+    if ("error" in request) return json(res, 400, { error: "bad_request" });
+    const auth = await authorize(req, request.mode);
+    if ("error" in auth) return json(res, auth.status, { error: auth.error });
+    // Keys are not checked up front: a refused key shows up as a provider error once the session opens.
+    const sessionFactory =
+      request.mode === "keys"
+        ? providersFor({
+            elevenlabs: request.elevenlabs_api_key,
+            gemini: request.gemini_api_key,
+          })
+        : factory;
+    prune();
+    const admitted = admission.admit(auth);
+    if (!admitted.ok) return json(res, 429, { error: "session_limit" });
+    const id = randomUUID();
+    if (admitted.replaces) {
+      replace(admitted.replaces);
+      log.info("session.replaced", { session: id });
+    }
+    const token = randomBytes(32).toString("base64url");
+    pending.set(token, {
+      id,
+      expires: Date.now() + SESSION_TOKEN_TTL_MS,
+      auth,
+      ticket: admitted.ticket,
+      factory: sessionFactory,
+    });
+    log.info("session.issued", { session: id, mode: auth.mode });
+    const issued = {
+      session_id: id,
+      token,
+      expires_in: SESSION_TOKEN_TTL_MS / 1000,
+      ws_path: "/v1/realtime",
+    };
+    return json(
+      res,
+      201,
+      auth.mode === "account"
+        ? { ...issued, account: { balance_units: auth.balanceUnits } }
+        : issued,
+    );
+  };
+
   const server = createServer((req, res) => {
     const path = (req.url ?? "").split("?")[0];
     if (req.method === "GET" && path === "/healthz")
       return json(res, 200, { ok: true });
     if (req.method === "POST" && path === "/v1/sessions") {
-      req.resume();
-      if (rateLimited(callerAddress(req))) return json(res, 429, { error: "rate_limited" });
-      if (!safeEqual(bearer(req), config.GATEWAY_ACCESS_TOKEN))
-        return json(res, 401, { error: "unauthorized" });
-      prune();
-      if (sessions.size + pending.size >= config.MAX_SESSIONS)
-        return json(res, 429, { error: "session_limit" });
-      const id = randomUUID();
-      const token = randomBytes(32).toString("base64url");
-      pending.set(token, { id, expires: Date.now() + SESSION_TOKEN_TTL_MS });
-      log.info("session.issued", { session: id });
-      return json(res, 201, {
-        session_id: id,
-        token,
-        expires_in: SESSION_TOKEN_TTL_MS / 1000,
-        ws_path: "/v1/realtime",
-      });
+      if (rateLimited(callerAddress(req))) {
+        req.resume();
+        return json(res, 429, { error: "rate_limited" });
+      }
+      return void issueSession(req, res);
     }
     if (req.method === "GET" && path === "/v1/voices") {
       if (rateLimited(callerAddress(req))) return json(res, 429, { error: "rate_limited" });
-      if (!safeEqual(bearer(req), config.GATEWAY_ACCESS_TOKEN))
-        return json(res, 401, { error: "unauthorized" });
+      if (!staticTokenOk(req)) return json(res, 401, { error: "unauthorized" });
       return void listVoices().then(
         (list) => json(res, 200, { voices: list }),
         () => json(res, 502, { error: "voices_unavailable" }),
@@ -173,18 +302,29 @@ export function createGateway({
     const entry = pending.get(token);
     if (!entry) return reject(401, "Unauthorized");
     pending.delete(token);
+    let connected = false;
+    // A handshake the socket server refuses never reaches the callback; the slot must not stay taken.
+    socket.once("close", () => {
+      if (!connected) admission.release(entry.ticket);
+    });
     wss.handleUpgrade(req, socket, head, (ws) => {
+      connected = true;
       const session = new Session({
         id: entry.id,
         socket: ws,
         config,
-        factory,
+        factory: entry.factory,
         log,
         retryDelayMs,
+        auth: entry.auth,
+        site,
+        onClosed: () => {
+          sessions.delete(entry.ticket);
+          admission.release(entry.ticket);
+        },
       });
-      sessions.add(session);
-      ws.on("close", () => sessions.delete(session));
-      log.info("session.connected", { session: entry.id });
+      sessions.set(entry.ticket, session);
+      log.info("session.connected", { session: entry.id, mode: entry.auth.mode });
     });
   });
 
@@ -198,7 +338,7 @@ export function createGateway({
         );
       }),
     close: async () => {
-      for (const session of sessions) session.close();
+      for (const session of sessions.values()) session.close();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => server.close(() => resolve()));

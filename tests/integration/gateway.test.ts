@@ -1,5 +1,9 @@
 // Gateway behaviour over a real WebSocket with FAKE providers (placeholder text, test tones). No real API is called.
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { request } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, test } from "node:test";
 import WebSocket from "ws";
 import {
@@ -11,16 +15,23 @@ import {
   createFakeProviders,
   FAKE_VOICES,
 } from "../../services/gateway/src/providers/fake.ts";
-import { ProviderError } from "../../services/gateway/src/providers/types.ts";
+import {
+  ProviderError,
+  type ProviderFactory,
+} from "../../services/gateway/src/providers/types.ts";
+import { createSiteClient } from "../../services/gateway/src/site.ts";
 import {
   ACCESS_TOKEN,
   issueSession,
   listVoices,
+  requestSession,
   silence,
   sleep,
   speech,
+  startFakeSite,
   startGateway,
   TestClient,
+  type FakeSiteReply,
 } from "./helpers.ts";
 
 type Started = Awaited<ReturnType<typeof startGateway>>;
@@ -831,4 +842,372 @@ test("a raw WebSocket without the upgrade path or token gets no session", async 
     ws.once("error", () => resolve("error"));
   });
   assert.equal(status, 404);
+});
+
+// ---- session modes: static token, account (authorized by the owner's site), own provider keys ----
+
+const SITE_SECRET = "site-secret-" + "Z9".repeat(20);
+const ACCOUNT_TOKEN = "lba_account-token-Q7vX2mKp9sLw4RtY8nBc";
+const OTHER_ACCOUNT_TOKEN = "lba_other-account-token-H3jD6fZq1uVe";
+const REFUSED_TOKEN = "lba_refused-token-Pz5Nq8Wc3Jt6Xs1Gh";
+const ELEVENLABS_KEY = "sk_el-own-key-Wq8Zr2Tn5Yp1Lm4Kx7Vb";
+const GEMINI_KEY = "AIza-own-gemini-key-Fj3Hs9Dk2Ga6Pq0Rt";
+const KEYS_REQUEST = {
+  mode: "keys",
+  elevenlabs_api_key: ELEVENLABS_KEY,
+  gemini_api_key: GEMINI_KEY,
+};
+const TOKEN_REPLY_KEYS = ["session_id", "token", "expires_in", "ws_path"];
+
+type Account = { account_id: string; balance_units: number; has_purchase: boolean };
+const ACCOUNTS: Record<string, Account> = {
+  [ACCOUNT_TOKEN]: { account_id: "acc-1", balance_units: 500, has_purchase: true },
+  [OTHER_ACCOUNT_TOKEN]: { account_id: "acc-2", balance_units: 300, has_purchase: false },
+};
+
+/** A site that knows the given access tokens and refuses every other one, as the real one does. */
+const authorizeFrom =
+  (accounts: Record<string, Account>) =>
+  (_path: string, body: any): FakeSiteReply => {
+    const account = accounts[body?.access_token];
+    return account
+      ? { status: 200, body: account }
+      : { status: 401, body: { error: "invalid_token" } };
+  };
+
+let runningSite: Awaited<ReturnType<typeof startFakeSite>> | undefined;
+afterEach(async () => {
+  await runningSite?.close();
+  runningSite = undefined;
+});
+
+/** A gateway whose accounts are authorized by a fake site. */
+async function startWithSite(
+  handle: (path: string, body: any) => FakeSiteReply = authorizeFrom(ACCOUNTS),
+  options: Parameters<typeof startGateway>[0] = {},
+) {
+  const site = (runningSite = await startFakeSite({ secret: SITE_SECRET, handle }));
+  const client = createSiteClient({
+    socketPath: site.socketPath,
+    host: site.host,
+    secret: SITE_SECRET,
+  });
+  return { site, ...(await start({ ...options, site: client })) };
+}
+
+/** Fake providers that count what each session builds from them. */
+function countingFactory() {
+  const built = { stt: 0, tts: 0, translator: 0 };
+  const inner = createFakeProviders({ delayMs: 2 });
+  const factory: ProviderFactory = {
+    ...inner,
+    stt: (options) => (built.stt++, inner.stt(options)),
+    tts: (options) => (built.tts++, inner.tts(options)),
+    translator: () => (built.translator++, inner.translator()),
+  };
+  return { built, factory };
+}
+
+test("token mode: no body or {mode:token} with the static token is today's reply, byte for byte", async () => {
+  const { base } = await start({ env: { MAX_SESSIONS: "3" } });
+  for (const body of [undefined, "", { mode: "token" }]) {
+    const issued = await requestSession(base, body, ACCESS_TOKEN);
+    assert.equal(issued.status, 201);
+    assert.match(
+      issued.text,
+      /^\{"session_id":"[0-9a-f-]{36}","token":"[A-Za-z0-9_-]{43}","expires_in":60,"ws_path":"\/v1\/realtime"\}$/,
+    );
+  }
+  const wrong = await requestSession(base, { mode: "token" }, "wrong-token");
+  assert.equal(wrong.status, 401);
+  assert.deepEqual(wrong.body, { error: "unauthorized" });
+});
+
+test("token mode: with no static token configured, sessions and the voice list are refused", async () => {
+  const { base } = await start({ env: { GATEWAY_ACCESS_TOKEN: "" } });
+  for (const token of [undefined, "", "anything"]) {
+    const refused = await requestSession(base, undefined, token);
+    assert.equal(refused.status, 401);
+    assert.deepEqual(refused.body, { error: "unauthorized" });
+  }
+  assert.equal((await listVoices(base, "")).status, 401);
+  assert.equal((await listVoices(base, "anything")).status, 401);
+});
+
+test("account mode: the site authorizes it; the reply and the socket carry the balance", async () => {
+  const { base, site } = await startWithSite();
+  const issued = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  assert.equal(issued.status, 201);
+  assert.deepEqual(Object.keys(issued.body), [...TOKEN_REPLY_KEYS, "account"]);
+  assert.deepEqual(issued.body.account, { balance_units: 500 });
+  assert.deepEqual(site.failures, []);
+  assert.deepEqual(
+    site.requests.map((r) => [r.path, r.body]),
+    [["/internal/livebridge/v1/authorize/", { access_token: ACCOUNT_TOKEN }]],
+  );
+
+  const client = await TestClient.open(base, issued.body.token!);
+  await client.configure();
+  const balance = await client.message("account.balance");
+  assert.equal(balance.balance_units, 500);
+  await client.sync();
+  const types = client.messages.map((m) => m.type);
+  // Right after the first session.ready, and only once.
+  assert.equal(types.indexOf("account.balance"), types.indexOf("session.ready") + 1);
+  assert.equal(types.filter((t) => t === "account.balance").length, 1);
+});
+
+test("account mode: a token the site refuses is 401 invalid_token; no token at all never reaches the site", async () => {
+  const { base, site } = await startWithSite();
+  const refused = await requestSession(base, { mode: "account" }, REFUSED_TOKEN);
+  assert.equal(refused.status, 401);
+  assert.deepEqual(refused.body, { error: "invalid_token" });
+  assert.equal(site.requests.length, 1);
+  for (const token of [undefined, ""]) {
+    const missing = await requestSession(base, { mode: "account" }, token);
+    assert.equal(missing.status, 401);
+    assert.deepEqual(missing.body, { error: "invalid_token" });
+  }
+  assert.equal(site.requests.length, 1);
+  assert.deepEqual(site.failures, []);
+});
+
+test("account mode: an empty balance is 402 balance_empty and holds no slot", async () => {
+  const { base } = await startWithSite(
+    authorizeFrom({
+      [ACCOUNT_TOKEN]: { account_id: "acc-1", balance_units: 0, has_purchase: true },
+      [OTHER_ACCOUNT_TOKEN]: { account_id: "acc-2", balance_units: -5, has_purchase: true },
+    }),
+  );
+  for (const token of [ACCOUNT_TOKEN, OTHER_ACCOUNT_TOKEN]) {
+    const empty = await requestSession(base, { mode: "account" }, token);
+    assert.equal(empty.status, 402);
+    assert.deepEqual(empty.body, { error: "balance_empty" });
+  }
+  // MAX_SESSIONS=1 and the refusals took nothing.
+  assert.equal((await issueSession(base)).status, 201);
+});
+
+test("account mode: a missing site socket is 503 billing_unavailable, well within the site timeout", async () => {
+  const site = createSiteClient({
+    socketPath: join(tmpdir(), `lbs-none-${randomBytes(4).toString("hex")}`, "s"),
+    host: "site.test",
+    secret: SITE_SECRET,
+  });
+  const { base } = await start({ site });
+  const began = performance.now();
+  const unreachable = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const elapsed = performance.now() - began;
+  assert.equal(unreachable.status, 503);
+  assert.deepEqual(unreachable.body, { error: "billing_unavailable" });
+  assert.ok(elapsed < 3500, `took ${Math.round(elapsed)} ms`);
+  // MAX_SESSIONS=1 and the failure took nothing.
+  assert.equal((await issueSession(base)).status, 201);
+});
+
+test("account mode: any other site failure is 503 billing_unavailable", async () => {
+  const { base, site } = await startWithSite(() => ({ status: 500, body: "<html>oops</html>" }));
+  const failed = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  assert.equal(failed.status, 503);
+  assert.deepEqual(failed.body, { error: "billing_unavailable" });
+  assert.deepEqual(site.failures, []);
+});
+
+test("account mode: without a site the gateway answers 503 accounts_unavailable", async () => {
+  const { base } = await start();
+  const off = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  assert.equal(off.status, 503);
+  assert.deepEqual(off.body, { error: "accounts_unavailable" });
+});
+
+test("keys mode: the session's providers are built by providersFor from exactly those keys", async () => {
+  const own = countingFactory();
+  const gatewayOwn = countingFactory();
+  const asked: { elevenlabs: string; gemini: string }[] = [];
+  const { base } = await start({
+    env: { MAX_SESSIONS: "2" },
+    factory: gatewayOwn.factory,
+    providersFor: (keys) => {
+      asked.push({ ...keys });
+      return own.factory;
+    },
+  });
+  const issued = await requestSession(base, KEYS_REQUEST);
+  assert.equal(issued.status, 201);
+  assert.deepEqual(Object.keys(issued.body), TOKEN_REPLY_KEYS);
+  assert.deepEqual(asked, [{ elevenlabs: ELEVENLABS_KEY, gemini: GEMINI_KEY }]);
+  // Any Authorization header is ignored in keys mode.
+  assert.equal((await requestSession(base, KEYS_REQUEST, "not-a-token")).status, 201);
+
+  const client = await TestClient.open(base, issued.body.token!);
+  await client.configure();
+  await pushToTalk(client, 1);
+  await client.message("metrics");
+  assert.equal(own.built.stt, 2);
+  assert.ok(own.built.tts >= 1 && own.built.translator >= 1);
+  assert.deepEqual(gatewayOwn.built, { stt: 0, tts: 0, translator: 0 });
+  assert.ok(!client.messages.some((m) => m.type === "account.balance"));
+});
+
+test("keys mode: a missing or malformed key is 400 bad_request", async () => {
+  const asked: unknown[] = [];
+  const { base } = await start({
+    providersFor: (keys) => (asked.push(keys), createFakeProviders()),
+  });
+  for (const body of [
+    { mode: "keys" },
+    { mode: "keys", elevenlabs_api_key: ELEVENLABS_KEY },
+    { mode: "keys", gemini_api_key: GEMINI_KEY },
+    { mode: "keys", elevenlabs_api_key: "short", gemini_api_key: GEMINI_KEY },
+    { mode: "keys", elevenlabs_api_key: `${ELEVENLABS_KEY} x`, gemini_api_key: GEMINI_KEY },
+  ]) {
+    const bad = await requestSession(base, body);
+    assert.equal(bad.status, 400);
+    assert.deepEqual(bad.body, { error: "bad_request" });
+  }
+  assert.deepEqual(asked, []);
+});
+
+test("a body over 4 KB or that is not a session request is 400 bad_request", async () => {
+  const { base } = await start();
+  const oversized = await requestSession(
+    base,
+    JSON.stringify({ mode: "token", pad: "x".repeat(5 * 1024) }),
+    ACCESS_TOKEN,
+  );
+  assert.equal(oversized.status, 400);
+  assert.deepEqual(oversized.body, { error: "bad_request" });
+  assert.equal(
+    (await requestSession(base, '{"mode":"token"}'.padEnd(4097), ACCESS_TOKEN)).status,
+    400,
+  );
+  for (const body of ["not json", "[]", '{"mode":"nope"}']) {
+    const bad = await requestSession(base, body, ACCESS_TOKEN);
+    assert.equal(bad.status, 400);
+    assert.deepEqual(bad.body, { error: "bad_request" });
+  }
+  // Exactly 4 KB is accepted.
+  assert.equal(
+    (await requestSession(base, '{"mode":"token"}'.padEnd(4096), ACCESS_TOKEN)).status,
+    201,
+  );
+});
+
+test("the same account twice: the first socket gets session_replaced and closes, the second runs, no slot leaks", async () => {
+  const { base } = await startWithSite();
+  const first = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const one = await TestClient.open(base, first.body.token!);
+  await one.configure();
+
+  // MAX_SESSIONS=1 is full, yet the account's new session takes over its old slot.
+  const second = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  assert.equal(second.status, 201);
+  const replaced = await one.waitFor(
+    (c) => errors(c).find((e) => e.code === "session_replaced"),
+    "session_replaced",
+  );
+  assert.equal(replaced.fatal, true);
+  await one.waitFor((c) => c.closed, "first socket closed");
+
+  const two = await TestClient.open(base, second.body.token!);
+  await two.configure();
+  await two.message("account.balance");
+  assert.ok(!two.closed);
+  await two.close();
+  await sleep(20);
+
+  // Both are gone and the only slot is free again: another account gets it, and then it is full.
+  assert.equal(
+    (await requestSession(base, { mode: "account" }, OTHER_ACCOUNT_TOKEN)).status,
+    201,
+  );
+  assert.equal((await issueSession(base)).status, 429);
+});
+
+test("replacing an account session that has not connected yet voids its token", async () => {
+  const { base } = await startWithSite();
+  const first = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const second = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  assert.equal(second.status, 201);
+  await assert.rejects(TestClient.open(base, first.body.token!), /401/);
+  const client = await TestClient.open(base, second.body.token!);
+  await client.configure();
+});
+
+test("a full cap is 429 session_limit: per mode and in total", async () => {
+  const { base } = await startWithSite(undefined, {
+    env: { MAX_SESSIONS: "2", MAX_KEYS_SESSIONS: "1", MAX_ACCOUNT_SESSIONS: "1" },
+  });
+  assert.equal((await requestSession(base, KEYS_REQUEST)).status, 201);
+  const keysFull = await requestSession(base, KEYS_REQUEST);
+  assert.equal(keysFull.status, 429);
+  assert.deepEqual(keysFull.body, { error: "session_limit" });
+  assert.equal((await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN)).status, 201);
+  const accountsFull = await requestSession(base, { mode: "account" }, OTHER_ACCOUNT_TOKEN);
+  assert.equal(accountsFull.status, 429);
+  assert.deepEqual(accountsFull.body, { error: "session_limit" });
+  const totalFull = await issueSession(base);
+  assert.equal(totalFull.status, 429);
+  assert.deepEqual(totalFull.body, { error: "session_limit" });
+});
+
+test("a WebSocket handshake that fails after taking the session token gives the slot back", async () => {
+  const { base, port } = await start();
+  const { body } = await issueSession(base);
+  // A valid session token on an upgrade the socket server cannot accept (no Sec-WebSocket-Key).
+  const status = await new Promise((resolve, reject) => {
+    const req = request({
+      port,
+      path: "/v1/realtime",
+      headers: {
+        connection: "Upgrade",
+        upgrade: "websocket",
+        authorization: `Bearer ${body.token}`,
+      },
+    });
+    req.on("response", (res) => (res.resume(), resolve(res.statusCode)));
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(status, 400);
+  await sleep(20);
+  // MAX_SESSIONS=1: the slot came back.
+  assert.equal((await issueSession(base)).status, 201);
+});
+
+test("no access token, provider key, static token or site secret reaches the log in any mode", async () => {
+  const { base, logLines, site } = await startWithSite(undefined, {
+    env: { MAX_SESSIONS: "3" },
+    fake: { transcripts: ["bir", "ikki", "uch"] },
+  });
+  const issued = [
+    await requestSession(base, undefined, ACCESS_TOKEN),
+    await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN),
+    await requestSession(base, KEYS_REQUEST),
+  ];
+  assert.equal((await requestSession(base, { mode: "account" }, REFUSED_TOKEN)).status, 401);
+  for (const { status, body } of issued) {
+    assert.equal(status, 201);
+    const client = await TestClient.open(base, body.token!);
+    await client.configure();
+    await pushToTalk(client, 1);
+    await client.message("metrics");
+    await client.close();
+  }
+  await sleep(20);
+  assert.deepEqual(site.failures, []);
+  const log = logLines.join("\n");
+  for (const mode of ["token", "account", "keys"])
+    assert.ok(log.includes(`"mode":"${mode}"`), `no ${mode} session in the log`);
+  for (const forbidden of [
+    ACCESS_TOKEN,
+    ACCOUNT_TOKEN,
+    REFUSED_TOKEN,
+    ELEVENLABS_KEY,
+    GEMINI_KEY,
+    SITE_SECRET,
+    ...issued.map((i) => i.body.token!),
+  ]) {
+    assert.ok(!log.includes(forbidden), `log leaked: ${forbidden}`);
+  }
 });

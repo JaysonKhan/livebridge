@@ -25,7 +25,11 @@ import type {
   ProviderFactory,
   Voice,
 } from "../../services/gateway/src/providers/types.ts";
-import { createGateway } from "../../services/gateway/src/server.ts";
+import {
+  createGateway,
+  type GatewayOptions,
+} from "../../services/gateway/src/server.ts";
+import type { SiteClient } from "../../services/gateway/src/site.ts";
 
 export const ACCESS_TOKEN = "test-access-token-0123456789abcdef0123";
 
@@ -36,6 +40,10 @@ export async function startGateway(
     /** Replaces the factory the mode would build, e.g. to count or fail calls. */
     factory?: ProviderFactory;
     voicesCacheMs?: number;
+    /** The owner's site; without one, account sessions are unavailable. */
+    site?: SiteClient;
+    /** Builds an own-keys session's providers; the gateway's default when absent. */
+    providersFor?: GatewayOptions["providersFor"];
   } = {},
 ) {
   const logLines: string[] = [];
@@ -58,6 +66,8 @@ export async function startGateway(
     log,
     retryDelayMs: () => 20,
     voicesCacheMs: options.voicesCacheMs,
+    site: options.site,
+    providersFor: options.providersFor,
   });
   const port = await gateway.listen();
   return { gateway, port, base: `http://127.0.0.1:${port}`, logLines, config };
@@ -75,6 +85,40 @@ export async function issueSession(base: string, token = ACCESS_TOKEN) {
       token?: string;
       error?: string;
     },
+  };
+}
+
+export type SessionReply = {
+  session_id?: string;
+  token?: string;
+  expires_in?: number;
+  ws_path?: string;
+  account?: { balance_units: number };
+  error?: string;
+};
+
+/**
+ * POST /v1/sessions with a request body (an object is sent as JSON, a string as it is) and, when given, a bearer
+ * token. `text` is the reply exactly as sent.
+ */
+export async function requestSession(
+  base: string,
+  body?: object | string,
+  token?: string,
+) {
+  const response = await fetch(`${base}/v1/sessions`, {
+    method: "POST",
+    headers: token === undefined ? {} : { authorization: `Bearer ${token}` },
+    body:
+      body === undefined || typeof body === "string"
+        ? body
+        : JSON.stringify(body),
+  });
+  const text = await response.text();
+  return {
+    status: response.status,
+    text,
+    body: JSON.parse(text) as SessionReply,
   };
 }
 

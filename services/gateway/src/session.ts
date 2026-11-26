@@ -15,14 +15,26 @@ import { EchoGuard } from "./echo.ts";
 import type { Logger } from "./log.ts";
 import { DirectionPipeline } from "./pipeline.ts";
 import type { ProviderFactory } from "./providers/types.ts";
+import type { SiteClient } from "./site.ts";
+
+/** Who the session was issued to. An account session carries what the site answered when it was authorized. */
+export type SessionAuth =
+  | { mode: "token" }
+  | { mode: "keys" }
+  | { mode: "account"; accountId: string; hasPurchase: boolean; balanceUnits: number };
 
 export interface SessionDeps {
   id: string;
   socket: WebSocket;
   config: Config;
+  /** For a keys session, the providers built from that session's own keys. */
   factory: ProviderFactory;
   log: Logger;
   retryDelayMs?: (attempt: number) => number;
+  auth: SessionAuth;
+  site?: SiteClient;
+  /** Called exactly once, when the session closes; gives its admission slot back. */
+  onClosed(): void;
 }
 
 const MAX_BAD_FRAMES = 50;
@@ -40,7 +52,7 @@ export class Session {
   constructor(deps: SessionDeps) {
     this.deps = deps;
     this.expiry = setTimeout(
-      () => this.fail("session_expired", "session time limit reached"),
+      () => this.end("session_expired", "session time limit reached"),
       deps.config.MAX_SESSION_MINUTES * 60_000,
     );
     deps.socket.on("message", (data, isBinary) =>
@@ -58,6 +70,13 @@ export class Session {
     this.pipelines.clear();
     this.deps.socket.close();
     this.deps.log.info("session.closed", { session: this.deps.id });
+    this.deps.onClosed();
+  }
+
+  /** Tells the client why with a fatal error, then closes. */
+  end(code: ErrorCode, message: string) {
+    this.send({ v: 1, type: "error", code, message, fatal: true });
+    this.close();
   }
 
   private onMessage(data: RawData, isBinary: boolean) {
@@ -89,7 +108,7 @@ export class Session {
     } catch (error) {
       if (!(error instanceof FrameError)) throw error;
       if (++this.badFrames > MAX_BAD_FRAMES)
-        return this.fail("bad_frame", "too many invalid audio frames");
+        return this.end("bad_frame", "too many invalid audio frames");
       this.error("bad_frame", error.message);
     }
   }
@@ -190,6 +209,13 @@ export class Session {
       in: this.pipelines.get("in")?.ready,
     });
     this.announce();
+    // Once, after the first announcement; later announcements are provider state changes, not news about money.
+    if (this.deps.auth.mode === "account")
+      this.send({
+        v: 1,
+        type: "account.balance",
+        balance_units: this.deps.auth.balanceUnits,
+      });
   }
 
   /** Sent after configuration and again whenever a direction's provider state changes — never optimistically. */
@@ -220,10 +246,5 @@ export class Session {
 
   private error(code: ErrorCode, message: string) {
     this.send({ v: 1, type: "error", code, message, fatal: false });
-  }
-
-  private fail(code: ErrorCode, message: string) {
-    this.send({ v: 1, type: "error", code, message, fatal: true });
-    this.close();
   }
 }
