@@ -70,6 +70,9 @@ export async function listElevenLabsVoices(options: {
       });
       if (!response.ok) {
         await response.body?.cancel();
+        // The provider does not know this key: asking again cannot help.
+        if (response.status === 401)
+          throw new ProviderError("invalid_key", "voice list refused the key", true);
         throw new ProviderError(
           "voices_unavailable",
           `voice list refused (${response.status})`,

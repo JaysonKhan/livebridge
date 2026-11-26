@@ -36,6 +36,8 @@ export interface SessionDeps {
   idleTimeoutMs: number;
   auth: SessionAuth;
   site?: SiteClient;
+  /** Account sessions only: whether the client may choose this voice. */
+  voiceAllowed?: (voiceId: string) => Promise<boolean>;
   /** Called exactly once, when the session closes; gives its admission slot back. */
   onClosed(): void;
 }
@@ -225,7 +227,17 @@ export class Session {
         "translation_model is not on the allowed list",
       );
     }
+    // Phase "configuring" while the voices are checked, so a second configure cannot slip in.
     this.phase = "configuring";
+    const named = [message.voices?.out, message.voices?.in].filter((v) => v !== undefined);
+    if (this.deps.voiceAllowed && named.length) {
+      const allowed = await Promise.all(named.map(this.deps.voiceAllowed));
+      if (this.phase !== "configuring") return;
+      if (!allowed.every(Boolean)) {
+        this.phase = "new";
+        return this.error("bad_message", "voice is not on the allowed list");
+      }
+    }
     for (const direction of ["out", "in"] as const) {
       const directionConfig = message.directions[direction];
       if (!directionConfig.enabled) continue;

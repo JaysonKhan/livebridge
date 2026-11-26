@@ -629,18 +629,19 @@ test("voice list: a library voice its owner has switched off is left out", async
   );
 });
 
-test("voice list: a refusal is voices_unavailable", async () => {
+test("voice list: a refused key is invalid_key, a network failure is voices_unavailable", async () => {
   const mock = await eleven({ voicePages: VOICE_PAGES });
   const unavailable = (e: unknown) =>
     e instanceof ProviderError && e.code === "voices_unavailable";
-  // The mock answers 401 to a key it does not know.
+  // The mock answers 401 to a key it does not know: permanent, and not the same as an outage.
   await assert.rejects(
     listElevenLabsVoices({
       apiKey: "not-the-key",
       baseUrl: mock.base,
       excludedCategories: [],
     }),
-    unavailable,
+    (e: unknown) =>
+      e instanceof ProviderError && e.code === "invalid_key" && e.permanent,
   );
   // Nothing listens there: a network failure reads the same.
   await assert.rejects(

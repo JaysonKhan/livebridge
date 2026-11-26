@@ -1,6 +1,6 @@
 // Gateway behaviour over a real WebSocket with FAKE providers (placeholder text, test tones). No real API is called.
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1450,4 +1450,238 @@ test("IDLE_TIMEOUT_MINUTES=0 turns the idle timeout off", async () => {
   } finally {
     await other.gateway.close();
   }
+});
+
+// ---- GET /v1/voices by connection mode ----
+
+const CLONED = (id: string, name: string) => ({ id, name, category: "cloned" });
+const OWNER_CLONE = "ownerclone000000001";
+const LISTED_CLONE = "listedclone00000001";
+const STRANGER_CLONE = "strangerclone0000001";
+const SERVICE_VOICES = [...FAKE_VOICES, CLONED(OWNER_CLONE, "Owner"), CLONED(LISTED_CLONE, "Listed"), CLONED(STRANGER_CLONE, "Stranger")];
+const premadeIds = FAKE_VOICES.map((v) => v.id);
+const INCOMING_DEFAULT = premadeIds[0]!;
+const VOICE_ENV = { ELEVENLABS_OWNER_VOICE_ID: OWNER_CLONE, ELEVENLABS_INCOMING_VOICE_ID: INCOMING_DEFAULT };
+
+/** The gateway's own factory with a voice list that includes cloned voices, counting its calls. */
+function serviceVoices() {
+  const state = { calls: 0 };
+  const factory: ProviderFactory = {
+    ...createFakeProviders({ delayMs: 2 }),
+    voices: async () => (state.calls++, SERVICE_VOICES),
+  };
+  return { state, factory };
+}
+
+/** A session.configure that is expected to be refused, so there is no session.ready to wait for. */
+const sendConfigure = (client: TestClient, voices: { out?: string; in?: string }) =>
+  client.send({
+    v: 1,
+    type: "session.configure",
+    capture_format: { encoding: "pcm_s16le", sample_rate: 16000, channels: 1 },
+    directions: {
+      out: { enabled: true, source_lang: "uz", target_lang: "en", speak: true, commit: "manual" },
+      in: { enabled: true, source_lang: "en", target_lang: "uz", speak: true, commit: "vad" },
+    },
+    voices,
+  });
+
+/** Stops what this test started so far, to start a differently configured gateway in the same test. */
+const stopAll = async () => {
+  await running?.gateway.close();
+  running = undefined;
+  await runningSite?.close();
+  runningSite = undefined;
+};
+
+let caller = 0;
+const voicesWith = async (base: string, headers: Record<string, string>) => {
+  // Each request comes from its own address, so the request limit stays out of the way.
+  headers = { "x-forwarded-for": `10.9.${Math.floor(++caller / 250)}.${caller % 250}`, ...headers };
+  const response = await fetch(`${base}/v1/voices`, { headers });
+  return { status: response.status, body: (await response.json()) as { voices?: { id: string }[]; error?: string } };
+};
+const idsOf = (reply: { body: { voices?: { id: string }[] } }) => reply.body.voices?.map((v) => v.id);
+
+test("voices, account: only the approved ids and the two default voices; a cloned voice outside them is absent", async () => {
+  const { factory } = serviceVoices();
+  const { base } = await startWithSite(undefined, { factory, env: { ...VOICE_ENV, ACCOUNT_VOICE_IDS: LISTED_CLONE } });
+  const reply = await voicesWith(base, { authorization: `Bearer ${ACCOUNT_TOKEN}` });
+  assert.equal(reply.status, 200);
+  assert.deepEqual(idsOf(reply), [INCOMING_DEFAULT, OWNER_CLONE, LISTED_CLONE]);
+});
+
+test("voices, account: with no approved ids, the provider's stock voices plus the two defaults", async () => {
+  const { factory } = serviceVoices();
+  const { base } = await startWithSite(undefined, { factory, env: { ...VOICE_ENV, ACCOUNT_VOICE_IDS: "" } });
+  const reply = await voicesWith(base, { authorization: `Bearer ${ACCOUNT_TOKEN}` });
+  assert.deepEqual(idsOf(reply), [...premadeIds, OWNER_CLONE]);
+});
+
+test("voices, account: a token the site refuses is 401 invalid_token; any other site trouble or no site is 502", async () => {
+  const refused = await startWithSite();
+  assert.deepEqual(
+    (await voicesWith(refused.base, { authorization: `Bearer ${REFUSED_TOKEN}` })).body,
+    { error: "invalid_token" },
+  );
+  assert.equal((await voicesWith(refused.base, { authorization: `Bearer ${REFUSED_TOKEN}` })).status, 401);
+  await stopAll();
+  const down = await startWithSite(() => ({ status: 503, body: { error: "unavailable" } }));
+  const failed = await voicesWith(down.base, { authorization: `Bearer ${ACCOUNT_TOKEN}` });
+  assert.equal(failed.status, 502);
+  assert.deepEqual(failed.body, { error: "voices_unavailable" });
+  await stopAll();
+  const noSite = await start();
+  const none = await voicesWith(noSite.base, { authorization: `Bearer ${ACCOUNT_TOKEN}` });
+  assert.equal(none.status, 502);
+  assert.deepEqual(none.body, { error: "voices_unavailable" });
+});
+
+test("voices, keys: that key's own list from a factory built with exactly that key; cached 10 minutes per key", async () => {
+  const asked: { elevenlabs: string; gemini: string }[] = [];
+  let calls = 0;
+  const own = { ...createFakeProviders({ delayMs: 2 }), voices: async () => (calls++, [CLONED("ownvoice0000000001", "Mine")]) };
+  const { base, logLines } = await start({
+    providersFor: (keys) => (asked.push({ ...keys }), own),
+  });
+  const headers = { "x-elevenlabs-api-key": ELEVENLABS_KEY };
+  const first = await voicesWith(base, headers);
+  assert.equal(first.status, 200);
+  assert.deepEqual(idsOf(first), ["ownvoice0000000001"]);
+  assert.deepEqual(asked, [{ elevenlabs: ELEVENLABS_KEY, gemini: "" }]);
+  assert.deepEqual(idsOf(await voicesWith(base, headers)), ["ownvoice0000000001"]);
+  assert.equal(calls, 1);
+  assert.equal(asked.length, 1);
+  await voicesWith(base, { "x-elevenlabs-api-key": ELEVENLABS_KEY + "-other" });
+  assert.equal(calls, 2);
+  // The key and its hash never reach the log.
+  const log = logLines.join("\n");
+  for (const key of [ELEVENLABS_KEY, ELEVENLABS_KEY + "-other"]) {
+    assert.ok(!log.includes(key), "log leaked a key");
+    assert.ok(!log.includes(createHash("sha256").update(key).digest("hex")), "log leaked a key hash");
+  }
+});
+
+test("voices, keys: the key's list expires with the cache time, and at most 50 keys are kept", async () => {
+  let calls = 0;
+  const own = { ...createFakeProviders({ delayMs: 2 }), voices: async () => (calls++, [CLONED("ownvoice0000000001", "Mine")]) };
+  const { base } = await start({ providersFor: () => own, voicesCacheMs: 150 });
+  const headers = { "x-elevenlabs-api-key": ELEVENLABS_KEY };
+  await voicesWith(base, headers);
+  await voicesWith(base, headers);
+  assert.equal(calls, 1);
+  await sleep(200);
+  await voicesWith(base, headers);
+  assert.equal(calls, 2);
+
+  await stopAll();
+  const many = await start({ providersFor: () => own });
+  calls = 0;
+  const keyOf = (n: number) => `key-number-${String(n).padStart(4, "0")}-padding`;
+  for (let n = 0; n < 51; n++) await voicesWith(many.base, { "x-elevenlabs-api-key": keyOf(n) });
+  assert.equal(calls, 51);
+  await voicesWith(many.base, { "x-elevenlabs-api-key": keyOf(50) });
+  assert.equal(calls, 51, "the newest key is still cached");
+  await voicesWith(many.base, { "x-elevenlabs-api-key": keyOf(0) });
+  assert.equal(calls, 52, "the oldest key was evicted");
+});
+
+test("voices, keys: a refused key is 401 invalid_key, a malformed one never reaches the provider, other failures are 502; none is cached", async () => {
+  let built = 0;
+  let calls = 0;
+  let failure: ProviderError = new ProviderError("invalid_key", "refused", true);
+  const own = {
+    ...createFakeProviders({ delayMs: 2 }),
+    voices: async () => {
+      calls++;
+      throw failure;
+    },
+  };
+  const { base } = await start({ providersFor: () => (built++, own) });
+  const headers = { "x-elevenlabs-api-key": ELEVENLABS_KEY };
+  const refused = await voicesWith(base, headers);
+  assert.equal(refused.status, 401);
+  assert.deepEqual(refused.body, { error: "invalid_key" });
+  await voicesWith(base, headers);
+  assert.equal(calls, 2, "a failure is not cached");
+
+  for (const bad of ["short", "has a space in it 1234567", ""]) {
+    const reply = await voicesWith(base, { "x-elevenlabs-api-key": bad });
+    assert.equal(reply.status, 401);
+    assert.deepEqual(reply.body, { error: "invalid_key" });
+  }
+  assert.equal(built, 2, "a malformed key builds nothing");
+
+  failure = new ProviderError("voices_unavailable", "down");
+  const down = await voicesWith(base, headers);
+  assert.equal(down.status, 502);
+  assert.deepEqual(down.body, { error: "voices_unavailable" });
+});
+
+test("voices: without a header or an account token, only the static token is accepted", async () => {
+  const { base } = await start();
+  assert.equal((await voicesWith(base, { authorization: "Bearer wrong" })).status, 401);
+  assert.deepEqual((await voicesWith(base, {})).body, { error: "unauthorized" });
+  assert.equal((await voicesWith(base, { authorization: `Bearer ${ACCESS_TOKEN}` })).status, 200);
+});
+
+test("account session: configure naming a voice outside the list is bad_message and the session does not start; a listed one does", async () => {
+  const { factory, state } = serviceVoices();
+  const { base } = await startWithSite(undefined, { factory, env: { ...VOICE_ENV, ACCOUNT_VOICE_IDS: LISTED_CLONE } });
+  const issued = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const client = await TestClient.open(base, issued.body.token!);
+  await client.configure();
+  await client.message("session.ready");
+  assert.equal(state.calls, 0, "no voice named, no list fetched");
+  await client.close();
+
+  for (const voices of [{ out: STRANGER_CLONE }, { in: STRANGER_CLONE }, { out: LISTED_CLONE, in: STRANGER_CLONE }]) {
+    const second = await requestSession(base, { mode: "account" }, OTHER_ACCOUNT_TOKEN);
+    const refused = await TestClient.open(base, second.body.token!);
+    sendConfigure(refused, voices);
+    await refused.waitFor((c) => errors(c).some((e) => e.code === "bad_message"), "bad_message");
+    await sleep(50);
+    await refused.sync();
+    assert.equal(refused.messages.filter((m) => m.type === "session.ready").length, 0);
+    // Still unconfigured: configuring again with an allowed voice starts it.
+    await refused.configure({ voices: { out: LISTED_CLONE, in: OWNER_CLONE } });
+    await refused.message("session.ready");
+    await refused.close();
+  }
+});
+
+test("account session: with no approved ids a stock voice is allowed; if the list cannot be read, only the configured voices are", async () => {
+  const { factory } = serviceVoices();
+  const { base } = await startWithSite(undefined, { factory, env: { ...VOICE_ENV, ACCOUNT_VOICE_IDS: "" } });
+  const stock = await TestClient.open(base, (await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN)).body.token!);
+  await stock.configure({ voices: { out: premadeIds[1]!, in: INCOMING_DEFAULT } });
+  await stock.message("session.ready");
+  await stock.close();
+  const clone = await TestClient.open(base, (await requestSession(base, { mode: "account" }, OTHER_ACCOUNT_TOKEN)).body.token!);
+  sendConfigure(clone, { out: STRANGER_CLONE });
+  await clone.waitFor((c) => errors(c).some((e) => e.code === "bad_message"), "bad_message");
+  clone.close();
+  await stopAll();
+
+  const failing: ProviderFactory = {
+    ...createFakeProviders({ delayMs: 2 }),
+    voices: async () => {
+      throw new ProviderError("voices_unavailable", "down");
+    },
+  };
+  const down = await startWithSite(undefined, { factory: failing, env: { ...VOICE_ENV, ACCOUNT_VOICE_IDS: "" } });
+  const premade = await TestClient.open(down.base, (await requestSession(down.base, { mode: "account" }, ACCOUNT_TOKEN)).body.token!);
+  sendConfigure(premade, { out: premadeIds[1]! });
+  await premade.waitFor((c) => errors(c).some((e) => e.code === "bad_message"), "bad_message");
+  await premade.configure({ voices: { out: OWNER_CLONE } });
+  await premade.message("session.ready");
+});
+
+test("token and keys sessions may name any voice, as before", async () => {
+  const { factory, state } = serviceVoices();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ voices: { out: STRANGER_CLONE } });
+  await client.message("session.ready");
+  assert.equal(state.calls, 0);
 });

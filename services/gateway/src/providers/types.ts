@@ -115,6 +115,9 @@ export interface ProviderFactory {
   stt(options: SttOptions): StreamingSTT;
   translator(): StreamingTranslator;
   tts(options: TtsOptions): StreamingTTS;
-  /** The voices a client may choose from. Rejects with `ProviderError` (`voices_unavailable`). */
+  /**
+   * The voices a client may choose from. Rejects with `ProviderError`: `invalid_key` (permanent) when the provider
+   * refuses the key, `voices_unavailable` for any other failure.
+   */
   voices(): Promise<Voice[]>;
 }

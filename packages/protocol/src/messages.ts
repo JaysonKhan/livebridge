@@ -240,7 +240,7 @@ export function parseClientMessage(
 }
 
 /** Shape of a provider API key in the session request: printable ASCII, no whitespace. */
-const API_KEY_PATTERN = /^[\x21-\x7e]{16,256}$/;
+export const API_KEY_PATTERN = /^[\x21-\x7e]{16,256}$/;
 const apiKey = z.string().regex(API_KEY_PATTERN);
 
 /** Body of `POST /v1/sessions`. No body at all means `{ mode: "token" }`. */

@@ -4,10 +4,13 @@
 //                         token (no body): Authorization: Bearer <GATEWAY_ACCESS_TOKEN>
 //                         account: Authorization: Bearer <account access token>, authorized by the owner's site
 //                         keys: the caller's own provider keys in the body
-//   GET  /v1/voices     Authorization: Bearer <GATEWAY_ACCESS_TOKEN> -> the voices a session may choose from
+//   GET  /v1/voices     the voices a session may choose from, by who asks:
+//                         Authorization: Bearer <GATEWAY_ACCESS_TOKEN> -> the service account's voices
+//                         Authorization: Bearer <account access token> -> only the approved list
+//                         X-ElevenLabs-Api-Key: <key> -> that key's own account
 //   WSS  /v1/realtime   Authorization: Bearer <session token>
 // TLS is terminated by the reverse proxy; this process listens on localhost.
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   createServer,
   type IncomingMessage,
@@ -17,6 +20,7 @@ import {
 import type { AddressInfo } from "node:net";
 import { WebSocketServer } from "ws";
 import {
+  API_KEY_PATTERN,
   FRAME_HEADER_BYTES,
   MAX_PAYLOAD_BYTES,
   parseSessionRequest,
@@ -37,6 +41,7 @@ const SESSION_TOKEN_TTL_MS = 60_000;
 const SESSION_REQUESTS_PER_MINUTE = 20;
 const VOICES_CACHE_MS = 600_000;
 const MAX_SESSION_REQUEST_BYTES = 4096;
+const MAX_KEY_VOICE_LISTS = 50;
 
 export interface Gateway {
   listen(): Promise<number>;
@@ -215,6 +220,83 @@ export function createGateway({
     }
   };
 
+  /** Own-keys voice lists by SHA-256 of the key, oldest first; never logged. */
+  const keyVoices = new Map<string, { list: Voice[]; at: number }>();
+  const listKeyVoices = async (key: string) => {
+    const id = createHash("sha256").update(key).digest("hex");
+    const cached = keyVoices.get(id);
+    if (cached && Date.now() - cached.at < voicesCacheMs) return cached.list;
+    const list = await providersFor({ elevenlabs: key, gemini: "" }).voices();
+    keyVoices.delete(id);
+    if (keyVoices.size >= MAX_KEY_VOICE_LISTS) keyVoices.delete(keyVoices.keys().next().value!);
+    keyVoices.set(id, { list, at: Date.now() });
+    return list;
+  };
+
+  /** What an account session may speak with: the approved ids and the two defaults, else the stock voices too. */
+  const accountVoice = (voice: Pick<Voice, "id" | "category">) =>
+    config.accountVoiceIds.includes(voice.id) ||
+    voice.id === config.ELEVENLABS_OWNER_VOICE_ID ||
+    voice.id === config.ELEVENLABS_INCOMING_VOICE_ID ||
+    (config.accountVoiceIds.length === 0 && voice.category === "premade");
+
+  /** An account session's voice choice. The service list is read only when the id is not already approved. */
+  const accountVoiceAllowed = async (id: string) => {
+    if (accountVoice({ id })) return true;
+    if (config.accountVoiceIds.length > 0) return false;
+    try {
+      const found = (await listVoices()).find((voice) => voice.id === id);
+      return !!found && accountVoice(found);
+    } catch {
+      return false;
+    }
+  };
+
+  /** `GET /v1/voices`: the list for this caller, or the refusal to send. */
+  const voicesFor = async (
+    req: IncomingMessage,
+  ): Promise<{ status: number; body: object }> => {
+    const unavailable = { status: 502, body: { error: "voices_unavailable" } };
+    const header = req.headers["x-elevenlabs-api-key"];
+    if (header !== undefined) {
+      if (typeof header !== "string" || !API_KEY_PATTERN.test(header))
+        return { status: 401, body: { error: "invalid_key" } };
+      try {
+        return { status: 200, body: { voices: await listKeyVoices(header) } };
+      } catch (error) {
+        if (error instanceof ProviderError && error.code === "invalid_key")
+          return { status: 401, body: { error: "invalid_key" } };
+        log.warn("voices.failed", { mode: "keys" });
+        return unavailable;
+      }
+    }
+    const accessToken = bearer(req);
+    if (accessToken.startsWith("lba_")) {
+      if (!site) return unavailable;
+      try {
+        await site.authorize(accessToken);
+      } catch (error) {
+        if (error instanceof SiteError && error.code === "invalid_token")
+          return { status: 401, body: { error: "invalid_token" } };
+        log.warn("site.authorize_failed", {
+          code: error instanceof SiteError ? error.code : "unknown",
+        });
+        return unavailable;
+      }
+      try {
+        return { status: 200, body: { voices: (await listVoices()).filter(accountVoice) } };
+      } catch {
+        return unavailable;
+      }
+    }
+    if (!staticTokenOk(req)) return { status: 401, body: { error: "unauthorized" } };
+    try {
+      return { status: 200, body: { voices: await listVoices() } };
+    } catch {
+      return unavailable;
+    }
+  };
+
   /** Who the caller is, or the refusal to send. Account mode asks the site, once. */
   const authorize = async (
     req: IncomingMessage,
@@ -310,9 +392,8 @@ export function createGateway({
     }
     if (req.method === "GET" && path === "/v1/voices") {
       if (rateLimited(callerAddress(req))) return json(res, 429, { error: "rate_limited" });
-      if (!staticTokenOk(req)) return json(res, 401, { error: "unauthorized" });
-      return void listVoices().then(
-        (list) => json(res, 200, { voices: list }),
+      return void voicesFor(req).then(
+        ({ status, body }) => json(res, status, body),
         () => json(res, 502, { error: "voices_unavailable" }),
       );
     }
@@ -351,6 +432,7 @@ export function createGateway({
         idleTimeoutMs,
         auth: entry.auth,
         site,
+        voiceAllowed: entry.auth.mode === "account" ? accountVoiceAllowed : undefined,
         onClosed: () => {
           sessions.delete(entry.ticket);
           admission.release(entry.ticket);
