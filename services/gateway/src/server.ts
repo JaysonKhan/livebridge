@@ -366,10 +366,13 @@ export function createGateway({
       }),
     close: async () => {
       for (const token of pending.keys()) forget(token);
-      for (const session of sessions.values()) session.close();
+      const open = [...sessions.values()];
+      for (const session of open) session.close();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => server.close(() => resolve()));
+      // A closed account session is still sending its final usage report; shutting down must not cut it off.
+      await Promise.allSettled(open.map((session) => session.finished));
     },
   };
 }

@@ -10,6 +10,7 @@ import {
   type DirectionReady,
   type ServerMessage,
 } from "../../../packages/protocol/src/index.ts";
+import { BillingReporter, UsageMeter } from "./billing.ts";
 import type { Config } from "./config.ts";
 import { EchoGuard } from "./echo.ts";
 import type { Logger } from "./log.ts";
@@ -48,9 +49,33 @@ export class Session {
   private readonly echo = new EchoGuard();
   private badFrames = 0;
   private readonly expiry: NodeJS.Timeout;
+  /** Account sessions only. */
+  private readonly meter?: UsageMeter;
+  private readonly reporter?: BillingReporter;
+  private final: Promise<void> = Promise.resolve();
 
   constructor(deps: SessionDeps) {
     this.deps = deps;
+    if (deps.auth.mode === "account") {
+      this.meter = new UsageMeter();
+      this.reporter = new BillingReporter({
+        // An account session is only ever authorized by a site, so there is one.
+        site: deps.site!,
+        accountId: deps.auth.accountId,
+        sessionId: deps.id,
+        meter: this.meter,
+        everyMs: deps.config.USAGE_REPORT_SECONDS * 1000,
+        onBalance: (units) =>
+          this.send({ v: 1, type: "account.balance", balance_units: units }),
+        onFatal: (code) =>
+          this.end(
+            code,
+            code === "balance_exhausted"
+              ? "the account balance is used up"
+              : "usage could not be reported; billing is unavailable",
+          ),
+      });
+    }
     this.expiry = setTimeout(
       () => this.end("session_expired", "session time limit reached"),
       deps.config.MAX_SESSION_MINUTES * 60_000,
@@ -62,12 +87,19 @@ export class Session {
     deps.socket.on("error", () => this.close());
   }
 
+  /** Settles once the final usage report is done; at once for a session that is not billed. */
+  get finished(): Promise<void> {
+    return this.final;
+  }
+
   close() {
     if (this.phase === "closed") return;
     this.phase = "closed";
     clearTimeout(this.expiry);
     for (const pipeline of this.pipelines.values()) pipeline.close();
     this.pipelines.clear();
+    // The final report goes out in the background; only a gateway shutdown waits for it.
+    if (this.reporter) this.final = this.reporter.stop();
     this.deps.socket.close();
     this.deps.log.info("session.closed", { session: this.deps.id });
     this.deps.onClosed();
@@ -197,6 +229,7 @@ export class Session {
           },
           onReadyChanged: () => this.phase === "ready" && this.announce(),
           retryDelayMs: this.deps.retryDelayMs,
+          meter: this.meter,
         }),
       );
     }
@@ -216,6 +249,7 @@ export class Session {
         type: "account.balance",
         balance_units: this.deps.auth.balanceUnits,
       });
+    this.reporter?.start();
   }
 
   /** Sent after configuration and again whenever a direction's provider state changes — never optimistically. */

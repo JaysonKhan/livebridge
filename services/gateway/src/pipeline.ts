@@ -9,6 +9,7 @@ import {
   type ServerMessage,
   type SkipReason,
 } from "../../../packages/protocol/src/index.ts";
+import type { UsageMeter } from "./billing.ts";
 import type { EchoGuard } from "./echo.ts";
 import type { Logger } from "./log.ts";
 import {
@@ -43,6 +44,8 @@ export interface PipelineDeps {
   onReadyChanged(): void;
   /** Delay before reconnect attempt n (0-based). Overridable for tests. */
   retryDelayMs?: (attempt: number) => number;
+  /** Account sessions only: counts the audio speech-to-text accepted and the text sent to synthesis. */
+  meter?: UsageMeter;
 }
 
 interface Turn {
@@ -145,6 +148,7 @@ export class DirectionPipeline {
     const overflow = this.stt
       ? this.stt.sendAudio(frame.payload)
       : frame.payload.byteLength;
+    this.deps.meter?.addStt(this.deps.direction, frame.payload.byteLength - overflow);
     if (overflow > 0) {
       this.dropped++;
       const now = nowMs();
@@ -464,6 +468,7 @@ export class DirectionPipeline {
         }),
       );
 
+    this.deps.meter?.addTts(text);
     try {
       await tts.synthesize(
         text,

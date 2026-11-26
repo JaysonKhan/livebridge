@@ -10,7 +10,7 @@ import {
   FLAG_END_OF_TURN,
   type ServerMessage,
 } from "../../packages/protocol/src/index.ts";
-import { SAME_LANGUAGE_MARK } from "../../services/gateway/src/prompt.ts";
+import { SAME_LANGUAGE_MARK, toSpeakable } from "../../services/gateway/src/prompt.ts";
 import {
   createFakeProviders,
   FAKE_VOICES,
@@ -19,7 +19,7 @@ import {
   ProviderError,
   type ProviderFactory,
 } from "../../services/gateway/src/providers/types.ts";
-import { createSiteClient } from "../../services/gateway/src/site.ts";
+import { createSiteClient, type SiteClient } from "../../services/gateway/src/site.ts";
 import {
   ACCESS_TOKEN,
   issueSession,
@@ -1018,6 +1018,97 @@ test("account mode: without a site the gateway answers 503 accounts_unavailable"
   const off = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
   assert.equal(off.status, 503);
   assert.deepEqual(off.body, { error: "accounts_unavailable" });
+});
+
+/** A site that authorizes ACCOUNTS and answers usage reports with the given balances, one per report. */
+const chargingFrom =
+  (balances: number[]) =>
+  (path: string, body: any): FakeSiteReply =>
+    path.endsWith("/usage/")
+      ? { status: 200, body: { charged_units: 20, balance_units: balances.shift() } }
+      : authorizeFrom(ACCOUNTS)(path, body);
+
+const usageReports = (site: Awaited<ReturnType<typeof startFakeSite>>) =>
+  site.requests.filter((r) => r.path.endsWith("/usage/")).map((r) => r.body);
+
+test("account mode: usage is reported while the call runs, each balance reaches the client, and none left ends it", async () => {
+  const { base, site } = await startWithSite(chargingFrom([480, 0]), {
+    env: { USAGE_REPORT_SECONDS: "2" },
+    fake: { transcripts: ["Salom, ishlar qalay?", "Rahmat, yaxshi."] },
+  });
+  const issued = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const client = await TestClient.open(base, issued.body.token!);
+  await client.configure();
+  const balances = () =>
+    client.messages
+      .filter((m): m is Extract<ServerMessage, { type: "account.balance" }> => m.type === "account.balance")
+      .map((m) => m.balance_units);
+  const report = (seq: number, sttMsOut: number, sttMsIn: number, spoken: string) => ({
+    account_id: "acc-1",
+    session_id: issued.body.session_id,
+    seq,
+    stt_ms_out: sttMsOut,
+    stt_ms_in: sttMsIn,
+    tts_chars: [...toSpeakable(spoken)].length,
+  });
+
+  // 600 ms on the outgoing lane, translated and spoken; 300 ms on the incoming lane that never ends a turn.
+  await pushToTalk(client, 1);
+  client.send({ v: 1, type: "capture.start", direction: "in", generation: 1 });
+  client.sendAudio("in", 1, speech(300));
+  const first = await client.message("translation.final");
+  await client.message("metrics");
+  await client.waitFor(() => balances().length === 2, "a second account.balance", 5000);
+  assert.deepEqual(usageReports(site), [report(0, 600, 300, first.text)]);
+  assert.deepEqual(balances(), [500, 480]);
+  assert.ok(!client.closed);
+
+  await pushToTalk(client, 2);
+  const second = await client.message("translation.final", (m) => m.turn_id === 2);
+  const exhausted = await client.waitFor(
+    (c) => errors(c).find((e) => e.code === "balance_exhausted"),
+    "balance_exhausted",
+    5000,
+  );
+  assert.equal(exhausted.fatal, true);
+  await client.waitFor((c) => c.closed, "socket closed");
+  assert.deepEqual(balances(), [500, 480, 0]);
+  const types = client.messages.map((m) => m.type);
+  assert.ok(types.lastIndexOf("account.balance") < types.indexOf("error"));
+  await sleep(50);
+  // Everything was already reported, so the session's end sent nothing more.
+  assert.deepEqual(usageReports(site), [report(0, 600, 300, first.text), report(1, 600, 0, second.text)]);
+  assert.deepEqual(site.failures, []);
+});
+
+test("account mode: shutting the gateway down waits for each session's final usage report", async () => {
+  const fakeSite = (runningSite = await startFakeSite({ secret: SITE_SECRET, handle: chargingFrom([480]) }));
+  const real = createSiteClient({ socketPath: fakeSite.socketPath, host: fakeSite.host, secret: SITE_SECRET });
+  const answered: number[] = [];
+  // A busy site: its answer comes a little after the request.
+  const site: SiteClient = {
+    authorize: real.authorize,
+    usage: async (report) => {
+      const answer = await real.usage(report);
+      await sleep(100);
+      answered.push(report.seq);
+      return answer;
+    },
+  };
+  const { base, gateway } = await start({ site });
+  const issued = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const client = await TestClient.open(base, issued.body.token!);
+  await client.configure();
+  await pushToTalk(client, 1);
+  await client.message("metrics");
+  // The interval (10 s by default) never came: the only report is the one sent at the end.
+  await gateway.close();
+  running = undefined;
+  assert.deepEqual(answered, [0]);
+  assert.deepEqual(
+    usageReports(fakeSite).map((r) => [r.seq, r.stt_ms_out, r.stt_ms_in]),
+    [[0, 600, 0]],
+  );
 });
 
 test("keys mode: the session's providers are built by providersFor from exactly those keys", async () => {
