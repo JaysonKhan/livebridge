@@ -46,6 +46,8 @@ export interface PipelineDeps {
   retryDelayMs?: (attempt: number) => number;
   /** Account sessions only: counts the audio speech-to-text accepted and the text sent to synthesis. */
   meter?: UsageMeter;
+  /** Called when speech-to-text recognised something: a non-empty partial or a non-empty committed segment. */
+  onSpeech?(): void;
 }
 
 interface Turn {
@@ -261,6 +263,7 @@ export class DirectionPipeline {
 
   private onPartial(source: StreamingSTT, text: string) {
     if (source !== this.stt) return;
+    if (text) this.deps.onSpeech?.();
     // In an always-open direction this is the first sign that someone is speaking.
     this.translator.warm?.(this.deps.translationModel);
     const { direction, emit } = this.deps;
@@ -283,6 +286,7 @@ export class DirectionPipeline {
         : Math.round(nowMs() - this.commitRequestedAt);
     this.commitRequestedAt = null;
     const text = raw.trim();
+    if (text) this.deps.onSpeech?.();
     if (!text) {
       // Nothing was said: clear any partial caption that is still showing, and translate nothing.
       emit({

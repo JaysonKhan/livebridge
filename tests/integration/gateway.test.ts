@@ -777,7 +777,7 @@ test("unavailable providers: direction is reported not ready, never as connected
   );
   // Captured audio has nowhere to go and is reported as dropped, not buffered forever.
   client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
-  client.sendAudio("out", 1, speech(100));
+  client.sendAudio("out", 1, speech(600));
   await client.waitFor(
     (c) => errors(c).some((e) => e.code === "capture_overflow"),
     "capture_overflow",
@@ -1385,5 +1385,69 @@ test("no access token, provider key, static token or site secret reaches the log
     ...issued.map((i) => i.body.token!),
   ]) {
     assert.ok(!log.includes(forbidden), `log leaked: ${forbidden}`);
+  }
+});
+
+test("a ready session with no speech ends with idle_timeout and gives its slot back", async () => {
+  const { base } = await start({ idleTimeoutMs: 200 });
+  const client = await TestClient.connect(base);
+  await client.configure();
+  // MAX_SESSIONS=1 and it is taken.
+  assert.equal((await issueSession(base)).status, 429);
+  const fatal = await client.message("error", (m) => m.fatal);
+  assert.equal(fatal.code, "idle_timeout");
+  await client.waitFor((c) => c.closed, "socket close");
+  await sleep(20);
+  assert.equal((await issueSession(base)).status, 201);
+});
+
+test("a session that connects but never configures is also ended when idle", async () => {
+  const { base } = await start({ idleTimeoutMs: 150 });
+  const client = await TestClient.connect(base);
+  const fatal = await client.message("error", (m) => m.fatal);
+  assert.equal(fatal.code, "idle_timeout");
+  await sleep(20);
+  assert.equal((await issueSession(base)).status, 201);
+});
+
+test("speech pushes the idle deadline out by a full idle period", async () => {
+  const { base } = await start({ idleTimeoutMs: 600 });
+  const client = await TestClient.connect(base);
+  const startedAt = Date.now();
+  await client.configure();
+  await sleep(450);
+  // Speech at ~0.75 of the period: the original deadline (600) is no longer the deadline.
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(600));
+  await client.message("caption.partial", (m) => m.text !== "");
+  const spokeAt = Date.now() - startedAt;
+  await sleep(startedAt + 700 - Date.now());
+  assert.equal(client.closed, false, "ended at the old deadline");
+  assert.equal(errors(client).filter((e) => e.fatal).length, 0);
+  const fatal = await client.message("error", (m) => m.fatal);
+  assert.equal(fatal.code, "idle_timeout");
+  assert.ok(Date.now() - startedAt >= spokeAt + 500, "ended before a full idle period after the speech");
+});
+
+test("IDLE_TIMEOUT_MINUTES=0 turns the idle timeout off", async () => {
+  const { base } = await start({ env: { IDLE_TIMEOUT_MINUTES: "0" } });
+  const client = await TestClient.connect(base);
+  await client.configure();
+  await sleep(300);
+  assert.equal(client.closed, false);
+  assert.equal(errors(client).length, 0);
+  // An explicit 0 is the same.
+  await client.close();
+  await sleep(20);
+  const other = await startGateway({ idleTimeoutMs: 0 });
+  try {
+    const c = await TestClient.connect(other.base);
+    await c.configure();
+    await sleep(300);
+    assert.equal(c.closed, false);
+    assert.equal(errors(c).length, 0);
+    await c.close();
+  } finally {
+    await other.gateway.close();
   }
 });

@@ -32,6 +32,8 @@ export interface SessionDeps {
   factory: ProviderFactory;
   log: Logger;
   retryDelayMs?: (attempt: number) => number;
+  /** No recognised speech for this long ends the session; 0 = never. */
+  idleTimeoutMs: number;
   auth: SessionAuth;
   site?: SiteClient;
   /** Called exactly once, when the session closes; gives its admission slot back. */
@@ -49,6 +51,8 @@ export class Session {
   private readonly echo = new EchoGuard();
   private badFrames = 0;
   private readonly expiry: NodeJS.Timeout;
+  private idle?: NodeJS.Timeout;
+  private lastSpeech = Date.now();
   /** Account sessions only. */
   private readonly meter?: UsageMeter;
   private readonly reporter?: BillingReporter;
@@ -83,6 +87,7 @@ export class Session {
       () => this.end("session_expired", "session time limit reached"),
       deps.config.MAX_SESSION_MINUTES * 60_000,
     );
+    if (deps.idleTimeoutMs > 0) this.armIdle(deps.idleTimeoutMs);
     deps.socket.on("message", (data, isBinary) =>
       this.onMessage(data, isBinary),
     );
@@ -99,6 +104,7 @@ export class Session {
     if (this.phase === "closed") return;
     this.phase = "closed";
     clearTimeout(this.expiry);
+    clearTimeout(this.idle);
     for (const pipeline of this.pipelines.values()) pipeline.close();
     this.pipelines.clear();
     // The final report goes out in the background; only a gateway shutdown waits for it.
@@ -106,6 +112,16 @@ export class Session {
     this.deps.socket.close();
     this.deps.log.info("session.closed", { session: this.deps.id });
     this.deps.onClosed();
+  }
+
+  /** One timer per session; speech only records a time, and the timer re-arms for what is left when it fires. */
+  private armIdle(ms: number) {
+    this.idle = setTimeout(() => {
+      const left = this.lastSpeech + this.deps.idleTimeoutMs - Date.now();
+      if (left > 0) return this.armIdle(left);
+      const minutes = Math.round((this.deps.idleTimeoutMs / 60_000) * 100) / 100;
+      this.end("idle_timeout", `no speech for ${minutes} minutes`);
+    }, ms);
   }
 
   /** Tells the client why with a fatal error, then closes. */
@@ -233,6 +249,7 @@ export class Session {
           onReadyChanged: () => this.phase === "ready" && this.announce(),
           retryDelayMs: this.deps.retryDelayMs,
           meter: this.meter,
+          onSpeech: this.onSpeech,
         }),
       );
     }
@@ -254,6 +271,10 @@ export class Session {
       });
     this.reporter?.start();
   }
+
+  private readonly onSpeech = () => {
+    this.lastSpeech = Date.now();
+  };
 
   /** Sent after configuration and again whenever a direction's provider state changes — never optimistically. */
   private announce() {

@@ -57,6 +57,8 @@ export interface GatewayOptions {
   providersFor?: (keys: { elevenlabs: string; gemini: string }) => ProviderFactory;
   /** How long an issued session token waits for its socket. Default 60 seconds. */
   sessionTokenTtlMs?: number;
+  /** How long a session may go without recognised speech. Default `IDLE_TIMEOUT_MINUTES`; 0 = never. */
+  idleTimeoutMs?: number;
 }
 
 function bearer(req: IncomingMessage): string {
@@ -116,6 +118,7 @@ export function createGateway({
         )
       : factory,
   sessionTokenTtlMs = SESSION_TOKEN_TTL_MS,
+  idleTimeoutMs = config.IDLE_TIMEOUT_MINUTES * 60_000,
 }: GatewayOptions): Gateway {
   /**
    * Issued but not yet connected: token -> what the session needs. A token is consumed by the first upgrade; a keys
@@ -345,6 +348,7 @@ export function createGateway({
         factory: entry.factory,
         log,
         retryDelayMs,
+        idleTimeoutMs,
         auth: entry.auth,
         site,
         onClosed: () => {
