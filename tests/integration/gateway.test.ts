@@ -1254,6 +1254,35 @@ test("the same account twice: the first socket gets session_replaced and closes,
   assert.equal((await issueSession(base)).status, 429);
 });
 
+test("a replaced account session's final report goes out under its own session id, the newer one's under its own", async () => {
+  const { base, site, gateway } = await startWithSite(chargingFrom([480, 460]), {
+    fake: { transcripts: ["bir", "ikki"] },
+  });
+  const first = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const one = await TestClient.open(base, first.body.token!);
+  await one.configure();
+  await pushToTalk(one, 1);
+  await one.message("metrics");
+  const second = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  await one.waitFor((c) => c.closed, "first socket closed");
+  const two = await TestClient.open(base, second.body.token!);
+  await two.configure();
+  await pushToTalk(two, 1);
+  await two.message("metrics");
+  await two.close();
+  // Shutting down waits for every final report still under way.
+  await gateway.close();
+  running = undefined;
+  assert.deepEqual(site.failures, []);
+  assert.deepEqual(
+    usageReports(site).map((r) => [r.account_id, r.session_id, r.seq, r.stt_ms_out]),
+    [
+      ["acc-1", first.body.session_id, 0, 600],
+      ["acc-1", second.body.session_id, 0, 600],
+    ],
+  );
+});
+
 test("replacing an account session that has not connected yet voids its token", async () => {
   const { base } = await startWithSite();
   const first = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);

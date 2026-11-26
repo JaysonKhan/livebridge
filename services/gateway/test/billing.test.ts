@@ -313,6 +313,46 @@ test("reporter: stop() sends what is left, the unanswered report first and uncha
   assert.deepEqual(fatals, []);
 });
 
+test("reporter: usage still in the carry when the balance runs out mid-split goes out on stop(), in the next numbers", async (t) => {
+  const advance = clock(t);
+  const { site, sent } = fakeSite([0, 900, 800]);
+  const { reporter, meter, balances, fatals } = reporterWith(site);
+  reporter.start();
+  meter.addStt("out", 32 * 250_000);
+  await advance();
+  // The first part came back with nothing left: fatal, and the rest does not go out at once.
+  assert.deepEqual(fatals, ["balance_exhausted"]);
+  assert.deepEqual(sent(), [{ seq: 0, stt_ms_out: 120_000, stt_ms_in: 0, tts_chars: 0 }]);
+  await reporter.stop();
+  assert.deepEqual(sent(), [
+    { seq: 0, stt_ms_out: 120_000, stt_ms_in: 0, tts_chars: 0 },
+    { seq: 1, stt_ms_out: 120_000, stt_ms_in: 0, tts_chars: 0 },
+    { seq: 2, stt_ms_out: 10_000, stt_ms_in: 0, tts_chars: 0 },
+  ]);
+  assert.deepEqual(balances, [0]);
+  assert.deepEqual(fatals, ["balance_exhausted"]);
+});
+
+test("reporter: a report still unaccepted at billing_unavailable goes out unchanged on stop(), the rest under the next number", async (t) => {
+  const advance = clock(t);
+  const { site, bodies, sent } = fakeSite(["fail", "fail", "fail", 500, 400]);
+  const { reporter, meter, fatals } = reporterWith(site);
+  reporter.start();
+  meter.addStt("out", 3_200);
+  for (let i = 0; i < 3; i++) await advance();
+  assert.deepEqual(fatals, ["billing_unavailable"]);
+  // Used after the fatal, before the session finished closing.
+  meter.addTts("late");
+  await reporter.stop();
+  assert.equal(bodies.length, 5);
+  assert.equal(new Set(bodies.slice(0, 4)).size, 1, "the pending report was resent byte for byte");
+  assert.deepEqual(sent().slice(3), [
+    { seq: 0, stt_ms_out: 100, stt_ms_in: 0, tts_chars: 0 },
+    { seq: 1, stt_ms_out: 0, stt_ms_in: 0, tts_chars: 4 },
+  ]);
+  assert.deepEqual(fatals, ["billing_unavailable"]);
+});
+
 test("reporter: stop() pauses between final attempts and, after the third failure, logs the report it dropped", async (t) => {
   const advance = clock(t);
   const { site, bodies } = fakeSite(["fail", "fail", "fail", "fail"]);
