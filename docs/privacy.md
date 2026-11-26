@@ -67,6 +67,11 @@ same gateway code, with the same rules:
   characters were sent to speech synthesis, with the account and session ids. The site turns these counts into the
   entries in your account history. No audio, transcript or translation is part of a report. The gateway does not keep
   the account's access token after that first check.
+- **What an account holds on the developer's site:** the e-mail address and name from your Google account and its
+  Google id; the balance and its history (trial, purchases, usage counts, refunds, adjustments); and, for each
+  connected app, the computer's name the app sends at sign-in (up to 80 characters, shown on the connect page) and a
+  random install id the app made once and keeps in its preferences. Access and refresh tokens are kept only as one-way
+  hashes. Nothing that was said is part of it.
 - **Own keys travel over TLS and live in memory for one session.** Your ElevenLabs and Gemini keys go to the gateway
   over HTTPS when a session starts and are used only to call those providers for that session. They are held in the
   gateway's memory until the session ends (or, if it never connects, until its one-minute start token expires),
