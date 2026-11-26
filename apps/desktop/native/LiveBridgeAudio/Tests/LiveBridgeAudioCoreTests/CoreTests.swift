@@ -236,6 +236,62 @@ final class DeviceEnumerationTests: XCTestCase {
     }
 }
 
+final class EngineConfigTests: XCTestCase {
+    private func config(_ extra: [String: Any] = [:]) throws -> EngineConfig {
+        var map: [String: Any] = [
+            "gatewayUrl": "https://bridge.example.com", "accessToken": "secret-token", "micUid": "mic", "headphonesUid": "phones",
+            "sourcePids": [4242], "targetLang": "en", "mode": "bidirectional", "outCommit": "manual",
+        ]
+        map.merge(extra) { _, new in new }
+        return try XCTUnwrap(EngineConfig(dictionary: map))
+    }
+
+    func testAWellFormedVoiceIdIsKeptAndAnythingElseCountsAsNotChosen() throws {
+        let none = try config()
+        XCTAssertNil(none.outVoiceId)
+        XCTAssertNil(none.inVoiceId)
+
+        let both = try config(["outVoiceId": "voiceChosenOut01", "inVoiceId": "voiceChosenIn001"])
+        XCTAssertEqual(both.outVoiceId, "voiceChosenOut01")
+        XCTAssertEqual(both.inVoiceId, "voiceChosenIn001")
+
+        // The start is never refused over a voice: a bad id is simply not sent.
+        for bad: Any in ["", "bad id", "short", String(repeating: "a", count: 41), "../../etc/passwd", "voiceChosenOut01\n", 5] {
+            let dropped = try config(["outVoiceId": bad, "inVoiceId": bad])
+            XCTAssertNil(dropped.outVoiceId, "\(bad)")
+            XCTAssertNil(dropped.inVoiceId, "\(bad)")
+        }
+        let edges = try config(["outVoiceId": String(repeating: "a", count: 10), "inVoiceId": String(repeating: "Z", count: 40)])
+        XCTAssertEqual(edges.outVoiceId?.count, 10)
+        XCTAssertEqual(edges.inVoiceId?.count, 40)
+    }
+
+    func testTheConfigureMessageCarriesOnlyTheVoicesThatWereChosen() throws {
+        let voices = { (extra: [String: Any]) -> [String: String]? in
+            try Engine.configureMessage(for: self.config(extra))["voices"] as? [String: String]
+        }
+        XCTAssertEqual(try voices(["outVoiceId": "voiceChosenOut01", "inVoiceId": "voiceChosenIn001"]), ["out": "voiceChosenOut01", "in": "voiceChosenIn001"])
+        XCTAssertEqual(try voices(["inVoiceId": "voiceChosenIn001"]), ["in": "voiceChosenIn001"])
+        XCTAssertNil(try voices(["outVoiceId": "bad id"]))
+        XCTAssertNil(try Engine.configureMessage(for: config())["voices"])
+    }
+
+    func testTheConfigureMessageDescribesBothDirections() throws {
+        let message = try Engine.configureMessage(for: config(["myLang": "de", "targetLang": "fr", "translationModel": "fast-1", "sourcePids": [Int]()]))
+        XCTAssertEqual(message["type"] as? String, "session.configure")
+        XCTAssertEqual(message["translation_model"] as? String, "fast-1")
+        let directions = try XCTUnwrap(message["directions"] as? [String: [String: Any]])
+        XCTAssertEqual(directions["out"]?["source_lang"] as? String, "de")
+        XCTAssertEqual(directions["out"]?["target_lang"] as? String, "fr")
+        XCTAssertEqual(directions["out"]?["speak"] as? Bool, true)
+        XCTAssertEqual(directions["out"]?["commit"] as? String, "manual")
+        XCTAssertEqual(directions["in"]?["enabled"] as? Bool, false)  // no meeting app chosen
+        XCTAssertEqual(directions["in"]?["source_lang"] as? String, "fr")
+        XCTAssertEqual(directions["in"]?["commit"] as? String, "vad")
+        XCTAssertNil(try Engine.configureMessage(for: config())["translation_model"])
+    }
+}
+
 final class ProcessListTests: XCTestCase {
     func testSystemServicesAreNotOfferedAsMeetingSourcesButBrowsersAndMeetingAppsAre() {
         for bundle in ["com.google.Chrome.helper", "us.zoom.xos", "org.mozilla.firefox", "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.FaceTime"] {

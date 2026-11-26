@@ -18,6 +18,10 @@ public struct EngineConfig: Sendable {
     /// "manual" (push-to-talk), "vad" or "turn_prediction".
     public var outCommit: String
     public var translationModel: String?
+    /// The synthesized voice chosen for each direction; nil = the gateway's configured voice. An id that is not
+    /// well-formed is treated as not chosen.
+    public var outVoiceId: String?
+    public var inVoiceId: String?
     /// Linear gain applied to everything this session plays. Diagnostics use a tiny value for inaudible runs.
     public var outputGain: Float = 1
     /// Diagnostics only: feed a generated tone instead of opening the microphone.
@@ -47,6 +51,15 @@ public struct EngineConfig: Sendable {
         self.mode = mode
         outCommit = commit
         translationModel = (dictionary["translationModel"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        // A voice id that is not well-formed is dropped rather than refused: the session then speaks in the default voice.
+        outVoiceId = (dictionary["outVoiceId"] as? String).flatMap { Self.isVoiceId($0) ? $0 : nil }
+        inVoiceId = (dictionary["inVoiceId"] as? String).flatMap { Self.isVoiceId($0) ? $0 : nil }
+    }
+
+    /// The shape of a provider voice id (`VOICE_ID_PATTERN` in packages/protocol): 10 to 40 ASCII letters and digits.
+    private static func isVoiceId(_ id: String) -> Bool {
+        (10...40).contains(id.utf8.count)
+            && id.utf8.allSatisfy { (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) }
     }
 
     private static func isLanguageCode(_ code: String) -> Bool {
@@ -293,25 +306,34 @@ public final class Engine: @unchecked Sendable {
                     self.connectionLost(error.message)
                 }
             case .success:
-                let incomingEnabled = !config.sourcePids.isEmpty
-                var configure: [String: Any] = [
-                    "type": "session.configure",
-                    "capture_format": ["encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1],
-                    "directions": [
-                        "out": [
-                            "enabled": true, "source_lang": config.myLang, "target_lang": config.targetLang,
-                            "speak": config.mode == .bidirectional, "commit": config.outCommit,
-                        ],
-                        "in": [
-                            "enabled": incomingEnabled, "source_lang": config.targetLang, "target_lang": config.myLang,
-                            "speak": config.mode != .captions, "commit": "vad",
-                        ],
-                    ],
-                ]
-                if let model = config.translationModel { configure["translation_model"] = model }
-                transport.send(configure)
+                transport.send(Self.configureMessage(for: config))
             }
         }
+    }
+
+    /// The `session.configure` message for a start map (the transport adds the protocol version).
+    static func configureMessage(for config: EngineConfig) -> [String: Any] {
+        let incomingEnabled = !config.sourcePids.isEmpty
+        var configure: [String: Any] = [
+            "type": "session.configure",
+            "capture_format": ["encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1],
+            "directions": [
+                "out": [
+                    "enabled": true, "source_lang": config.myLang, "target_lang": config.targetLang,
+                    "speak": config.mode == .bidirectional, "commit": config.outCommit,
+                ],
+                "in": [
+                    "enabled": incomingEnabled, "source_lang": config.targetLang, "target_lang": config.myLang,
+                    "speak": config.mode != .captions, "commit": "vad",
+                ],
+            ],
+        ]
+        if let model = config.translationModel { configure["translation_model"] = model }
+        var voices: [String: String] = [:]
+        if let voice = config.outVoiceId { voices["out"] = voice }
+        if let voice = config.inVoiceId { voices["in"] = voice }
+        if !voices.isEmpty { configure["voices"] = voices }
+        return configure
     }
 
     private func connectionLost(_ reason: String) {

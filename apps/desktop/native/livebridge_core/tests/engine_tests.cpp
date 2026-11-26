@@ -369,6 +369,7 @@ static void test_settings_are_validated() {
   CHECK(config.my_lang == "uz" && config.target_lang == "en");  // the owner's language defaults to Uzbek
   CHECK(config.mode == EngineConfig::Mode::incoming && config.out_commit == "manual");
   CHECK(config.translation_model.empty());
+  CHECK(config.out_voice_id.empty() && config.in_voice_id.empty());
 
   Json other = settings("bidirectional", "turn_prediction");
   other.set("gatewayUrl", "http://127.0.0.1:8201");
@@ -408,6 +409,23 @@ static void test_settings_are_validated() {
   CHECK(!EngineConfig::parse(Json("not a map"), config));
   CHECK(!EngineConfig::parse(Json(), config));
   CHECK(config.my_lang == "de");  // a refused map leaves the result untouched
+
+  // Voice ids: a well-formed one is kept; anything else counts as "not chosen" and never refuses the start.
+  const auto voices = [](Json out, Json in) {
+    Json map = settings("bidirectional", "manual");
+    map.set("outVoiceId", std::move(out));
+    map.set("inVoiceId", std::move(in));
+    EngineConfig parsed;
+    CHECK(EngineConfig::parse(map, parsed));
+    return parsed.out_voice_id + "|" + parsed.in_voice_id;
+  };
+  CHECK(voices("voiceChosenOut01", "voiceChosenIn001") == "voiceChosenOut01|voiceChosenIn001");
+  CHECK(voices("ehTFHBkERkWR22A3sR8M", Json()) == "ehTFHBkERkWR22A3sR8M|");
+  CHECK(voices("", "bad id") == "|");
+  CHECK(voices("short", std::string(41, 'a')) == "|");                      // 10 to 40 characters
+  CHECK(voices(std::string(10, 'a'), std::string(40, 'Z')) == std::string(10, 'a') + "|" + std::string(40, 'Z'));
+  CHECK(voices("../../etc/passwd", 5) == "|");
+  CHECK(voices("voiceChosenOut01\n", "voiceChosenIn001 ") == "|");
 
   // The engine refuses such a map outright: no event, no device, no connection.
   Session s;
@@ -472,6 +490,37 @@ static void test_start_connects_and_configures_each_mode() {
                R"("out":{"enabled":true,"source_lang":"de","target_lang":"fr","speak":true,)"
                R"("commit":"turn_prediction"},)"
                R"("in":{"enabled":false,"source_lang":"fr","target_lang":"de","speak":true,"commit":"vad"}}})"));
+  }
+  {  // a voice chosen for each direction travels with the configure message
+    Session s;
+    Json map = settings("bidirectional", "manual");
+    map.set("outVoiceId", "voiceChosenOut01");
+    map.set("inVoiceId", "voiceChosenIn001");
+    CHECK(s.engine.start(map));
+    s.engine.on_transport_open();
+    CHECK(same(s.host.sent[0],
+               R"({"v":1,"type":"session.configure",)"
+               R"("capture_format":{"encoding":"pcm_s16le","sample_rate":16000,"channels":1},"directions":{)"
+               R"("out":{"enabled":true,"source_lang":"uz","target_lang":"en","speak":true,"commit":"manual"},)"
+               R"("in":{"enabled":true,"source_lang":"en","target_lang":"uz","speak":true,"commit":"vad"}},)"
+               R"("voices":{"out":"voiceChosenOut01","in":"voiceChosenIn001"}})"));
+  }
+  {  // only the incoming voice chosen: the outgoing one is left to the gateway
+    Session s;
+    Json map = settings("bidirectional", "manual");
+    map.set("inVoiceId", "voiceChosenIn001");
+    CHECK(s.engine.start(map));
+    s.engine.on_transport_open();
+    CHECK(same(at(s.host.sent[0], {"voices"}), R"({"in":"voiceChosenIn001"})"));
+  }
+  {  // a malformed id is left out, and with no voice left there is no `voices` member; the start still succeeds
+    Session s;
+    Json map = settings("bidirectional", "manual");
+    map.set("outVoiceId", "bad id");
+    CHECK(s.engine.start(map));
+    s.engine.on_transport_open();
+    CHECK(s.host.sent.size() == 1 && str(s.host.sent[0], "type") == "session.configure");
+    CHECK(!has(s.host.sent[0], "voices"));
   }
 }
 

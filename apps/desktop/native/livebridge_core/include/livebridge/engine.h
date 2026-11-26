@@ -136,6 +136,10 @@ struct EngineConfig {
   std::string out_commit;
   /// Empty: the gateway's default model.
   std::string translation_model;
+  /// The synthesized voice chosen for each direction. Empty: the gateway's configured voice. An id that is not
+  /// well-formed is treated as not chosen.
+  std::string out_voice_id;
+  std::string in_voice_id;
 
   /// False when a required key is missing or has a wrong value; `out` is then left as it was.
   static bool parse(const Json& settings, EngineConfig& out);

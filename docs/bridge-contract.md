@@ -49,6 +49,11 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `mode` | String | `captions`, `incoming`, `bidirectional` |
 | `outCommit` | String | `manual` (push-to-talk), `vad`, `turn_prediction` |
 | `translationModel` | String? | must be allowed by the gateway |
+| `outVoiceId` | String? | voice of the owner's translated speech; absent = the gateway's configured voice |
+| `inVoiceId` | String? | voice of the remote participant's translated speech; absent = the gateway's configured voice |
+
+A voice id is 10 to 40 ASCII letters and digits. Anything else is treated as absent — the start is not refused — and
+the host sends `voices: { out?, in? }` in `session.configure` only for the ids that are set.
 
 ### Preference keys (stored with the settings, not part of `start`)
 

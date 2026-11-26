@@ -46,6 +46,13 @@ bool is_language_code(const std::string& code) {
          std::all_of(code.begin(), code.end(), [](char c) { return c >= 'a' && c <= 'z'; });
 }
 
+/// The shape of a provider voice id (`VOICE_ID_PATTERN` in packages/protocol): 10 to 40 ASCII letters and digits.
+bool is_voice_id(const std::string& id) {
+  return id.size() >= 10 && id.size() <= 40 && std::all_of(id.begin(), id.end(), [](char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+  });
+}
+
 bool is_http_url(const std::string& url) {
   if (std::any_of(url.begin(), url.end(), [](char c) { return static_cast<unsigned char>(c) <= 0x20; })) return false;
   for (const std::string_view scheme : {std::string_view("http://"), std::string_view("https://")})
@@ -127,6 +134,11 @@ bool EngineConfig::parse(const Json& settings, EngineConfig& out) {
   config.target_lang = *target;
   config.out_commit = *commit;
   if (const std::string* model = string_member(settings, "translationModel")) config.translation_model = *model;
+  // A voice id that is not well-formed is dropped rather than refused: the session then speaks in the default voice.
+  if (const std::string* voice = string_member(settings, "outVoiceId"); voice && is_voice_id(*voice))
+    config.out_voice_id = *voice;
+  if (const std::string* voice = string_member(settings, "inVoiceId"); voice && is_voice_id(*voice))
+    config.in_voice_id = *voice;
   out = std::move(config);
   return true;
 }
@@ -480,6 +492,10 @@ void Engine::on_transport_open() {
                               {"commit", "vad"}})}})},
   };
   if (!config.translation_model.empty()) configure.emplace_back("translation_model", config.translation_model);
+  Json::Object voices;
+  if (!config.out_voice_id.empty()) voices.emplace_back("out", config.out_voice_id);
+  if (!config.in_voice_id.empty()) voices.emplace_back("in", config.in_voice_id);
+  if (!voices.empty()) configure.emplace_back("voices", Json(std::move(voices)));
   host_.send_text(Json(std::move(configure)).dump());
 }
 
