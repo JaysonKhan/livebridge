@@ -8,8 +8,14 @@ import {
 } from "../../packages/protocol/src/index.ts";
 import { SAME_LANGUAGE_MARK } from "../../services/gateway/src/prompt.ts";
 import {
+  createFakeProviders,
+  FAKE_VOICES,
+} from "../../services/gateway/src/providers/fake.ts";
+import { ProviderError } from "../../services/gateway/src/providers/types.ts";
+import {
   ACCESS_TOKEN,
   issueSession,
+  listVoices,
   silence,
   sleep,
   speech,
@@ -54,6 +60,61 @@ test("health needs no credentials; sessions need the access token", async () => 
   assert.equal(issued.status, 201);
   assert.ok(issued.body.token && issued.body.session_id);
   assert.notEqual(issued.body.token, ACCESS_TOKEN);
+});
+
+test("GET /v1/voices needs the access token", async () => {
+  const { base } = await start();
+  assert.equal((await listVoices(base, "")).status, 401);
+  assert.equal((await listVoices(base, "wrong-token")).status, 401);
+  const listed = await listVoices(base);
+  assert.equal(listed.status, 200);
+  assert.deepEqual(listed.body, { voices: FAKE_VOICES });
+  assert.equal(FAKE_VOICES.length, 4);
+});
+
+/** Fake providers whose voice list counts its calls and fails on demand. */
+function countingVoices() {
+  const state = { calls: 0, fail: false };
+  const factory = {
+    ...createFakeProviders({ delayMs: 2 }),
+    voices: async () => {
+      state.calls++;
+      if (state.fail)
+        throw new ProviderError("voices_unavailable", "fake refusal");
+      return FAKE_VOICES;
+    },
+  };
+  return { state, factory };
+}
+
+test("GET /v1/voices is cached", async () => {
+  const { state, factory } = countingVoices();
+  const { base } = await start({ factory });
+  assert.equal((await listVoices(base)).status, 200);
+  assert.deepEqual((await listVoices(base)).body, { voices: FAKE_VOICES });
+  assert.equal(state.calls, 1);
+});
+
+test("GET /v1/voices serves the stale list when the provider fails, 502 when it never succeeded", async () => {
+  const { state, factory } = countingVoices();
+  const { base, logLines } = await start({ factory, voicesCacheMs: 0 });
+  state.fail = true;
+  const never = await listVoices(base);
+  assert.equal(never.status, 502);
+  assert.deepEqual(never.body, { error: "voices_unavailable" });
+  state.fail = false;
+  assert.equal((await listVoices(base)).status, 200);
+  state.fail = true;
+  const stale = await listVoices(base);
+  assert.equal(stale.status, 200);
+  assert.deepEqual(stale.body, { voices: FAKE_VOICES });
+  // Every request reached the provider: nothing was served from a fresh cache.
+  assert.equal(state.calls, 3);
+  assert.equal(
+    logLines.filter((l) => l.includes('"voices.failed"')).length,
+    2,
+  );
+  assert.ok(logLines.some((l) => l.includes('"code":"voices_unavailable"')));
 });
 
 test("realtime socket rejects missing, unknown and reused session tokens", async () => {

@@ -271,6 +271,7 @@ clear message. The settings you are most likely to touch:
 | `ELEVENLABS_API_KEY`, `GEMINI_API_KEY` | Provider keys. They never leave the gateway. |
 | `ELEVENLABS_OWNER_VOICE_ID` | Voice of your translated speech. |
 | `ELEVENLABS_INCOMING_VOICE_ID` | Voice of the other participant's translated speech. |
+| `VOICES_EXCLUDED_CATEGORIES` | Voice categories left out of the list the app can choose from (comma-separated; empty by default). |
 | `TRANSLATION_MODEL` / `TRANSLATION_FALLBACK_MODEL` | Gemini models; the fallback is used when the primary fails. |
 | `PROVIDER_MODE` | `real`, or `fake` for placeholder providers. |
 | `PORT` | Gateway port (default `8201`). |

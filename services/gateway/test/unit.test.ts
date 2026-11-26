@@ -103,6 +103,15 @@ test("config: allowed translation models default to primary + fallback", () => {
   );
 });
 
+test("config: no voice category is excluded unless named", () => {
+  assert.deepEqual(loadConfig(real).voicesExcludedCategories, []);
+  assert.deepEqual(
+    loadConfig({ ...real, VOICES_EXCLUDED_CATEGORIES: "cloned, generated ," })
+      .voicesExcludedCategories,
+    ["cloned", "generated"],
+  );
+});
+
 const request = (text: string) => ({
   source: "uz" as const,
   target: "en" as const,

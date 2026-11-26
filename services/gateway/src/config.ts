@@ -40,6 +40,8 @@ const schema = z
       .string()
       .regex(/^pcm_\d+$/, "only pcm_<rate> formats are supported")
       .default("pcm_24000"),
+    /** Comma-separated voice categories (`cloned`, `generated`, ...) left out of `GET /v1/voices`. */
+    VOICES_EXCLUDED_CATEGORIES: z.string().default(""),
 
     TRANSLATION_PROVIDER: z.literal("gemini").default("gemini"),
     GEMINI_API_KEY: z.string().default(""),
@@ -91,6 +93,7 @@ export type Env = z.infer<typeof schema>;
 
 export interface Config extends Env {
   allowedTranslationModels: string[];
+  voicesExcludedCategories: string[];
   synthSampleRate: number;
 }
 
@@ -112,6 +115,7 @@ export function loadConfig(
     allowedTranslationModels: allowed.length
       ? allowed
       : [env.TRANSLATION_MODEL, env.TRANSLATION_FALLBACK_MODEL].filter(Boolean),
+    voicesExcludedCategories: csv(env.VOICES_EXCLUDED_CATEGORIES),
     synthSampleRate: Number(env.TTS_OUTPUT_FORMAT.slice(4)),
   };
 }

@@ -16,12 +16,22 @@ import {
   type FakeOptions,
 } from "../../services/gateway/src/providers/fake.ts";
 import { createRealProviders } from "../../services/gateway/src/providers/real.ts";
+import type {
+  ProviderFactory,
+  Voice,
+} from "../../services/gateway/src/providers/types.ts";
 import { createGateway } from "../../services/gateway/src/server.ts";
 
 export const ACCESS_TOKEN = "test-access-token-0123456789abcdef0123";
 
 export async function startGateway(
-  options: { fake?: FakeOptions; env?: Record<string, string> } = {},
+  options: {
+    fake?: FakeOptions;
+    env?: Record<string, string>;
+    /** Replaces the factory the mode would build, e.g. to count or fail calls. */
+    factory?: ProviderFactory;
+    voicesCacheMs?: number;
+  } = {},
 ) {
   const logLines: string[] = [];
   const config = loadConfig({
@@ -33,14 +43,16 @@ export async function startGateway(
   const log = createLogger((line) => logLines.push(line));
   // PROVIDER_MODE=real here always means the real adapters pointed at local mock provider servers.
   const factory =
-    config.PROVIDER_MODE === "real"
+    options.factory ??
+    (config.PROVIDER_MODE === "real"
       ? createRealProviders(config, log)
-      : createFakeProviders({ delayMs: 2, ...options.fake });
+      : createFakeProviders({ delayMs: 2, ...options.fake }));
   const gateway = createGateway({
     config,
     factory,
     log,
     retryDelayMs: () => 20,
+    voicesCacheMs: options.voicesCacheMs,
   });
   const port = await gateway.listen();
   return { gateway, port, base: `http://127.0.0.1:${port}`, logLines, config };
@@ -58,6 +70,16 @@ export async function issueSession(base: string, token = ACCESS_TOKEN) {
       token?: string;
       error?: string;
     },
+  };
+}
+
+export async function listVoices(base: string, token = ACCESS_TOKEN) {
+  const response = await fetch(`${base}/v1/voices`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  return {
+    status: response.status,
+    body: (await response.json()) as { voices?: Voice[]; error?: string },
   };
 }
 

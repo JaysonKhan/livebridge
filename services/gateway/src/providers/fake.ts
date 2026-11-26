@@ -8,6 +8,7 @@ import type {
   StreamingTranslator,
   TranslateRequest,
   TtsOptions,
+  Voice,
 } from "./types.ts";
 import { ProviderError } from "./types.ts";
 
@@ -199,6 +200,48 @@ class FakeTTS implements StreamingTTS {
   close() {}
 }
 
+/** What the fake account lists. No sample addresses: nothing here can be played. */
+export const FAKE_VOICES: Voice[] = [
+  {
+    id: "fakevoice0000000001",
+    name: "Fake Aria",
+    gender: "female",
+    age: "young",
+    accent: "american",
+    language: "en",
+    use_case: "conversational",
+    category: "premade",
+  },
+  {
+    id: "fakevoice0000000002",
+    name: "Fake Bruno",
+    gender: "male",
+    age: "middle_aged",
+    accent: "british",
+    language: "en",
+    use_case: "narration",
+    category: "premade",
+  },
+  {
+    id: "fakevoice0000000003",
+    name: "Fake Dilnoza",
+    gender: "female",
+    age: "young",
+    language: "uz",
+    use_case: "conversational",
+    category: "premade",
+  },
+  {
+    id: "fakevoice0000000004",
+    name: "Fake Timur",
+    gender: "male",
+    age: "old",
+    language: "ru",
+    use_case: "news",
+    category: "premade",
+  },
+];
+
 export function createFakeProviders(fake: FakeOptions = {}): ProviderFactory {
   const synthSampleRate = fake.synthSampleRate ?? 24_000;
   const counter = { n: 0 };
@@ -209,5 +252,6 @@ export function createFakeProviders(fake: FakeOptions = {}): ProviderFactory {
     stt: (options) => new FakeSTT(options, fake, counter),
     translator: () => new FakeTranslator(fake),
     tts: (options) => new FakeTTS(options, fake, synthSampleRate),
+    voices: async () => FAKE_VOICES,
   };
 }

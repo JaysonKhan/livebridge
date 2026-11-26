@@ -71,6 +71,10 @@ silent; nothing else depends on it.
 - Logs (`journalctl -u livebridge-gateway`) contain event names, ids, counts and provider error codes — never
   transcripts, audio or tokens. This is enforced by the logger's types and covered by tests.
 - `MAX_SESSIONS=1` and `MAX_SESSION_MINUTES=120` bound cost; a second client gets HTTP 429.
+- `GET /v1/voices` lists the voices of the gateway's ElevenLabs account for the app's voice picker. It takes the same
+  access token and shares the per-address rate limit with `POST /v1/sessions`; the list is kept for 10 minutes, and a
+  stale one is served if the provider fails later. `502 voices_unavailable` means the provider refused and nothing is
+  cached — usually a key without the voices read permission. Sessions still run on the configured voices.
 - A service restart (deploy, OS updates) drops the call's connection for a few seconds; the app reconnects
   automatically (up to five attempts) and speech during the gap must be repeated.
 - nginx `limit_conn` is 4 per address in the sample vhost.

@@ -10,6 +10,7 @@ the same byte-exact fixtures in `fixtures/frames.json` (regenerate with `npm run
 |---|---|---|
 | `GET /healthz` | none | `{"ok":true}` |
 | `POST /v1/sessions` | `Authorization: Bearer <GATEWAY_ACCESS_TOKEN>` | → `201 {session_id, token, expires_in: 60, ws_path}`. `401` bad token, `429` session limit or rate limit (20/min per address). |
+| `GET /v1/voices` | `Authorization: Bearer <GATEWAY_ACCESS_TOKEN>` | → `200 {voices: [{id, name, gender?, age?, accent?, language?, use_case?, description?, category?, preview_url?, previews?}]}`: the voices `session.configure` may name, cached for 10 minutes. `previews` maps a language code to a sample address. `401` bad token, `429` rate limit (shared with `POST /v1/sessions`), `502 {"error":"voices_unavailable"}` when the provider refuses and nothing is cached. |
 | `WSS /v1/realtime` | `Authorization: Bearer <session token>` | One socket per call, both directions multiplexed. The token is single-use and expires after 60 s. |
 
 ## Binary audio frame

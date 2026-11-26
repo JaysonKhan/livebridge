@@ -8,12 +8,20 @@ import type {
 } from "../../packages/protocol/src/index.ts";
 import { ElevenLabsRealtimeSTT } from "../../services/gateway/src/providers/elevenlabs-stt.ts";
 import { ElevenLabsDialogueTTS } from "../../services/gateway/src/providers/elevenlabs-tts.ts";
+import { listElevenLabsVoices } from "../../services/gateway/src/providers/elevenlabs-voices.ts";
 import { GeminiTranslator } from "../../services/gateway/src/providers/gemini.ts";
 import {
   ProviderError,
   type TranslateRequest,
 } from "../../services/gateway/src/providers/types.ts";
-import { sleep, speech, startGateway, TestClient } from "./helpers.ts";
+import {
+  ACCESS_TOKEN,
+  listVoices,
+  sleep,
+  speech,
+  startGateway,
+  TestClient,
+} from "./helpers.ts";
 import {
   MOCK_API_KEY,
   MOCK_GEMINI_KEY,
@@ -478,11 +486,149 @@ test("translation: cancelling aborts the request and never triggers the fallback
   assert.equal(mock.requests.length, 1);
 });
 
+// ---------- Voice list ----------
+
+/** Two provider pages, three voices, in the shape GET /v2/voices documents. */
+const VOICE_PAGES = [
+  [
+    {
+      voice_id: "mockVoiceAria0000001",
+      name: "Aria",
+      category: "premade",
+      labels: {
+        gender: "female",
+        age: "young",
+        accent: "american",
+        language: "en",
+        use_case: "conversational",
+      },
+      description: null,
+      preview_url: "https://mock/a.mp3",
+      verified_languages: [],
+    },
+    {
+      voice_id: "mockVoiceBruno000002",
+      name: "Bruno",
+      category: "cloned",
+      labels: { gender: "male" },
+      description: "A calm narrator",
+      preview_url: "https://mock/b.mp3",
+      verified_languages: [
+        { language: "en", model_id: "eleven_v4_turbo", preview_url: null },
+        {
+          language: "uz",
+          model_id: "eleven_v4_turbo",
+          preview_url: "https://mock/uz.mp3",
+        },
+        {
+          language: "uz",
+          model_id: "another_model",
+          preview_url: "https://mock/uz-second.mp3",
+        },
+      ],
+    },
+  ],
+  [
+    {
+      voice_id: "mockVoiceCleo0000003",
+      name: "Cleo",
+      category: "generated",
+      labels: {},
+      preview_url: null,
+    },
+  ],
+];
+
+test("voice list: follows pagination and maps provider fields", async () => {
+  const mock = await eleven({ voicePages: VOICE_PAGES });
+  const voices = await listElevenLabsVoices({
+    apiKey: MOCK_API_KEY,
+    baseUrl: mock.base,
+    excludedCategories: [],
+  });
+  assert.deepEqual(
+    voices.map((v) => v.id),
+    ["mockVoiceAria0000001", "mockVoiceBruno000002", "mockVoiceCleo0000003"],
+  );
+  assert.deepEqual(voices[0], {
+    id: "mockVoiceAria0000001",
+    name: "Aria",
+    gender: "female",
+    age: "young",
+    accent: "american",
+    language: "en",
+    use_case: "conversational",
+    category: "premade",
+    preview_url: "https://mock/a.mp3",
+  });
+  // The first verified entry with a sample wins per language; entries without one are skipped.
+  assert.deepEqual(voices[1]!.previews, { uz: "https://mock/uz.mp3" });
+  assert.equal(voices[1]!.description, "A calm narrator");
+  assert.deepEqual(voices[2], {
+    id: "mockVoiceCleo0000003",
+    name: "Cleo",
+    category: "generated",
+  });
+  assert.deepEqual(
+    mock.voices.requests.map((r) => r.apiKey),
+    [MOCK_API_KEY, MOCK_API_KEY],
+  );
+  assert.deepEqual(
+    mock.voices.requests.map((r) => [
+      r.query.get("page_size"),
+      r.query.get("include_total_count"),
+      r.query.get("next_page_token"),
+    ]),
+    [
+      ["100", "false", null],
+      ["100", "false", "page-1"],
+    ],
+  );
+});
+
+test("voice list: excluded categories are left out", async () => {
+  const mock = await eleven({ voicePages: VOICE_PAGES });
+  const voices = await listElevenLabsVoices({
+    apiKey: MOCK_API_KEY,
+    baseUrl: mock.base,
+    excludedCategories: ["cloned"],
+  });
+  assert.deepEqual(
+    voices.map((v) => v.name),
+    ["Aria", "Cleo"],
+  );
+});
+
+test("voice list: a refusal is voices_unavailable", async () => {
+  const mock = await eleven({ voicePages: VOICE_PAGES });
+  const unavailable = (e: unknown) =>
+    e instanceof ProviderError && e.code === "voices_unavailable";
+  // The mock answers 401 to a key it does not know.
+  await assert.rejects(
+    listElevenLabsVoices({
+      apiKey: "not-the-key",
+      baseUrl: mock.base,
+      excludedCategories: [],
+    }),
+    unavailable,
+  );
+  // Nothing listens there: a network failure reads the same.
+  await assert.rejects(
+    listElevenLabsVoices({
+      apiKey: MOCK_API_KEY,
+      baseUrl: "http://127.0.0.1:1",
+      excludedCategories: [],
+    }),
+    unavailable,
+  );
+});
+
 // ---------- Whole gateway on the real adapters, mock provider servers behind them ----------
 
 async function realStack(
   elevenBehaviour: ElevenLabsBehaviour,
   models: Record<string, GeminiModelBehaviour>,
+  env: Record<string, string> = {},
 ) {
   const el = await eleven(elevenBehaviour);
   const gm = await startMockGemini(models);
@@ -496,6 +642,7 @@ async function realStack(
       ELEVENLABS_BASE_URL: el.base,
       GEMINI_API_KEY: MOCK_GEMINI_KEY,
       GEMINI_BASE_URL: gm.base,
+      ...env,
     },
   });
   cleanup.push(() => started.gateway.close());
@@ -580,6 +727,38 @@ test("end to end on the real adapters (mock servers): one push-to-talk turn thro
   const log = logLines.join("\n");
   for (const forbidden of ["Salom", "Hello", MOCK_API_KEY, MOCK_GEMINI_KEY])
     assert.ok(!log.includes(forbidden), `log leaked ${forbidden}`);
+});
+
+test("GET /v1/voices never logs credentials", async () => {
+  const { el, base, logLines } = await realStack(
+    { voicePages: VOICE_PAGES },
+    {},
+  );
+  const listed = await listVoices(base);
+  assert.equal(listed.status, 200);
+  assert.deepEqual(
+    listed.body.voices!.map((v) => v.name),
+    ["Aria", "Bruno", "Cleo"],
+  );
+  // And once more with the provider refusing, so the failure path is in the log too.
+  el.behaviour.voicePages = undefined;
+  assert.equal((await listVoices(base, "wrong-token")).status, 401);
+  const log = logLines.join("");
+  assert.match(log, /"event":"voices.listed","count":3/);
+  for (const forbidden of [ACCESS_TOKEN, MOCK_API_KEY, "wrong-token"])
+    assert.ok(!log.includes(forbidden), `log leaked ${forbidden}`);
+});
+
+test("GET /v1/voices leaves out the categories the gateway excludes", async () => {
+  const { base } = await realStack(
+    { voicePages: VOICE_PAGES },
+    {},
+    { VOICES_EXCLUDED_CATEGORIES: "cloned, generated" },
+  );
+  assert.deepEqual(
+    (await listVoices(base)).body.voices!.map((v) => v.name),
+    ["Aria"],
+  );
 });
 
 test("a voice chosen in session.configure is the one registered with the provider", async () => {

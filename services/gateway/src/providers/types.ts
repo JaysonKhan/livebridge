@@ -91,6 +91,22 @@ export interface StreamingTTS {
   close(): void;
 }
 
+/** One voice of the provider account, in the shape `GET /v1/voices` returns. Absent members are omitted. */
+export interface Voice {
+  id: string;
+  name: string;
+  gender?: string;
+  age?: string;
+  accent?: string;
+  language?: string;
+  use_case?: string;
+  description?: string;
+  category?: string;
+  preview_url?: string;
+  /** Sample per language code, from the provider's verified languages; first entry wins per language. */
+  previews?: Record<string, string>;
+}
+
 export interface ProviderFactory {
   /** True for the deterministic fakes. Surfaced to the client so the UI can never pass a mock off as real. */
   readonly mock: boolean;
@@ -99,4 +115,6 @@ export interface ProviderFactory {
   stt(options: SttOptions): StreamingSTT;
   translator(): StreamingTranslator;
   tts(options: TtsOptions): StreamingTTS;
+  /** The voices a client may choose from. Rejects with `ProviderError` (`voices_unavailable`). */
+  voices(): Promise<Voice[]>;
 }

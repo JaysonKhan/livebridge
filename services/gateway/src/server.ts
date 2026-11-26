@@ -1,6 +1,7 @@
 // HTTP + WebSocket surface:
 //   GET  /healthz       no credentials
 //   POST /v1/sessions   Authorization: Bearer <GATEWAY_ACCESS_TOKEN> -> short-lived single-use session token
+//   GET  /v1/voices     Authorization: Bearer <GATEWAY_ACCESS_TOKEN> -> the voices a session may choose from
 //   WSS  /v1/realtime   Authorization: Bearer <session token>
 // TLS is terminated by the reverse proxy; this process listens on localhost.
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -18,11 +19,16 @@ import {
 } from "../../../packages/protocol/src/index.ts";
 import type { Config } from "./config.ts";
 import type { Logger } from "./log.ts";
-import type { ProviderFactory } from "./providers/types.ts";
+import {
+  ProviderError,
+  type ProviderFactory,
+  type Voice,
+} from "./providers/types.ts";
 import { Session } from "./session.ts";
 
 const SESSION_TOKEN_TTL_MS = 60_000;
 const SESSION_REQUESTS_PER_MINUTE = 20;
+const VOICES_CACHE_MS = 600_000;
 
 export interface Gateway {
   listen(): Promise<number>;
@@ -35,6 +41,8 @@ export interface GatewayOptions {
   factory: ProviderFactory;
   log: Logger;
   retryDelayMs?: (attempt: number) => number;
+  /** How long a voice list is served without asking the provider again. Default 10 minutes. */
+  voicesCacheMs?: number;
 }
 
 function bearer(req: IncomingMessage): string {
@@ -53,6 +61,7 @@ export function createGateway({
   factory,
   log,
   retryDelayMs,
+  voicesCacheMs = VOICES_CACHE_MS,
 }: GatewayOptions): Gateway {
   /** Issued but not yet connected: token -> session id + expiry. A token is consumed by the first upgrade. */
   const pending = new Map<string, { id: string; expires: number }>();
@@ -81,6 +90,24 @@ export function createGateway({
     return hits.length > SESSION_REQUESTS_PER_MINUTE;
   };
 
+  let voices: { list: Voice[]; at: number } | undefined;
+  /** The cached list while it is fresh; otherwise the provider's, falling back to the stale one when it fails. */
+  const listVoices = async () => {
+    if (voices && Date.now() - voices.at < voicesCacheMs) return voices.list;
+    try {
+      const list = await factory.voices();
+      voices = { list, at: Date.now() };
+      log.info("voices.listed", { count: list.length });
+      return list;
+    } catch (error) {
+      log.warn("voices.failed", {
+        code: error instanceof ProviderError ? error.code : "unknown",
+      });
+      if (voices) return voices.list;
+      throw error;
+    }
+  };
+
   const server = createServer((req, res) => {
     const path = (req.url ?? "").split("?")[0];
     if (req.method === "GET" && path === "/healthz")
@@ -104,6 +131,16 @@ export function createGateway({
         expires_in: SESSION_TOKEN_TTL_MS / 1000,
         ws_path: "/v1/realtime",
       });
+    }
+    if (req.method === "GET" && path === "/v1/voices") {
+      const ip = req.socket.remoteAddress ?? "";
+      if (rateLimited(ip)) return json(res, 429, { error: "rate_limited" });
+      if (!safeEqual(bearer(req), config.GATEWAY_ACCESS_TOKEN))
+        return json(res, 401, { error: "unauthorized" });
+      return void listVoices().then(
+        (list) => json(res, 200, { voices: list }),
+        () => json(res, 502, { error: "voices_unavailable" }),
+      );
     }
     json(res, 404, { error: "not_found" });
   });

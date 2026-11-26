@@ -2,6 +2,7 @@ import type { Config } from "../config.ts";
 import type { Logger } from "../log.ts";
 import { ElevenLabsRealtimeSTT } from "./elevenlabs-stt.ts";
 import { ElevenLabsDialogueTTS } from "./elevenlabs-tts.ts";
+import { listElevenLabsVoices } from "./elevenlabs-voices.ts";
 import { GeminiTranslator } from "./gemini.ts";
 import type { ProviderFactory } from "./types.ts";
 
@@ -54,6 +55,12 @@ export function createRealProviders(
         outputFormat: config.TTS_OUTPUT_FORMAT,
         onMarkerMissing: () =>
           log.warn("tts.turn_marker_missing", { voice: options.voice }),
+      }),
+    voices: () =>
+      listElevenLabsVoices({
+        apiKey: config.ELEVENLABS_API_KEY,
+        baseUrl: config.ELEVENLABS_BASE_URL,
+        excludedCategories: config.voicesExcludedCategories,
       }),
   };
 }

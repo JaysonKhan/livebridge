@@ -27,6 +27,8 @@ export interface ElevenLabsBehaviour {
   omitTurnMarker?: boolean;
   /** Sent in reply to a flush instead of audio. */
   ttsError?: string;
+  /** Pages served by GET /v2/voices, each a list of voices in the provider's own shape. */
+  voicePages?: Record<string, unknown>[][];
 }
 
 export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
@@ -42,7 +44,33 @@ export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
     messages: [] as Record<string, unknown>[],
     sockets: new Set<WebSocket>(),
   };
-  const server = createServer((_req, res) => res.writeHead(404).end());
+  const voices = {
+    requests: [] as { apiKey: string | undefined; query: URLSearchParams }[],
+  };
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "", "http://mock");
+    if (req.method !== "GET" || url.pathname !== "/v2/voices")
+      return void res.writeHead(404).end();
+    voices.requests.push({
+      apiKey: req.headers["xi-api-key"] as string | undefined,
+      query: url.searchParams,
+    });
+    if (req.headers["xi-api-key"] !== MOCK_API_KEY)
+      return void res
+        .writeHead(401, { "content-type": "application/json" })
+        .end('{"detail":{"status":"invalid_api_key"}}');
+    const pages = behaviour.voicePages ?? [[]];
+    const token = url.searchParams.get("next_page_token");
+    const index = token ? Number(token.slice("page-".length)) : 0;
+    const more = index < pages.length - 1;
+    res.writeHead(200, { "content-type": "application/json" }).end(
+      JSON.stringify({
+        voices: pages[index] ?? [],
+        has_more: more,
+        next_page_token: more ? `page-${index + 1}` : null,
+      }),
+    );
+  });
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (req, socket, head) => {
@@ -165,6 +193,7 @@ export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
     base,
     stt,
     tts,
+    voices,
     behaviour,
     dropStt: () => stt.sockets.forEach((ws) => ws.terminate()),
     sendSttError: (type: string) =>
