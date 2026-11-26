@@ -7,6 +7,8 @@ const PAGE_SIZE = 100;
 /** A stop for a provider that keeps answering `has_more`. */
 const MAX_PAGES = 20;
 const REQUEST_TIMEOUT_MS = 10_000;
+/** A refusal's body is read this far at most; its reason is in the first few bytes. */
+const MAX_REFUSAL_BYTES = 4096;
 
 const text = (value: unknown) =>
   typeof value === "string" && value ? value : undefined;
@@ -42,6 +44,25 @@ function toVoice(raw: Record<string, any>): Voice | null {
   return voice;
 }
 
+/** `detail.status` of a refusal, from at most its first few KB; a body that is not that JSON gives undefined. */
+async function refusalStatus(response: Response): Promise<unknown> {
+  const reader = response.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (reader && size < MAX_REFUSAL_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      size += value.byteLength;
+    }
+    await reader?.cancel();
+    return JSON.parse(Buffer.concat(chunks).toString("utf8")).detail?.status;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function listElevenLabsVoices(options: {
   apiKey: string;
   baseUrl: string;
@@ -68,11 +89,16 @@ export async function listElevenLabsVoices(options: {
           ? AbortSignal.any([options.signal, timeout])
           : timeout,
       });
+      if (response.status === 401) {
+        // A real key without the voices read permission is refused with 401 too (a speech-only key): the list is
+        // unavailable, the key is not wrong.
+        if ((await refusalStatus(response)) === "missing_permissions")
+          throw new ProviderError("voices_unavailable", "the key may not read voices", true);
+        // The provider does not know this key: asking again cannot help.
+        throw new ProviderError("invalid_key", "voice list refused the key", true);
+      }
       if (!response.ok) {
         await response.body?.cancel();
-        // The provider does not know this key: asking again cannot help.
-        if (response.status === 401)
-          throw new ProviderError("invalid_key", "voice list refused the key", true);
         throw new ProviderError(
           "voices_unavailable",
           `voice list refused (${response.status})`,

@@ -29,6 +29,8 @@ export interface ElevenLabsBehaviour {
   ttsError?: string;
   /** Pages served by GET /v2/voices, each a list of voices in the provider's own shape. */
   voicePages?: Record<string, unknown>[][];
+  /** Sent by GET /v2/voices instead of the list, to a key the mock accepts. */
+  voicesReply?: { status: number; body: string };
 }
 
 export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
@@ -59,6 +61,8 @@ export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
       return void res
         .writeHead(401, { "content-type": "application/json" })
         .end('{"detail":{"status":"invalid_api_key"}}');
+    if (behaviour.voicesReply)
+      return void res.writeHead(behaviour.voicesReply.status).end(behaviour.voicesReply.body);
     const pages = behaviour.voicePages ?? [[]];
     const token = url.searchParams.get("next_page_token");
     const index = token ? Number(token.slice("page-".length)) : 0;

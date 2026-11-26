@@ -654,6 +654,29 @@ test("voice list: a refused key is invalid_key, a network failure is voices_unav
   );
 });
 
+test("voice list: a key without the voices-read permission is voices_unavailable, not a refused key; any other 401 is invalid_key", async () => {
+  // How the live service refuses a speech-only key (the shape `npm run probe` reads).
+  const missing = '{"detail":{"status":"missing_permissions","message":"The API key you used is missing the permission voices_read to execute this operation."}}';
+  const mock = await eleven({ voicesReply: { status: 401, body: missing } });
+  const list = () => listElevenLabsVoices({ apiKey: MOCK_API_KEY, baseUrl: mock.base, excludedCategories: [] });
+  await assert.rejects(list(), (e: unknown) => e instanceof ProviderError && e.code === "voices_unavailable");
+  for (const body of [
+    '{"detail":{"status":"invalid_api_key"}}',
+    '{"detail":"missing_permissions"}',
+    "null",
+    "",
+    "<html>Unauthorized</html>",
+    "x".repeat(1_000_000),
+  ]) {
+    mock.behaviour.voicesReply = { status: 401, body };
+    await assert.rejects(
+      list(),
+      (e: unknown) => e instanceof ProviderError && e.code === "invalid_key" && e.permanent,
+      `body ${body.slice(0, 40)}`,
+    );
+  }
+});
+
 // ---------- Whole gateway on the real adapters, mock provider servers behind them ----------
 
 async function realStack(
