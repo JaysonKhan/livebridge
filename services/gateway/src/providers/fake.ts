@@ -62,6 +62,8 @@ class FakeSTT implements StreamingSTT {
   private partialAt = PARTIAL_EVERY_MS;
   private closed = false;
   private segment = 0;
+  /** Moved on by fence(): a commit answered after it belongs to an older generation and is never delivered. */
+  private epoch = 0;
 
   constructor(options: SttOptions, fake: FakeOptions, counter: { n: number }) {
     this.options = options;
@@ -111,7 +113,13 @@ class FakeSTT implements StreamingSTT {
       ? (this.fake.transcripts?.shift() ??
         `fake transcript ${++this.counter.n} (${ms} ms)`)
       : "";
-    this.later(() => this.options.events.onCommitted(text));
+    const epoch = this.epoch;
+    this.later(() => epoch === this.epoch && this.options.events.onCommitted(text));
+  }
+
+  fence() {
+    this.discardPending();
+    this.epoch++;
   }
 
   discardPending() {

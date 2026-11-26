@@ -48,6 +48,15 @@ export class ElevenLabsRealtimeSTT implements StreamingSTT {
   private lastSentAt = 0;
   /** Audio sent to the provider since the last commit (keep-alive silence included — it counts there too). */
   private uncommittedBytes = 0;
+  /** The part of `uncommittedBytes` that is keep-alive silence rather than captured audio. */
+  private keepaliveBytes = 0;
+  /** Commits sent (or answered locally) whose transcript has not arrived yet. */
+  private unanswered = 0;
+  /**
+   * How many of the next transcripts are for audio sent before the last fence: they, and any partial until then, are
+   * dropped.
+   */
+  private stale = 0;
   private keepalive: NodeJS.Timeout | null = null;
 
   constructor(config: ElevenLabsSttConfig, options: SttOptions) {
@@ -119,10 +128,10 @@ export class ElevenLabsRealtimeSTT implements StreamingSTT {
             }
             break;
           case "partial_transcript":
-            this.options.events.onPartial(msg.text ?? "");
+            if (this.stale === 0) this.options.events.onPartial(msg.text ?? "");
             break;
           case "committed_transcript":
-            this.options.events.onCommitted(msg.text ?? "");
+            this.committed(msg.text ?? "");
             break;
           case "committed_transcript_with_timestamps":
           case "warning":
@@ -182,25 +191,54 @@ export class ElevenLabsRealtimeSTT implements StreamingSTT {
 
   commit() {
     if (!this.isOpen()) return;
+    this.unanswered++;
     const total = this.uncommittedBytes + this.pending.length;
     if (total === 0) {
       // Nothing was captured (push-to-talk tapped): there is nothing to commit, and saying so needs no round trip.
-      queueMicrotask(() => this.closed || this.options.events.onCommitted(""));
+      queueMicrotask(() => this.closed || this.committed(""));
       return;
     }
     const padding = Math.max(0, MIN_COMMIT_BYTES - total);
     this.sendChunk(padding ? Buffer.concat([this.pending, Buffer.alloc(padding)]) : this.pending, true);
     this.pending = Buffer.alloc(0);
     this.uncommittedBytes = 0;
+    this.keepaliveBytes = 0;
   }
 
   discardPending() {
     this.pending = Buffer.alloc(0);
   }
 
+  fence() {
+    this.pending = Buffer.alloc(0);
+    const captured = this.uncommittedBytes > this.keepaliveBytes;
+    if (this.options.commit !== "manual") {
+      // The provider ends segments by itself, its transcripts carry nothing that tells audio sent before this point
+      // from audio sent after, and it documents neither a way to drop audio nor a commit under this strategy. A fresh
+      // session is the only clean boundary: the old socket loses its listeners, so nothing it still says is delivered.
+      if (captured) this.reconnect();
+      return;
+    }
+    // Push-to-talk: audio already sent is committed now instead of joining the next turn, and every transcript still
+    // owed for audio sent before this point is dropped when it arrives (one transcript per commit, in commit order).
+    if (captured) this.commit();
+    this.stale = this.unanswered;
+  }
+
   close() {
     this.closed = true;
     this.teardown();
+  }
+
+  private committed(text: string) {
+    if (this.unanswered > 0) this.unanswered--;
+    if (this.stale > 0) this.stale--;
+    else this.options.events.onCommitted(text);
+  }
+
+  private reconnect() {
+    this.teardown();
+    this.open().catch((error: ProviderError) => this.closed || this.options.events.onDisconnected(error));
   }
 
   private isOpen() {
@@ -225,14 +263,18 @@ export class ElevenLabsRealtimeSTT implements StreamingSTT {
   }
 
   private keepAlive() {
-    if (this.isOpen() && Date.now() - this.lastSentAt >= KEEPALIVE_AFTER_MS)
+    if (this.isOpen() && Date.now() - this.lastSentAt >= KEEPALIVE_AFTER_MS) {
+      this.keepaliveBytes += CHUNK_BYTES;
       this.send(SILENCE_CHUNK, false, CHUNK_BYTES);
+    }
   }
 
   private teardown() {
     if (this.keepalive) clearInterval(this.keepalive);
     this.keepalive = null;
     this.started = false;
+    // A closed socket holds no audio and owes no transcript.
+    this.uncommittedBytes = this.keepaliveBytes = this.unanswered = this.stale = 0;
     const ws = this.ws;
     this.ws = null;
     if (ws) {

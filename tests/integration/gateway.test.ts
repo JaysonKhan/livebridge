@@ -407,6 +407,30 @@ test("cancel before translation finishes drops the turn entirely", async () => {
   assert.equal(client.frames.length, 0);
 });
 
+test("cancel fences speech-to-text too: a transcript that arrives after it is never shown, translated or spoken", async () => {
+  const { base } = await start({
+    fake: { delayMs: 40, transcripts: ["cancelled words", "the next turn"] },
+  });
+  const client = await TestClient.connect(base);
+  await client.configure();
+  // Released, then cancelled while speech-to-text is still working on the turn.
+  await pushToTalk(client, 1);
+  client.send({ v: 1, type: "turn.cancel", direction: "out", generation: 2 });
+  await client.sync();
+  await sleep(250);
+  assert.deepEqual(
+    client.messages.filter((m) => m.type === "caption.final" || m.type === "translation.final"),
+    [],
+  );
+  assert.equal(client.frames.length, 0);
+
+  // The next turn is not swallowed by the fence.
+  await pushToTalk(client, 2);
+  const final = await client.message("caption.final");
+  assert.deepEqual([final.generation, final.text], [2, "the next turn"]);
+  assert.equal((await client.message("metrics")).generation, 2);
+});
+
 test("stale-generation, duplicate, reordered and out-of-window frames never reach speech-to-text", async () => {
   const { base } = await start();
   const client = await TestClient.connect(base);

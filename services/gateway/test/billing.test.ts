@@ -101,6 +101,7 @@ test("pipeline: only audio that speech-to-text accepted is counted, never droppe
     sendAudio: () => overflows.shift() ?? 0,
     commit() {},
     discardPending() {},
+    fence() {},
     close() {},
   };
   const meter = new UsageMeter();

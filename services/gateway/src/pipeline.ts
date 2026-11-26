@@ -258,7 +258,7 @@ export class DirectionPipeline {
     this.queue.length = 0;
     this.cancel.abort(new Error("cancelled"));
     this.cancel = new AbortController();
-    this.stt?.discardPending();
+    this.stt?.fence();
   }
 
   private onPartial(source: StreamingSTT, text: string) {

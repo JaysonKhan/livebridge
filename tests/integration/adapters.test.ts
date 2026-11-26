@@ -1186,3 +1186,71 @@ test("STT: a tap with no audio never reaches the provider, and a very short turn
   await until(() => events.committed.length === 3, "second transcript");
   assert.deepEqual(events.disconnects, []);
 });
+
+const speak = (stt: ElevenLabsRealtimeSTT, ms: number) => {
+  for (let i = 0; i < ms / 20; i++) stt.sendAudio(speech(20));
+};
+
+test("STT: a transcript still owed for a commit sent before a fence is never delivered, nor are its partials", async () => {
+  const mock = await eleven({ transcripts: ["cancelled turn", "next turn"], partials: true });
+  const { stt, events } = sttAdapter(mock.base);
+  await stt.open();
+  speak(stt, 400);
+  stt.commit();
+  // The provider has not answered yet.
+  stt.fence();
+  speak(stt, 400);
+  stt.commit();
+  await until(() => events.committed.length === 1, "next turn's transcript");
+  await sleep(50);
+  assert.deepEqual(events.committed, ["next turn"]);
+  // 4 chunks before the fence (partials 1–4), 4 after it.
+  assert.deepEqual(events.partials, ["partial 5", "partial 6", "partial 7", "partial 8"]);
+  assert.deepEqual(events.disconnects, []);
+});
+
+test("STT: audio sent before a fence but never committed is committed there, so it never joins the next turn", async () => {
+  const mock = await eleven({ transcripts: ["muted words", "next turn"] });
+  const { stt, events } = sttAdapter(mock.base);
+  await stt.open();
+  // Nothing captured yet (the session's first capture.start): the fence sends nothing.
+  stt.fence();
+  assert.equal(mock.stt.chunks.length, 0);
+  speak(stt, 400);
+  stt.fence();
+  speak(stt, 400);
+  stt.commit();
+  await until(() => events.committed.length === 1, "next turn's transcript");
+  await sleep(50);
+  assert.deepEqual(events.committed, ["next turn"]);
+  const streamed = [3200, false];
+  assert.deepEqual(
+    mock.stt.chunks.map((c) => [c.bytes, c.commit]),
+    [streamed, streamed, streamed, streamed, [0, true], streamed, streamed, streamed, streamed, [0, true]],
+  );
+  assert.equal(mock.stt.connections, 1);
+});
+
+test("STT (vad): a fence after captured audio moves to a fresh provider session; nothing the old one says is delivered", async () => {
+  const mock = await eleven();
+  const { stt, events } = sttAdapter(mock.base, "vad");
+  // What the provider sends when its voice activity detection ends a segment.
+  const providerCommits = (text: string) =>
+    mock.stt.sockets.forEach((ws) => ws.send(JSON.stringify({ message_type: "committed_transcript", text })));
+  await stt.open();
+  // Nothing captured yet (the session's first capture.start): no new session, no handshake.
+  stt.fence();
+  assert.equal(mock.stt.connections, 1);
+  speak(stt, 400);
+  stt.fence();
+  providerCommits("cancelled words");
+  // Audio of the new generation waits for the new session instead of being lost.
+  assert.equal(stt.sendAudio(speech(200)), 0);
+  await until(() => mock.stt.connections === 2 && mock.stt.sockets.size === 1, "a fresh session");
+  await sleep(30);
+  providerCommits("next words");
+  await until(() => events.committed.length === 1, "next transcript");
+  await sleep(50);
+  assert.deepEqual(events.committed, ["next words"]);
+  assert.deepEqual(events.disconnects, []);
+});

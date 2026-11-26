@@ -39,6 +39,12 @@ export interface StreamingSTT {
   commit(): void;
   /** Throw away audio that has not been sent yet. */
   discardPending(): void;
+  /**
+   * Ends a generation: audio not sent yet is dropped, and nothing said before this call is delivered after it — no
+   * committed transcript and no partial, however late the provider sends them — nor is any audio sent before it part
+   * of a later transcript.
+   */
+  fence(): void;
   close(): void;
 }
 
