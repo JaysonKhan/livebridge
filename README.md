@@ -204,7 +204,8 @@ same modes, languages and voices.
   (`docs/deployment.md`). An existing install that already had a saved token opens in this mode and skips the
   onboarding.
 
-The setup panel shows a one-line summary of the connection with **Change** (other modes: **Change connection**).
+The setup panel shows a one-line summary of the connection with **Change** (other modes: **Change connection**);
+**Back** on the choice screen returns to the connection you left, without entering its keys or signing in again.
 Voices are remembered per connection, because each one offers its own list. The account's access token lasts about
 15 minutes, lives in memory only and is refreshed in the background during a call; the refresh token is kept in the
 Keychain / Credential Manager. A session ends with a banner when the balance runs out, billing cannot be reached,
