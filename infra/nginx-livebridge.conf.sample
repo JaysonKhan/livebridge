@@ -5,8 +5,9 @@
 limit_conn_zone $binary_remote_addr zone=livebridge_conn:1m;
 
 server {
-    listen 443 ssl;
-    http2 on;
+    # `listen ... http2` is understood by every nginx in use (Ubuntu 24.04 ships 1.24); from 1.25.1 the separate
+    # `http2 on;` directive is the preferred spelling.
+    listen 443 ssl http2;
     server_name bridge.example.com;
 
     ssl_certificate     /etc/letsencrypt/live/bridge.example.com/fullchain.pem;
@@ -15,6 +16,8 @@ server {
     # Tokens travel in the Authorization header, never the URL, but keep query strings out of logs anyway
     # (define a log_format without $request / $args, or use your server's existing safe format).
     access_log /var/log/nginx/livebridge.access.log;
+    # Its own error log as well: ban rules that watch the server's shared logs then never see this vhost's refusals.
+    error_log /var/log/nginx/livebridge.error.log;
 
     # A personal tool: a handful of connections per address is plenty.
     limit_conn livebridge_conn 4;
