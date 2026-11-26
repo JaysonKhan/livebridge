@@ -138,8 +138,8 @@ bool EngineConfig::parse(const Json& settings, EngineConfig& out) {
   EngineConfig config;
   if (!url || !is_http_url(*url) || !mic || !headphones) return false;
   // Absent means the user's own gateway; a value that is there must name one of the modes.
-  if (const Json* connection = settings.find("connection");
-      connection && !(connection->is_string() && connection_from_name(connection->as_string(), config.connection)))
+  if (const Json* wire = settings.find("connection");
+      wire && !(wire->is_string() && connection_from_name(wire->as_string(), config.connection)))
     return false;
   if (token) config.access_token = *token;
   if (const std::string* key = string_member(settings, "elevenlabsApiKey")) config.elevenlabs_api_key = *key;

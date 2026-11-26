@@ -500,7 +500,10 @@ static void test_connection_modes_are_validated() {
     map.set("connection", std::move(unknown));
     CHECK(refused(map));
   }
-  CHECK(config.connection == Connection::keys);  // a refused map leaves the result untouched
+  // A refused map leaves the result of the last accepted one untouched.
+  CHECK(!EngineConfig::parse(account, config));
+  CHECK(config.connection == Connection::keys && config.access_token.empty());
+  CHECK(config.elevenlabs_api_key == "el-key" && config.gemini_api_key == "gm-key");
 
   Session s;
   CHECK(!s.engine.start(without(connected_by("keys"), "geminiApiKey")));
