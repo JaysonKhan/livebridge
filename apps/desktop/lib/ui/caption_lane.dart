@@ -5,6 +5,7 @@ import '../bridge/models.dart';
 import '../l10n/labels.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
+import 'theme/tokens.dart';
 
 class CaptionLane extends ConsumerStatefulWidget {
   const CaptionLane({super.key, required this.direction});
@@ -40,25 +41,33 @@ class _CaptionLaneState extends ConsumerState<CaptionLane> {
     final showTranslated = ref.watch(setupProvider.select((s) => s.showTranslated));
     ref.listen(sessionProvider.select(_turns), (_, _) => _scrollToEnd());
     final l = context.l10n;
-    final scheme = Theme.of(context).colorScheme;
+    final t = context.tokens;
 
     return Card(
       key: Key('lane-${widget.direction.name}'),
-      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            color: scheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(l.laneTitle(widget.direction), style: Theme.of(context).textTheme.titleSmall),
+            decoration: BoxDecoration(
+              color: t.subtleFill,
+              border: Border(bottom: BorderSide(color: t.divider)),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: t.cardPadding, vertical: 8),
+            child: Text(
+              l.laneTitle(widget.direction),
+              style: Theme.of(context).textTheme.titleSmall!.copyWith(color: t.textPrimary),
+            ),
           ),
           Expanded(
             child: turns.isEmpty
-                ? Center(child: Text(l.noCaptions))
+                ? Center(
+                    child: Text(l.noCaptions, style: TextStyle(color: t.textSecondary)),
+                  )
                 : ListView.separated(
                     controller: _scroll,
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(t.cardPadding),
                     itemCount: turns.length,
                     separatorBuilder: (_, _) => const Divider(height: 16),
                     itemBuilder: (_, i) => _TurnView(
@@ -97,7 +106,7 @@ class _TurnView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final t = context.tokens;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -110,25 +119,27 @@ class _TurnView extends StatelessWidget {
                   turn.original,
                   style: TextStyle(
                     fontSize: fontSize * 0.8,
-                    color: scheme.onSurfaceVariant,
+                    color: t.textSecondary,
                     fontStyle: turn.originalFinal ? null : FontStyle.italic,
                   ),
                 ),
               if (showTranslated && turn.translation.isNotEmpty)
                 Text(
                   turn.translation,
-                  style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
               if (turn.skipped case final reason?)
                 Text(
                   context.l10n.turnSkipped(reason),
                   key: Key('skipped-${direction.name}-${turn.id}'),
-                  style: TextStyle(fontSize: fontSize * 0.7, color: scheme.outline, fontStyle: FontStyle.italic),
+                  // Secondary, not tertiary: it has to stay readable (4.5:1).
+                  style: TextStyle(fontSize: fontSize * 0.7, color: t.textSecondary, fontStyle: FontStyle.italic),
                 ),
             ],
           ),
         ),
-        if (turn.isLive) Icon(Icons.more_horiz, size: 18, semanticLabel: context.l10n.turnInProgress),
+        if (turn.isLive)
+          Icon(Icons.more_horiz, size: 18, color: t.textSecondary, semanticLabel: context.l10n.turnInProgress),
         if (turn.translationFinal) ...[
           _RateButton(
             key: Key('rate-good-${direction.name}-${turn.id}'),

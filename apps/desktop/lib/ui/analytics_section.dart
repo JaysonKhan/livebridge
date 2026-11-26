@@ -9,7 +9,10 @@ import '../state/host_platform.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
 import '../state/time_format.dart';
+import 'adaptive/adaptive_switch.dart';
+import 'adaptive/platform_expander.dart';
 import 'feedback_dialog.dart';
+import 'theme/tokens.dart';
 
 String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
@@ -43,16 +46,15 @@ class _AnalyticsSectionState extends ConsumerState<AnalyticsSection> {
     ref.listen(sessionProvider.select((s) => s.running), (was, now) {
       if (was == true && !now && _open) ref.read(analyticsProvider.notifier).refresh();
     });
-    return ExpansionTile(
-      leading: const Icon(Icons.insights),
-      title: Text(l.analyticsTitle),
-      subtitle: Text(l.analyticsSubtitle),
+    return PlatformExpander(
+      icon: Icons.insights,
+      title: l.analyticsTitle,
+      subtitle: l.analyticsSubtitle,
       onExpansionChanged: (open) {
         _open = open;
         if (open) ref.read(analyticsProvider.notifier).refresh();
       },
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      childrenPadding: EdgeInsets.fromLTRB(context.tokens.cardPadding, 0, context.tokens.cardPadding, 16),
       children: const [_AnalyticsBody()],
     );
   }
@@ -77,7 +79,7 @@ class _AnalyticsBody extends ConsumerWidget {
           ref.read(hostPlatformProvider) == HostPlatform.windows ? l.analyticsClearBodyWindows : l.analyticsClearBody,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
+          OutlinedButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l.delete)),
         ],
       ),
@@ -102,10 +104,8 @@ class _AnalyticsBody extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(windows ? l.analyticsPrivacyWindows : l.analyticsPrivacy),
-        SwitchListTile(
+        PlatformSwitchListTile(
           key: const Key('analytics-switch'),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
           title: Text(windows ? l.analyticsEnabledWindows : l.analyticsEnabled),
           value: state.enabled,
           onChanged: notifier.setEnabled,
@@ -205,7 +205,7 @@ class _TelemetryBlock extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
+          OutlinedButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l.confirm)),
         ],
       ),
@@ -232,10 +232,8 @@ class _TelemetryBlock extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SwitchListTile(
+        PlatformSwitchListTile(
           key: const Key('telemetry-switch'),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
           title: Text(l.telemetryTitle),
           subtitle: analyticsOn ? null : Text(l.telemetryNeedsAnalytics),
           value: on,

@@ -66,6 +66,10 @@ flutter:
   # Generates lib/l10n/app_localizations*.dart from the ARB files (see l10n.yaml).
   generate: true
 
+  # The rounded brand mark shown in the window header.
+  assets:
+    - assets/brand/logo_mark.png
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

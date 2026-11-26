@@ -27,7 +27,7 @@ class _ExportButtonState extends ConsumerState<ExportButton> {
         title: Text(l.exportConsentTitle),
         content: Text(l.exportConsentBody),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
+          OutlinedButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l.exportConsentConfirm)),
         ],
       ),

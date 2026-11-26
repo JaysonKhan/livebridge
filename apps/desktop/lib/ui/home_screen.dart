@@ -8,11 +8,13 @@ import '../state/host_platform.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
+import 'adaptive/platform_header.dart';
 import 'banners.dart';
 import 'consent_dialog.dart';
 import 'language_picker.dart';
 import 'session_panel.dart';
 import 'setup_panel.dart';
+import 'theme/tokens.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -83,15 +85,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final error = ref.watch(sessionProvider.select((s) => s.error));
     final lostDevices = ref.watch(setupProvider.select((s) => s.lostDevices));
     final l = context.l10n;
-    final scheme = Theme.of(context).colorScheme;
     return Focus(
       focusNode: _focus,
       autofocus: true,
       onKeyEvent: _onKey,
       child: Scaffold(
-        appBar: AppBar(title: const Text('LiveBridge AI'), actions: const [LanguagePicker(), SizedBox(width: 16)]),
         body: Column(
           children: [
+            const PlatformHeader(trailing: LanguagePicker()),
             if (bypass) const BypassBanner(),
             if (mock) const MockBanner(),
             if (error != null)
@@ -100,8 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 text:
                     '${error.code}: ${l.errorMessage(error.code, ref.watch(hostPlatformProvider)) ?? error.message}'
                     '${error.fatal ? ' ${l.errorSessionEnded}' : ''}',
-                background: scheme.errorContainer,
-                foreground: scheme.onErrorContainer,
+                severity: StatusSeverity.critical,
                 bold: false,
                 dismissLabel: l.dismissError,
                 onDismiss: ref.read(sessionProvider.notifier).dismissError,
@@ -116,8 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           : l.noticeHeadphonesLost(d.name),
                     )
                     .join('\n'),
-                background: scheme.secondaryContainer,
-                foreground: scheme.onSecondaryContainer,
+                severity: StatusSeverity.caution,
                 bold: false,
                 dismissLabel: l.dismissNotice,
                 onDismiss: ref.read(setupProvider.notifier).dismissNotice,
@@ -171,6 +170,7 @@ class _StartFooter extends ConsumerWidget {
     final l = context.l10n;
     final blockers = startBlockers(setup, l, ref.watch(hostPlatformProvider));
     final running = engine != EngineState.idle;
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -197,9 +197,14 @@ class _StartFooter extends ConsumerWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.block, size: 16),
+                    Icon(Icons.block, size: 14, color: t.textSecondary),
                     const SizedBox(width: 6),
-                    Expanded(child: Text(reason, style: Theme.of(context).textTheme.bodySmall)),
+                    Expanded(
+                      child: Text(
+                        reason,
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(color: t.textSecondary),
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -9,6 +9,8 @@ import '../state/host_platform.dart';
 import '../state/providers.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
+import 'adaptive/platform_expander.dart';
+import 'theme/tokens.dart';
 
 /// Device test "wizard": level meters, test tones and microphone permission. Never joins a meeting.
 class DeviceTestSection extends ConsumerStatefulWidget {
@@ -64,15 +66,14 @@ class _DeviceTestSectionState extends ConsumerState<DeviceTestSection> {
     ref.listen(setupProvider.select((s) => (s.micUid, s.sourcePids)), (_, _) {
       if (_open) _startMeters();
     });
-    return ExpansionTile(
+    return PlatformExpander(
       controller: _tile,
       enabled: !running,
-      leading: const Icon(Icons.tune),
-      title: Text(l.testDevicesTitle),
-      subtitle: Text(running ? l.testDevicesUnavailable : l.testDevicesSubtitle),
+      icon: Icons.tune,
+      title: l.testDevicesTitle,
+      subtitle: running ? l.testDevicesUnavailable : l.testDevicesSubtitle,
       onExpansionChanged: _onExpansion,
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      childrenPadding: EdgeInsets.fromLTRB(context.tokens.cardPadding, 0, context.tokens.cardPadding, 16),
       children: const [_Meters(), SizedBox(height: 12), _Tones(), SizedBox(height: 12), _Permission()],
     );
   }
@@ -111,8 +112,9 @@ class LevelMeter extends StatelessWidget {
       child: ExcludeSemantics(
         child: Row(
           children: [
-            SizedBox(width: 150, child: Text(label)),
-            Expanded(child: LinearProgressIndicator(value: fraction, minHeight: 10)),
+            SizedBox(width: 120, child: Text(label)),
+            const SizedBox(width: 8),
+            Expanded(child: LinearProgressIndicator(value: fraction, minHeight: 6)),
             SizedBox(width: 64, child: Text(dbText, textAlign: TextAlign.end)),
           ],
         ),
@@ -169,7 +171,7 @@ class _Permission extends ConsumerWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline),
+          Icon(Icons.info_outline, color: context.tokens.textSecondary),
           const SizedBox(width: 8),
           Expanded(child: Text(l.micPrivacyWindows)),
         ],
@@ -177,13 +179,17 @@ class _Permission extends ConsumerWidget {
     }
     final permission = ref.watch(setupProvider.select((s) => s.micPermission));
     final granted = permission == 'granted';
+    final t = context.tokens;
     return Row(
       children: [
-        Icon(granted ? Icons.check_circle_outline : Icons.error_outline),
+        Icon(
+          granted ? Icons.check_circle_outline : Icons.error_outline,
+          color: granted ? t.success.foreground : t.caution.foreground,
+        ),
         const SizedBox(width: 8),
         Expanded(child: Text(l.micPermission(l.permissionStatus(permission)))),
         if (!granted)
-          FilledButton.tonal(
+          OutlinedButton(
             onPressed: () => ref.read(setupProvider.notifier).refreshMicPermission(request: true),
             child: Text(l.permissionRequest),
           ),

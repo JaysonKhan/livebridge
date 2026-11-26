@@ -9,9 +9,15 @@ import '../state/providers.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
 import '../state/setup_state.dart';
+import 'adaptive/control_border.dart';
+import 'adaptive/labeled_field.dart';
+import 'adaptive/platform_radio.dart';
+import 'adaptive/pressable.dart';
 import 'analytics_section.dart';
 import 'device_test.dart';
 import 'routing_help.dart';
+import 'theme/app_theme.dart';
+import 'theme/tokens.dart';
 
 class SetupPanel extends ConsumerWidget {
   const SetupPanel({super.key});
@@ -47,6 +53,8 @@ class SetupPanel extends ConsumerWidget {
   }
 }
 
+/// A titled settings group. Windows: a Fluent card (card fill and stroke, radius 8, no shadow) with the Body Strong
+/// title inside. macOS: the group title above a grouped box, as in System Settings.
 class SectionCard extends StatelessWidget {
   const SectionCard({super.key, required this.title, required this.child, this.trailing});
 
@@ -56,22 +64,39 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
-                ?trailing,
-              ],
-            ),
-            const SizedBox(height: 8),
-            child,
-          ],
+    final t = context.tokens;
+    final titleRow = Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(title, style: Theme.of(context).textTheme.titleMedium!.copyWith(color: t.textPrimary)),
+          ),
         ),
+        ?trailing,
+      ],
+    );
+    if (t.isWindows) {
+      return Card(
+        child: Padding(
+          padding: EdgeInsets.all(t.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [titleRow, const SizedBox(height: 12), child],
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(padding: const EdgeInsets.fromLTRB(6, 0, 0, 2), child: titleRow),
+          Card(
+            child: Padding(padding: EdgeInsets.all(t.cardPadding), child: child),
+          ),
+        ],
       ),
     );
   }
@@ -84,7 +109,8 @@ class ChoiceOption<T> {
   final String description;
 }
 
-/// A single-choice list; the selected option is marked by an icon and bold text, not by colour alone.
+/// A single-choice list of platform radio buttons; the selected option is marked by the filled radio and bold
+/// text, not by colour alone.
 class ChoiceList<T> extends StatelessWidget {
   const ChoiceList({super.key, required this.options, required this.value, required this.onChanged});
 
@@ -97,18 +123,66 @@ class ChoiceList<T> extends StatelessWidget {
     return Semantics(
       inMutuallyExclusiveGroup: true,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final o in options)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              selected: o.value == value,
-              leading: Icon(o.value == value ? Icons.radio_button_checked : Icons.radio_button_unchecked),
-              title: Text(o.title, style: TextStyle(fontWeight: o.value == value ? FontWeight.bold : null)),
-              subtitle: Text(o.description),
-              onTap: () => onChanged(o.value),
-            ),
+          for (final o in options) _ChoiceRow(option: o, selected: o.value == value, onTap: () => onChanged(o.value)),
         ],
+      ),
+    );
+  }
+}
+
+class _ChoiceRow extends StatelessWidget {
+  const _ChoiceRow({required this.option, required this.selected, required this.onTap});
+
+  final ChoiceOption<Object?> option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return MergeSemantics(
+      child: Semantics(
+        checked: selected,
+        inMutuallyExclusiveGroup: true,
+        child: Pressable(
+          onPressed: onTap,
+          builder: (context, s) => FocusRing(
+            visible: s.focused,
+            radius: t.controlRadius,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              decoration: BoxDecoration(
+                color: s.pressed ? t.subtleFillPressed : (s.hovered ? t.subtleFill : Colors.transparent),
+                borderRadius: BorderRadius.circular(t.controlRadius),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  PlatformRadio(selected: selected, hovered: s.hovered, pressed: s.pressed),
+                  SizedBox(width: t.isWindows ? 8 : 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          option.title,
+                          style: text.bodyMedium!.copyWith(
+                            color: t.textPrimary,
+                            fontWeight: selected ? FontWeight.w600 : null,
+                          ),
+                        ),
+                        Text(option.description, style: text.bodySmall!.copyWith(color: t.textSecondary)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -135,31 +209,23 @@ class _LanguageAndMode extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: _LanguageDropdown(
-                  key: const Key('my-language'),
-                  label: l.myLanguage,
-                  value: myLang,
-                  systemNames: names,
-                  onChanged: notifier.setMyLang,
-                ),
-              ),
-              const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(Icons.swap_horiz, size: 20)),
-              Expanded(
-                child: _LanguageDropdown(
-                  key: const Key('their-language'),
-                  label: l.theirLanguage,
-                  value: theirLang,
-                  systemNames: names,
-                  onChanged: notifier.setTargetLang,
-                ),
-              ),
-            ],
+          // One full-width row each, so long names (Russian, Uzbek) are not cut off.
+          _LanguageDropdown(
+            key: const Key('my-language'),
+            label: l.myLanguage,
+            value: myLang,
+            systemNames: names,
+            onChanged: notifier.setMyLang,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          _LanguageDropdown(
+            key: const Key('their-language'),
+            label: l.theirLanguage,
+            value: theirLang,
+            systemNames: names,
+            onChanged: notifier.setTargetLang,
+          ),
+          const SizedBox(height: 12),
           ChoiceList<SessionMode>(options: modes, value: mode, onChanged: notifier.setMode),
         ],
       ),
@@ -192,20 +258,41 @@ class _LanguageDropdown extends StatelessWidget {
         if (!first.contains(code)) (code: code, name: l.languageName(code, systemNames)),
     ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final entries = [for (final code in first) (code: code, name: l.languageName(code)), ...rest];
-    return DropdownMenu<String>(
-      // Rebuilt when the interface language or the names change, so the field shows the current name.
-      key: ValueKey('$value-${l.localeName}-${systemNames.length}'),
-      initialSelection: value,
-      label: Text(label),
-      expandedInsets: EdgeInsets.zero,
-      menuHeight: 320,
-      enableFilter: true,
-      requestFocusOnTap: true,
-      inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), isDense: true),
-      onSelected: (code) {
-        if (code != null) onChanged(code);
-      },
-      dropdownMenuEntries: [for (final e in entries) DropdownMenuEntry(value: e.code, label: e.name)],
+    final t = context.tokens;
+    return LabeledField(
+      label: label,
+      mergeSemantics: false,
+      // The menu button inside the field: small enough that the field keeps the control height.
+      child: IconButtonTheme(
+        data: IconButtonThemeData(
+          style: IconButtonTheme.of(context).style!.copyWith(
+            minimumSize: WidgetStatePropertyAll(Size.square(t.controlHeight - 8)),
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          ),
+        ),
+        child: DropdownMenu<String>(
+          // Rebuilt when the interface language or the names change, so the field shows the current name.
+          key: ValueKey('$value-${l.localeName}-${systemNames.length}'),
+          initialSelection: value,
+          expandedInsets: EdgeInsets.zero,
+          menuHeight: 320,
+          enableFilter: true,
+          requestFocusOnTap: true,
+          trailingIcon: Icon(t.isWindows ? Icons.keyboard_arrow_down : Icons.unfold_more, size: 16),
+          selectedTrailingIcon: Icon(t.isWindows ? Icons.keyboard_arrow_up : Icons.unfold_more, size: 16),
+          onSelected: (code) {
+            if (code != null) onChanged(code);
+          },
+          dropdownMenuEntries: [
+            for (final e in entries)
+              DropdownMenuEntry(
+                value: e.code,
+                label: e.name,
+                labelWidget: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -227,22 +314,37 @@ class _DeviceDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = devices.any((d) => d.uid == selectedUid) ? selectedUid : null;
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          isDense: true,
-          value: value,
-          hint: Text(context.l10n.notSelected),
-          items: [
-            for (final d in devices)
-              DropdownMenuItem(
-                value: d.uid,
-                child: Text(d.name, overflow: TextOverflow.ellipsis),
-              ),
-          ],
-          onChanged: onChanged,
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return LabeledField(
+      label: label,
+      child: InputDecorator(
+        // A dense DropdownButton is 24 px tall.
+        decoration: InputDecoration(border: comboBoxBorder(t), contentPadding: fieldContentPadding(t, 24)),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            isExpanded: true,
+            isDense: true,
+            value: value,
+            style: text.bodyMedium!.copyWith(color: t.textPrimary),
+            dropdownColor: t.flyout,
+            borderRadius: BorderRadius.circular(8),
+            iconSize: 16,
+            icon: Icon(t.isWindows ? Icons.keyboard_arrow_down : Icons.unfold_more, color: t.textSecondary),
+            hint: Text(
+              context.l10n.notSelected,
+              style: text.bodyMedium!.copyWith(color: t.textSecondary),
+              overflow: TextOverflow.ellipsis,
+            ),
+            items: [
+              for (final d in devices)
+                DropdownMenuItem(
+                  value: d.uid,
+                  child: Text(d.name, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: onChanged,
+          ),
         ),
       ),
     );
@@ -259,7 +361,7 @@ class _DevicesSection extends ConsumerWidget {
     final virtualMic = s.virtualMic;
     final windows = ref.watch(hostPlatformProvider) == HostPlatform.windows;
     final l = context.l10n;
-    final scheme = Theme.of(context).colorScheme;
+    final t = context.tokens;
     return SectionCard(
       title: l.sectionDevices,
       child: Column(
@@ -283,8 +385,10 @@ class _DevicesSection extends ConsumerWidget {
           const SizedBox(height: 12),
           if (virtualMic != null)
             Row(
+              // The Windows sentence runs over several lines; the icon stays with the first.
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.check_circle_outline),
+                Icon(Icons.check_circle_outline, color: t.success.foreground),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(windows ? l.virtualMicFoundWindows(virtualMic.name) : l.virtualMicFound(virtualMic.name)),
@@ -295,11 +399,15 @@ class _DevicesSection extends ConsumerWidget {
             Container(
               key: const Key('blackhole-missing'),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: scheme.tertiaryContainer, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: t.caution.background,
+                borderRadius: BorderRadius.circular(t.isWindows ? t.controlRadius : t.cardRadius - 2),
+                border: Border.all(color: t.cardStroke),
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, color: scheme.onTertiaryContainer),
+                  Icon(Icons.info_outline, color: t.caution.foreground),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -307,14 +415,14 @@ class _DevicesSection extends ConsumerWidget {
                       children: [
                         Text(
                           windows ? l.vbCableMissingNotice : l.blackHoleMissingNotice,
-                          style: TextStyle(color: scheme.onTertiaryContainer, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         SelectableText(
                           windows
                               ? l.vbCableDownloadFrom(vbCableDownloadUrl)
                               : l.blackHoleInstallWith(blackHoleInstallHint),
-                          style: TextStyle(color: scheme.onTertiaryContainer),
+                          style: TextStyle(color: t.textPrimary),
                         ),
                       ],
                     ),
@@ -365,9 +473,9 @@ class _MeetingSourceSection extends ConsumerWidget {
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.volume_up, size: 18),
+                                Icon(Icons.volume_up, size: 16, color: context.tokens.accentText),
                                 const SizedBox(width: 4),
-                                Text(l.processPlaying),
+                                Text(l.processPlaying, style: Theme.of(context).textTheme.bodySmall),
                               ],
                             )
                           : null,
@@ -466,13 +574,17 @@ class _StateTextFieldState extends State<StateTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      obscureText: widget.obscure,
-      autocorrect: false,
-      enableSuggestions: !widget.obscure,
-      onChanged: widget.onChanged,
-      decoration: InputDecoration(labelText: widget.label, border: const OutlineInputBorder(), isDense: true),
+    return LabeledField(
+      label: widget.label,
+      child: TextField(
+        controller: _controller,
+        obscureText: widget.obscure,
+        autocorrect: false,
+        enableSuggestions: !widget.obscure,
+        onChanged: widget.onChanged,
+        style: Theme.of(context).textTheme.bodyLarge!.copyWith(color: context.tokens.textPrimary),
+        decoration: const InputDecoration(),
+      ),
     );
   }
 }

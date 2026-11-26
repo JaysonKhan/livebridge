@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/labels.dart';
 import '../state/providers.dart';
+import 'adaptive/labeled_field.dart';
+import 'theme/tokens.dart';
 
 const feedbackMaxChars = 2000;
 
@@ -71,7 +73,7 @@ class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
         key: Key('feedback-star-$value'),
         onPressed: _sending ? null : () => setState(() => _rating = _rating == value ? null : value),
         icon: Icon(filled ? Icons.star : Icons.star_border),
-        color: filled ? Colors.amber.shade700 : null,
+        color: filled ? context.tokens.caution.foreground : null,
       ),
     );
   }
@@ -92,31 +94,31 @@ class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
             children: [
               Text(l.feedbackNote),
               const SizedBox(height: 12),
-              TextField(
-                key: const Key('feedback-message'),
-                controller: _message,
-                enabled: !_sending,
-                minLines: 4,
-                maxLines: 8,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  labelText: l.feedbackMessageLabel,
-                  border: const OutlineInputBorder(),
-                  counterText: '$_length/$feedbackMaxChars',
-                  counterStyle: tooLong ? TextStyle(color: theme.colorScheme.error) : null,
+              LabeledField(
+                label: l.feedbackMessageLabel,
+                child: TextField(
+                  key: const Key('feedback-message'),
+                  controller: _message,
+                  enabled: !_sending,
+                  minLines: 4,
+                  maxLines: 8,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    counterText: '$_length/$feedbackMaxChars',
+                    counterStyle: tooLong ? TextStyle(color: theme.colorScheme.error) : null,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                key: const Key('feedback-email'),
-                controller: _email,
-                enabled: !_sending,
-                keyboardType: TextInputType.emailAddress,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  labelText: l.feedbackEmailLabel,
-                  border: const OutlineInputBorder(),
-                  errorText: _emailOk ? null : l.feedbackEmailInvalid,
+              LabeledField(
+                label: l.feedbackEmailLabel,
+                child: TextField(
+                  key: const Key('feedback-email'),
+                  controller: _email,
+                  enabled: !_sending,
+                  keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(errorText: _emailOk ? null : l.feedbackEmailInvalid),
                 ),
               ),
               const SizedBox(height: 12),
@@ -135,7 +137,7 @@ class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _sending ? null : () => Navigator.of(context).pop(false), child: Text(l.cancel)),
+        OutlinedButton(onPressed: _sending ? null : () => Navigator.of(context).pop(false), child: Text(l.cancel)),
         FilledButton(key: const Key('feedback-send'), onPressed: _canSend ? _send : null, child: Text(l.feedbackSend)),
       ],
     );

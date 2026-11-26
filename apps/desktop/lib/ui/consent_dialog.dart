@@ -77,7 +77,7 @@ class _ConsentDialogState extends State<_ConsentDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l.cancel)),
+        OutlinedButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l.cancel)),
         FilledButton(onPressed: _agreed ? () => Navigator.of(context).pop(true) : null, child: Text(l.confirm)),
       ],
     );

@@ -14,6 +14,43 @@ class MainFlutterWindow: NSWindow {
     self.setContentSize(NSSize(width: 1240, height: 800))
     self.center()
     self.title = "JK - LiveBridge"
+    // Unified title bar: an empty unified toolbar makes the title area 52 pt tall with the traffic lights centred in
+    // it, and the Flutter header (lib/ui/adaptive/platform_header.dart) draws the toolbar row underneath.
+    self.titleVisibility = .hidden
+    self.titlebarAppearsTransparent = true
+    self.styleMask.insert(.fullSizeContentView)
+    self.toolbar = NSToolbar(identifier: "LiveBridgeToolbar")
+    self.toolbarStyle = .unified
+    self.titlebarSeparatorStyle = .none
+    // FlutterView is opaque and receives the clicks in the transparent title area, so AppKit never drags the window
+    // from there: the header asks for the drag, and for the title bar's double-click action. In full screen the
+    // traffic lights are hidden, so the header is told to drop the room it keeps for them.
+    let windowChannel = FlutterMethodChannel(
+      name: "livebridge/window", binaryMessenger: flutterViewController.engine.binaryMessenger)
+    for (name, fullScreen) in [
+      (NSWindow.willEnterFullScreenNotification, true), (NSWindow.willExitFullScreenNotification, false),
+    ] {
+      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { _ in
+        windowChannel.invokeMethod("fullScreen", arguments: fullScreen)
+      }
+    }
+    windowChannel.setMethodCallHandler { [weak self] call, result in
+      guard let self else { return result(nil) }
+      switch call.method {
+      case "startDrag":
+        if let event = NSApp.currentEvent { self.performDrag(with: event) }
+        result(nil)
+      case "titleBarDoubleClick":
+        switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+        case "Minimize": self.performMiniaturize(nil)
+        case "None": break
+        default: self.performZoom(nil)
+        }
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     bridge = LiveBridgeChannels(messenger: flutterViewController.engine.binaryMessenger)
