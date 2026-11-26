@@ -64,6 +64,7 @@ the host sends `voices: { out?, in? }` in `session.configure` only for the ids t
 | `telemetryEnabled` | bool | default `false`. Opt-in: upload the numbers-only analytics records to the developer's collector (docs/telemetry-api.md). Needs `analyticsEnabled` |
 | `captionFontSize` | double | caption text size |
 | `showOriginal` / `showTranslated` | bool | caption line visibility |
+| `outVoiceName` / `inVoiceName` | String? | what the chosen voices are called, saved with `outVoiceId` / `inVoiceId` the moment a voice is picked (so the setup column can show the choice without asking the gateway); `null` removes them |
 
 Mode semantics: `captions` — both directions transcribe and translate, nothing is synthesized, no virtual mic needed.
 `incoming` — captions both ways plus Uzbek audio in the headphones. `bidirectional` — also synthesizes the owner's

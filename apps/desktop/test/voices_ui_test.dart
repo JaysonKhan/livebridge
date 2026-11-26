@@ -101,18 +101,18 @@ void main() {
       expect(fakeVoices.calls, [(url: 'http://127.0.0.1:8201', token: _token)]);
     });
 
-    testWidgets('a saved voice is shown by its name; an unknown saved voice shows its id', (tester) async {
+    testWidgets('a saved voice is shown by its saved name; one saved without a name shows its id', (tester) async {
       final bridge = FakeLiveBridge()
         ..settings = {
           'accessToken': 'saved-token',
           'mode': 'bidirectional',
           'outVoiceId': 'voiceNotInList0001',
           'inVoiceId': _bruno,
+          'inVoiceName': 'Fake Bruno',
         };
       await pumpApp(tester, bridge: bridge);
       expect(_text('voice-out-current'), 'voiceNotInList0001');
       expect(_text('voice-in-current'), 'Fake Bruno');
-      expect(fakeVoices.calls.length, 1);
       // "Default" is one click away.
       await _open(tester, _outChange);
       await tester.tap(find.byKey(const Key('voice-row-default')));
@@ -121,19 +121,35 @@ void main() {
       expect(startEnabled(), isTrue);
     });
 
-    testWidgets('typing the token does not ask the gateway on every keystroke', (tester) async {
-      final bridge = FakeLiveBridge()..settings = {'accessToken': 'saved-token', 'inVoiceId': _bruno};
+    testWidgets('the group never contacts the gateway on its own, whatever is typed into the address or the token', (
+      tester,
+    ) async {
+      final bridge = FakeLiveBridge()
+        ..settings = {
+          'accessToken': 'saved-token',
+          'mode': 'bidirectional',
+          'outVoiceId': _aria,
+          'outVoiceName': 'Fake Aria',
+          'inVoiceId': _bruno,
+          'inVoiceName': 'Fake Bruno',
+        };
       final c = await pumpApp(tester, bridge: bridge);
-      expect(fakeVoices.calls.length, 1);
-
-      for (final typed in ['s', 'se', 'sec', 'secr', 'secre', 'secret']) {
-        c.read(setupProvider.notifier).setAccessToken(typed);
-        await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(seconds: 2));
+      // The token would otherwise travel to every address the field passes through on the way to the one meant.
+      for (final typed in ['http://192.168.1.1', 'http://192.168.1.15', 'http://192.168.1.15:8201']) {
+        c.read(setupProvider.notifier).setGatewayUrl(typed);
+        await tester.pump(const Duration(seconds: 2));
       }
-      expect(fakeVoices.calls.length, 1);
-      await tester.pump(const Duration(seconds: 1));
-      expect(fakeVoices.calls.length, 2);
-      expect(fakeVoices.calls.last.token, 'secret');
+      for (final typed in ['s', 'secret', 'secret-token']) {
+        c.read(setupProvider.notifier).setAccessToken(typed);
+        await tester.pump(const Duration(seconds: 2));
+      }
+      expect(fakeVoices.calls, isEmpty);
+      expect(_text('voice-out-current'), 'Fake Aria');
+
+      // Opening a picker is the owner's own request, to the address as it now stands.
+      await _open(tester, _outChange);
+      expect(fakeVoices.calls, [(url: 'http://192.168.1.15:8201', token: 'secret-token')]);
     });
   });
 
@@ -160,6 +176,42 @@ void main() {
       await tester.pumpAndSettle();
       expect(fake.startedWith!.outVoiceId, _bruno);
       expect(fake.startedWith!.inVoiceId, isNull);
+    });
+
+    testWidgets('a choice is saved at once together with the name of the voice, and Default clears both', (
+      tester,
+    ) async {
+      await _pumpBidirectional(tester);
+      await _open(tester, _outChange);
+      await tester.tap(find.text('Fake Bruno'));
+      await tester.pumpAndSettle();
+      expect(fake.savedPrefs.last, {'outVoiceId': _bruno, 'outVoiceName': 'Fake Bruno'});
+      expect(fake.settings['outVoiceName'], 'Fake Bruno');
+
+      await _open(tester, _outChange);
+      await tester.tap(find.byKey(const Key('voice-row-default')));
+      await tester.pumpAndSettle();
+      expect(fake.savedPrefs.last, {'outVoiceId': null, 'outVoiceName': null});
+    });
+
+    testWidgets('the list is read again each time a picker opens, so a failure or an old list does not stick', (
+      tester,
+    ) async {
+      await _pumpBidirectional(tester);
+      fakeVoices.failure = VoicesFailure.network;
+      await _open(tester, _outChange);
+      expect(find.text(en.voicesNetwork), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, en.cancel));
+      await tester.pumpAndSettle();
+
+      // The gateway is back and has one more voice: no Retry needed, just open again.
+      fakeVoices
+        ..failure = null
+        ..voices = [...FakeVoicesClient.defaultVoices(), const Voice(id: 'fakevoice0000000005', name: 'Fake Nodira')];
+      await _open(tester, _inChange);
+      expect(find.byKey(const Key('voices-retry')), findsNothing);
+      expect(_rowNames().last, 'Fake Nodira');
+      expect(fakeVoices.calls.length, 2);
     });
 
     testWidgets('the incoming picker sets the other voice', (tester) async {

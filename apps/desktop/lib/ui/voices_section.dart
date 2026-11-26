@@ -1,63 +1,28 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
-import '../state/providers.dart';
 import '../state/setup_state.dart';
 import 'setup_panel.dart';
 import 'theme/tokens.dart';
 import 'voice_picker.dart';
 
-typedef _Gateway = ({String url, String token});
-
-_Gateway _gateway(SetupState s) => (url: s.gatewayUrl.trim(), token: s.accessToken.trim());
-
 /// The two synthesized voices of a session: the one that speaks my translation and the one that speaks theirs.
-class VoicesSection extends ConsumerStatefulWidget {
+///
+/// It shows what was chosen from what is saved with the choice and never asks the gateway itself: the access token
+/// travels only when the owner opens a picker (or starts a session), to the address as it stands at that moment.
+class VoicesSection extends ConsumerWidget {
   const VoicesSection({super.key});
 
   @override
-  ConsumerState<VoicesSection> createState() => _VoicesSectionState();
-}
-
-class _VoicesSectionState extends ConsumerState<VoicesSection> {
-  /// The gateway the chosen voices' names are read from. It follows the address and token fields once they have
-  /// been left alone for a moment: every different pair is a request, and the gateway counts requests per minute.
-  late _Gateway _settled = _gateway(ref.read(setupProvider));
-  Timer? _settling;
-
-  @override
-  void dispose() {
-    _settling?.cancel();
-    super.dispose();
-  }
-
-  void _follow(_Gateway next) {
-    _settling?.cancel();
-    // No token until now (the settings were just loaded, or its first character was typed): nothing to wait for.
-    if (_settled.token.isEmpty) return setState(() => _settled = next);
-    _settling = Timer(const Duration(milliseconds: 600), () {
-      if (mounted) setState(() => _settled = next);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(setupProvider.select(_gateway), (_, next) => _follow(next));
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final mode = ref.watch(setupProvider.select((s) => s.mode));
     final hasToken = ref.watch(setupProvider.select((s) => s.accessToken.trim().isNotEmpty));
-    final outId = ref.watch(setupProvider.select((s) => s.outVoiceId));
-    final inId = ref.watch(setupProvider.select((s) => s.inVoiceId));
-    // The list is read here only to put a name to a chosen voice; the picker reads it itself when it opens.
-    final voices = (outId != null || inId != null) && _settled.token.isNotEmpty
-        ? ref.watch(voicesProvider(_settled)).value
-        : null;
-    String current(String? id) =>
-        id == null ? l.voiceDefault : voices?.where((v) => v.id == id).firstOrNull?.name ?? id;
+    final out = ref.watch(setupProvider.select((s) => (id: s.outVoiceId, name: s.outVoiceName)));
+    final incoming = ref.watch(setupProvider.select((s) => (id: s.inVoiceId, name: s.inVoiceName)));
+    String current(({String? id, String? name}) voice) => voice.id == null ? l.voiceDefault : voice.name ?? voice.id!;
 
     return SectionCard(
       title: l.sectionVoices,
@@ -67,7 +32,7 @@ class _VoicesSectionState extends ConsumerState<VoicesSection> {
           _VoiceChoice(
             name: 'voice-out',
             label: l.voiceOut,
-            current: current(outId),
+            current: current(out),
             // Only the bidirectional mode speaks my translation into the call.
             onChange: hasToken && mode == SessionMode.bidirectional
                 ? () => showVoicePicker(context, direction: Direction.out)
@@ -77,7 +42,7 @@ class _VoicesSectionState extends ConsumerState<VoicesSection> {
           _VoiceChoice(
             name: 'voice-in',
             label: l.voiceIn,
-            current: current(inId),
+            current: current(incoming),
             onChange: hasToken && mode != SessionMode.captions
                 ? () => showVoicePicker(context, direction: Direction.incoming)
                 : null,

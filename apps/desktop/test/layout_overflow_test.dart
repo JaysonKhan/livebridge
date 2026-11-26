@@ -128,7 +128,7 @@ void main() {
     c.read(setupProvider.notifier)
       ..setAccessToken('token')
       ..setMode(SessionMode.bidirectional)
-      ..setOutVoice('fakevoice0000000021');
+      ..setOutVoice(_wideVoices.first.id, name: _wideVoices.first.name);
     await tester.pump(const Duration(seconds: 1));
     final change = find.byKey(const Key('voice-out-change'));
     final position = setupScroll(tester)..jumpTo(0);

@@ -36,6 +36,8 @@ class SetupState {
     this.translationModel = '',
     this.outVoiceId,
     this.inVoiceId,
+    this.outVoiceName,
+    this.inVoiceName,
     this.micPermission = 'undetermined',
     this.lostDevices = const [],
     this.captionFontSize = 18,
@@ -63,6 +65,11 @@ class SetupState {
   /// The voice chosen for each direction (a provider voice id); null = the gateway's configured voice.
   final String? outVoiceId;
   final String? inVoiceId;
+
+  /// What the chosen voices are called, kept from the moment they were picked so that showing the choice never
+  /// needs the gateway. Null when unknown (the id is shown then).
+  final String? outVoiceName;
+  final String? inVoiceName;
   final String micPermission;
   final List<LostDevice> lostDevices;
   final double captionFontSize;
@@ -90,6 +97,8 @@ class SetupState {
     String? translationModel,
     Object? outVoiceId = _keep,
     Object? inVoiceId = _keep,
+    Object? outVoiceName = _keep,
+    Object? inVoiceName = _keep,
     String? micPermission,
     List<LostDevice>? lostDevices,
     double? captionFontSize,
@@ -112,6 +121,8 @@ class SetupState {
     translationModel: translationModel ?? this.translationModel,
     outVoiceId: identical(outVoiceId, _keep) ? this.outVoiceId : outVoiceId as String?,
     inVoiceId: identical(inVoiceId, _keep) ? this.inVoiceId : inVoiceId as String?,
+    outVoiceName: identical(outVoiceName, _keep) ? this.outVoiceName : outVoiceName as String?,
+    inVoiceName: identical(inVoiceName, _keep) ? this.inVoiceName : inVoiceName as String?,
     micPermission: micPermission ?? this.micPermission,
     lostDevices: lostDevices ?? this.lostDevices,
     captionFontSize: captionFontSize ?? this.captionFontSize,
@@ -158,7 +169,7 @@ class SetupState {
   );
 }
 
-/// A saved voice id, or null when nothing usable is saved.
+/// A saved voice id or name, or null when nothing usable is saved.
 String? _savedVoice(Object? value) => value is String && value.isNotEmpty ? value : null;
 
 class SetupNotifier extends Notifier<SetupState> {
@@ -197,6 +208,8 @@ class SetupNotifier extends Notifier<SetupState> {
         translationModel: saved['translationModel'] as String?,
         outVoiceId: _savedVoice(saved['outVoiceId']),
         inVoiceId: _savedVoice(saved['inVoiceId']),
+        outVoiceName: _savedVoice(saved['outVoiceName']),
+        inVoiceName: _savedVoice(saved['inVoiceName']),
         myLang: kLanguages.containsKey(saved['myLang']) ? saved['myLang'] as String : null,
         targetLang: kLanguages.containsKey(saved['targetLang']) ? saved['targetLang'] as String : null,
         mode: parseWire(SessionMode.values, saved['mode']),
@@ -273,10 +286,6 @@ class SetupNotifier extends Notifier<SetupState> {
   void setGatewayUrl(String v) => state = state.copyWith(gatewayUrl: v);
   void setAccessToken(String v) => state = state.copyWith(accessToken: v);
   void setTranslationModel(String v) => state = state.copyWith(translationModel: v);
-
-  /// Null goes back to the gateway's configured voice.
-  void setOutVoice(String? id) => state = state.copyWith(outVoiceId: id);
-  void setInVoice(String? id) => state = state.copyWith(inVoiceId: id);
   void dismissNotice() => state = state.copyWith(lostDevices: const []);
 
   /// Saves preference keys; a failure shows up in the error strip.
@@ -285,6 +294,18 @@ class SetupNotifier extends Notifier<SetupState> {
         .read(sessionProvider.notifier)
         .guard('saveSettings', () => ref.read(bridgeProvider).savePreferences(preferences)),
   );
+
+  /// Chooses a direction's voice and saves the choice with its [name]; a null [id] goes back to the gateway's
+  /// configured voice.
+  void setOutVoice(String? id, {String? name}) {
+    state = state.copyWith(outVoiceId: id, outVoiceName: id == null ? null : name);
+    _persist({'outVoiceId': state.outVoiceId, 'outVoiceName': state.outVoiceName});
+  }
+
+  void setInVoice(String? id, {String? name}) {
+    state = state.copyWith(inVoiceId: id, inVoiceName: id == null ? null : name);
+    _persist({'inVoiceId': state.inVoiceId, 'inVoiceName': state.inVoiceName});
+  }
 
   void setShowOriginal(bool v) {
     state = state.copyWith(showOriginal: v);

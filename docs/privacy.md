@@ -8,8 +8,8 @@
 | Meeting app audio (the other participant) | Only the processes you selected, only during a session. Mac → gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
 | Transcripts and translations | Gateway → Gemini (translation) → ElevenLabs (speech synthesis) → back to the Mac. Shown as captions. | In RAM only; gone when the session or app closes. The last 4 turns per direction are sent with each translation request as context. |
 | Gateway access token | macOS login Keychain. | Until you change it. |
-| Device choices, language, mode, gateway URL, interface language, the chosen voices | macOS UserDefaults. | Until changed. No content. |
-| Voice list and samples | The list of your ElevenLabs account's voices: gateway → ElevenLabs → the app, when a voice picker is opened or a chosen voice needs its name. A sample you play is downloaded by the app straight from the provider's public sample storage. | The gateway keeps the list in memory for 10 minutes. Nothing is stored on disk. |
+| Device choices, language, mode, gateway URL, interface language, the chosen voices (id and name) | macOS UserDefaults. | Until changed. No content. |
+| Voice list and samples | The list of your ElevenLabs account's voices: gateway → ElevenLabs → the app, each time a voice picker is opened and at no other time. A sample you play is downloaded by the app straight from the provider's public sample storage. | The gateway keeps the list in memory for 10 minutes. Nothing is stored on disk. |
 | **Conversation export** (text of both speakers) | Only when you press **Export conversation** and choose where to save. A Markdown file on your disk. | Until you delete the file. |
 | **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on this Mac. Stays there unless you opt in to sharing (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
 | **Shared statistics** (opt-in, off by default) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |

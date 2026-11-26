@@ -15,8 +15,9 @@ final languageNamesProvider = FutureProvider.family<Map<String, String>, String>
 /// Reads the gateway's voice list. Tests override this with a fake.
 final voicesClientProvider = Provider<VoicesClient>((ref) => HttpVoicesClient());
 
-/// The voices of one gateway, per address and access token.
-final voicesProvider = FutureProvider.family<List<Voice>, ({String url, String token})>(
+/// The voices of one gateway, per address and access token. Nothing keeps it between uses: each picker that opens
+/// reads the list anew, so neither a failure nor an old list outlives the dialog that showed it.
+final voicesProvider = FutureProvider.autoDispose.family<List<Voice>, ({String url, String token})>(
   (ref, key) => ref.watch(voicesClientProvider).list(gatewayUrl: key.url, accessToken: key.token),
   // A failure is shown with a Retry button. Retrying unasked would hide it and keep asking a gateway that refused.
   retry: (_, _) => null,

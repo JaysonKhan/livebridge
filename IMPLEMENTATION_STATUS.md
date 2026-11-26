@@ -64,7 +64,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | TypeScript typecheck | `npm run typecheck` | clean |
 | Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **97 passed, 0 failed** |
 | Swift engine unit tests | `swift test` | **29 passed**, 1 skipped (the live-collector test below) |
-| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **229 passed** |
+| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **232 passed** |
 | App end to end (fake providers) | `flutter test integration_test/session_test.dart -d macos` | passed — real UI, engine and microphone |
 | Release build | `flutter build macos --release` | `JK - LiveBridge.app`, 48 MB, ad-hoc signed, macOS 14.2+ |
 | **Live API probe** | `npm run probe` | 32 checks: 0 failed, 1 skipped (key lacks `user_read`). Voices: 108 in the account on 2 pages, 106 offered by the gateway, a sample fetched with no key, three voices of each category spoken by the realtime model |
@@ -119,7 +119,7 @@ into any output.
 | Opt-in statistics and feedback go to a collector on the author's site (`docs/telemetry-api.md`) | Off by default, numbers only. **The collector is not deployed yet** — until it is, uploads fail quietly and are retried |
 | Cancel = close and reopen that direction's TTS socket | The dialogue socket documents no per-turn cancel |
 | Riverpod; settings via the native bridge (UserDefaults + Keychain) | One Flutter plugin with native code, `audioplayers`, only to play voice samples; on macOS it is linked as a Swift package, so still no CocoaPods |
-| Voices are chosen in the app from the gateway's ElevenLabs account: `GET /v1/voices` (cached 10 minutes), optional `voices` in `session.configure`, a picker with search, filters and samples (`docs/specs/2026-11-26-accounts-paid-service-voices-design.md`, step 1) | Owner's design of 2026-11-26. The app reads the list itself over HTTP — one implementation for both platforms; the native hosts only copy the two ids into the configure message |
+| Voices are chosen in the app from the gateway's ElevenLabs account: `GET /v1/voices` (cached 10 minutes), optional `voices` in `session.configure`, a picker with search, filters and samples (`docs/specs/2026-11-26-accounts-paid-service-voices-design.md`, step 1) | Owner's design of 2026-11-26. The app reads the list itself over HTTP — one implementation for both platforms; the native hosts only copy the two ids into the configure message. The list is read each time a picker opens and at no other time: the setup column shows a chosen voice by the name saved with the choice, so the access token is never sent to an address that is still being typed |
 | A library voice its owner has switched off (`sharing.status: copied_disabled`) is left out of the list; the provider's `voice_not_found` and `voice_disabled` reach the app as error `voice_not_found` | Found by speaking with all 108 voices of the account once: 106 worked, the 2 refused ones were exactly the switched-off ones. The provider accepts any voice id when a session opens and refuses it only when a turn is spoken, so the app is told in words at that turn |
 | App is **not sandboxed** | Process taps and private aggregate devices; personal-use build |
 | systemd service behind nginx on port 8201 (Docker files provided too) | Matches the server's conventions |

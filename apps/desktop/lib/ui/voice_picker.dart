@@ -115,9 +115,12 @@ class _VoicePickerState extends ConsumerState<_VoicePicker> {
     return _filters.entries.every((filter) => _value(filter.key, voice) == filter.value);
   }
 
-  void _choose(String? id) {
+  /// Null is "Default".
+  void _choose(Voice? voice) {
     final setup = ref.read(setupProvider.notifier);
-    widget.direction == Direction.out ? setup.setOutVoice(id) : setup.setInVoice(id);
+    widget.direction == Direction.out
+        ? setup.setOutVoice(voice?.id, name: voice?.name)
+        : setup.setInVoice(voice?.id, name: voice?.name);
     Navigator.of(context).pop();
   }
 
@@ -207,7 +210,7 @@ class _VoicePickerState extends ConsumerState<_VoicePicker> {
             key: ValueKey('voice-row-${voice.id}'),
             title: voice.name,
             current: voice.id == current,
-            onTap: () => _choose(voice.id),
+            onTap: () => _choose(voice),
             leading: IconButton(
               key: Key('voice-play-${voice.id}'),
               tooltip: sample == null ? l.voiceNoSample : (playing ? l.voiceStopSample : l.voicePlaySample),
