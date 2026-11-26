@@ -1,7 +1,10 @@
 # Accounts, paid service, onboarding and voice choice — design
 
-Status: **approved by the owner on 2026-11-26**. Nothing in here is built yet; each step gets its own plan under
-`docs/plans/`.
+Status: **approved by the owner on 2026-11-26**. Each step gets its own plan. Step 1 (voices) shipped in 1.1.0.
+
+Amended 2026-11-26 while planning step 2, after reading the site's code: web sign-in is Google's redirect flow, not
+its script; customers are their own account records, not the site's staff `User`; app tokens are opaque, not JWT;
+the trial is granted when an account first connects the app. The reasons are in the approaches table.
 
 This design spans two repositories: this one (desktop app, gateway, protocol) and the owner's site (a Django project,
 `jaysonkhan.com`), which gains accounts, a balance and payments.
@@ -65,7 +68,9 @@ two synthesized voices sound.
 | Where the balance lives | **A ledger on the site** | Polar's own meters and credits: they do not block usage when the balance runs out, and the gateway needs an answer within seconds. |
 | What a balance counts | **Real usage (seconds heard, characters spoken)** | Wall-clock minutes: a captions-only hour would cost the same as a fully voiced one. |
 | Which voices are offered | **The voices of the ElevenLabs account in effect** | The shared library: thousands of voices, some unusable on some plans, and adding one to an account is rate-limited per month. |
-| Who a customer is on the site | **The existing `User` model plus a Google identity** | A new customer model: a second login system beside JWT. The Telegram record: has no e-mail and no JWT support. |
+| Who a customer is on the site | **A separate account record keyed by the Google identity** (amended) | The site's staff `User` model: its e-mail is unique, so a customer whose Google address matches a staff login could not sign up, and Django's login and logout clear the whole session, including the Telegram visitor key that shares the cookie. The Telegram record: has no e-mail. |
+| Google sign-in on the web | **Google's redirect flow, code exchanged by the server** (amended) | Google's sign-in script: the site's content security policy lives in the web server's configuration and would have to be changed by hand on the server, and it puts third-party script on the page. |
+| App tokens | **Opaque random tokens, stored hashed** (amended) | JWT: a signed token stays valid until it expires, so "Sign out" on the account page would not take effect at once; the gateway asks the site for the balance anyway, so a self-contained token saves nothing. |
 
 The owner chose the first row by its speed; the other rows are the builder's calls and open to correction.
 
@@ -126,10 +131,10 @@ gateway" and never see the onboarding screen.
 
 ### Site
 
-- **Accounts.** A Google sign-in button (Google Identity Services) on a new account page. The site verifies the ID
-  token (audience, issuer, expiry, verified e-mail) and looks the person up by Google's subject id; otherwise it
-  creates a `User`. It never attaches a Google identity to a staff user. The verification code is ported from the
-  owner's other Django project, which already does this.
+- **Accounts.** A "Sign in with Google" button on a new account page sends the person to Google and back; the site
+  exchanges the code itself and verifies the ID token (audience, issuer, expiry, verified e-mail). The account is
+  found by Google's subject id, or created. Accounts are separate from the site's staff logins and from its
+  Telegram visitors. The verification code is ported from the owner's other Django project.
 - **Sign-in from the app** (shaped like the OAuth device grant):
   1. The app asks the site to start: it gets a secret device code, a short user code (`ABCD-1234`), a verification
      address, a poll interval and a 10-minute expiry.
@@ -143,8 +148,8 @@ gateway" and never see the onboarding screen.
 - **Balance.** One wallet per account and an append-only list of entries (trial, purchase, usage, refund, manual
   adjustment), each with the balance after it. Every change goes through one service module inside a locking
   transaction.
-- **Trial.** 5 minutes (30 000 units), granted at first sign-in, once per Google account and once per device (the
-  device id the app sends when it starts sign-in). A site setting caps how many trials are granted per day; past it,
+- **Trial.** 5 minutes (30 000 units), granted when an account first connects the app, once per Google account and
+  once per device (the device id the app sends when it starts sign-in). A site setting caps how many trials are granted per day; past it,
   new accounts are created without a trial and told so. This keeps trial farming from exhausting the provider
   budget.
 - **Packages** (one-time purchases, in US dollars):
@@ -162,9 +167,9 @@ gateway" and never see the onboarding screen.
     granted, in proportion to the refunded amount, but no more than the current balance.
 - **Account page.** E-mail, balance, the three packages, history, connected devices with "Sign out", a way to ask
   for account deletion.
-- **For the app** (JWT): who am I and my balance, packages, start a checkout, sign out.
-- **For the gateway** (not routed from the internet, signed with a shared secret): authorize an access token, report
-  usage.
+- **For the app** (bearer tokens): who am I and my balance, packages, start a checkout, sign out.
+- **For the gateway** (reached through the server's local socket — a request that came through the public web
+  server is refused — and signed with a shared secret): authorize an access token, report usage.
 - **Legal pages** for the service: terms, privacy, refunds. Drafted by the builder, approved by the owner.
 - **Admin.** Accounts, wallets (adjust with a reason), entries read-only, packages.
 - The anonymous statistics collector stays as it is and is not linked to accounts.
@@ -252,7 +257,7 @@ until the owner has run the Windows app on a real PC (it has only been compiled 
   step 1 need it) and, ideally, read the account (to see the plan's limits).
 - Say which ElevenLabs plan the service runs on: it sets the session cap. If the plan allows fewer than about five
   sessions at once, step 3 starts with a decision on upgrading it.
-- A Google OAuth web client id for the site's address.
+- A Google OAuth web client (id and secret) whose redirect address is the site's Google callback.
 - A Polar organisation that has passed review, the three products, an access token and a webhook secret, placed in
   the server's environment.
 - Check the ElevenLabs plan (simultaneous sessions) and set a spending cap.
