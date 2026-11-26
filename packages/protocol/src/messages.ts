@@ -108,7 +108,11 @@ export type ErrorCode =
   | "translation_rejected"
   | "tts_failed"
   | "voice_not_found"
-  | "provider_unavailable";
+  | "provider_unavailable"
+  | "balance_exhausted"
+  | "billing_unavailable"
+  | "idle_timeout"
+  | "session_replaced";
 
 /**
  * Why a committed turn was neither translated nor spoken.
@@ -202,6 +206,12 @@ export type ServerMessage =
       /** fatal = the gateway closes the socket after this message. */
       fatal: boolean;
     }
+  | {
+      /** Account mode only: right after the first `session.ready` and after every successful usage report. */
+      v: 1;
+      type: "account.balance";
+      balance_units: number;
+    }
   | { v: 1; type: "pong"; t: number };
 
 export function parseClientMessage(
@@ -226,5 +236,42 @@ export function parseClientMessage(
       if (err) return { error: err };
     }
   }
+  return parsed.data;
+}
+
+/** Shape of a provider API key in the session request: printable ASCII, no whitespace. */
+const API_KEY_PATTERN = /^[\x21-\x7e]{16,256}$/;
+const apiKey = z.string().regex(API_KEY_PATTERN);
+
+/** Body of `POST /v1/sessions`. No body at all means `{ mode: "token" }`. */
+export const sessionRequest = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("token") }),
+  z.object({ mode: z.literal("account") }),
+  z.object({
+    mode: z.literal("keys"),
+    elevenlabs_api_key: apiKey,
+    gemini_api_key: apiKey,
+  }),
+]);
+export type SessionRequest = z.infer<typeof sessionRequest>;
+
+/** Errors name the offending field only, never its value: keys are secrets. */
+export function parseSessionRequest(
+  body: string,
+): SessionRequest | { error: string } {
+  if (body === "") return { mode: "token" };
+  let json: unknown;
+  try {
+    json = JSON.parse(body);
+  } catch {
+    return { error: "not JSON" };
+  }
+  const parsed = sessionRequest.safeParse(json);
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join("; "),
+    };
   return parsed.data;
 }

@@ -10,6 +10,7 @@ import {
   LANGUAGES,
   MAX_PAYLOAD_BYTES,
   parseClientMessage,
+  parseSessionRequest,
 } from "../src/index.ts";
 
 const fixtures = JSON.parse(
@@ -158,4 +159,40 @@ test("malformed control messages are rejected, not thrown", () => {
     type: "ping",
     t: 5,
   });
+});
+
+test("session request: no body is the static-token mode, the others carry a mode", () => {
+  const el = "e".repeat(32);
+  const gem = "g".repeat(39);
+  assert.deepEqual(parseSessionRequest(""), { mode: "token" });
+  assert.deepEqual(parseSessionRequest('{"mode":"token"}'), { mode: "token" });
+  assert.deepEqual(parseSessionRequest('{"mode":"account"}'), { mode: "account" });
+  assert.deepEqual(
+    parseSessionRequest(
+      JSON.stringify({ mode: "keys", elevenlabs_api_key: el, gemini_api_key: gem }),
+    ),
+    { mode: "keys", elevenlabs_api_key: el, gemini_api_key: gem },
+  );
+});
+
+test("session request: malformed bodies and keys are errors that never echo a key", () => {
+  const good = "k".repeat(32);
+  const secret = "sekret-with space-0123456789";
+  const keys = (extra: object) => JSON.stringify({ mode: "keys", ...extra });
+  for (const raw of [
+    "not json",
+    " ",
+    "{}",
+    '{"mode":"admin"}',
+    keys({ elevenlabs_api_key: good }),
+    keys({ gemini_api_key: good }),
+    keys({ elevenlabs_api_key: good, gemini_api_key: secret }),
+    keys({ elevenlabs_api_key: good, gemini_api_key: "k".repeat(257) }),
+    keys({ elevenlabs_api_key: good, gemini_api_key: "k".repeat(15) }),
+    keys({ elevenlabs_api_key: 12, gemini_api_key: good }),
+  ]) {
+    const r = parseSessionRequest(raw);
+    assert.ok("error" in r, raw);
+    assert.ok(!r.error.includes(secret) && !r.error.includes(good), raw);
+  }
 });
