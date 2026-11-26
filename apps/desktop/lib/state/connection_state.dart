@@ -192,10 +192,11 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     _now = ref.watch(clockProvider);
     _delay = ref.watch(delayProvider);
     _keeper = _newKeeper(null);
-    final sub = _bridge.events.listen(_onEvent);
+    // Listening builds the session first, so it hears each bridge event (a fatal error ends it) before this does.
     ref.listen(sessionProvider.select((s) => s.running), (_, running) {
       if (!running) _refreshRun++;
     });
+    final sub = _bridge.events.listen(_onEvent);
     ref.onDispose(() {
       sub.cancel();
       _signInRun++;
@@ -395,16 +396,19 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     state = state.copyWith(mode: ConnectionMode.gateway, signIn: const SignInIdle(), notice: null);
   }
 
-  /// Back to onboarding; the saved keys, token and refresh token are kept. Throws the bridge's error when the choice
-  /// could not be saved.
+  /// Back to onboarding, after stopping a running session; the saved keys, token and refresh token are kept. Throws the
+  /// bridge's error when the choice could not be saved.
   Future<void> changeConnection() async {
+    await _stopRunningSession();
     await _bridge.savePreferences({'connectionMode': 'none'});
     _signInRun++;
     state = state.copyWith(mode: null, signIn: const SignInIdle(), notice: null);
   }
 
-  /// Signs this computer out on the site (best effort), deletes the refresh token and goes back to onboarding.
+  /// Stops a running session, signs this computer out on the site (best effort), deletes the refresh token and goes back
+  /// to onboarding.
   Future<void> signOut() async {
+    await _stopRunningSession();
     String? token;
     try {
       // Also waits for a refresh, and the save of its refresh token, that may be running.
@@ -422,14 +426,15 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     await _forget();
   }
 
-  /// Forgets the account. No refresh can start after the keeper is cleared and a refresh token save that is still
-  /// running finishes first, so the delete is the last write.
+  /// Forgets the account and stops a running session. No refresh can start after the keeper is cleared and a refresh
+  /// token save that is still running finishes first, so the delete is the last write.
   Future<void> _forget({String? notice}) async {
     _accountRun++;
     _refreshRun++;
     _accountStart = null;
     _sessionToken = null;
     _keeper.clear();
+    await _stopRunningSession();
     final saving = _pendingSave;
     if (saving != null) {
       try {
@@ -445,6 +450,11 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     }
     if (!ref.mounted) return;
     state = state.copyWith(mode: null, account: null, signIn: const SignInIdle(), notice: notice);
+  }
+
+  /// Ends a running session before the mode becomes null: onboarding has no Stop, and an account session is billed.
+  Future<void> _stopRunningSession() async {
+    if (ref.mounted && ref.read(sessionProvider).running) await ref.read(sessionProvider.notifier).stop();
   }
 
   /// The site refused the refresh token while [run] was the account: sign out with a notice. A sign-out that already

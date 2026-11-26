@@ -570,6 +570,53 @@ void main() {
     });
   });
 
+  group('leaving a mode stops a running session first', () {
+    /// Notes in the bridge's call log the moment the mode becomes null, to order it against `stop`.
+    void markModeNull(ProviderContainer c) => c.listen(connectionProvider.select((s) => s.mode), (_, mode) {
+      if (mode == null) bridge.calls.add('mode:null');
+    });
+
+    void expectStoppedFirst() {
+      expect(bridge.calls, contains('stop'));
+      expect(bridge.calls.indexOf('stop'), lessThan(bridge.calls.indexOf('mode:null')));
+    }
+
+    test('signOut', () async {
+      final c = await load(accountSettings);
+      await notifier(c).start(base);
+      markModeNull(c);
+      await notifier(c).signOut();
+      expectStoppedFirst();
+    });
+
+    test('changeConnection', () async {
+      final c = await load({'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'});
+      await notifier(c).start(base);
+      markModeNull(c);
+      await notifier(c).changeConnection();
+      expectStoppedFirst();
+    });
+
+    test('an automatic sign-out (the refresh token refused while the session runs)', () async {
+      final c = await load(accountSettings);
+      await notifier(c).start(base);
+      markModeNull(c);
+      site.refreshError = const AccountSignedOut();
+      var ticks = 0;
+      while (c.read(connectionProvider).mode != null && ticks++ < 60) {
+        await delays.next();
+      }
+      expect(c.read(connectionProvider).notice, 'signed_out');
+      expectStoppedFirst();
+    });
+
+    test('nothing to stop without a session', () async {
+      final c = await load({'connectionMode': 'gateway'});
+      await notifier(c).changeConnection();
+      expect(bridge.calls, isNot(contains('stop')));
+    });
+  });
+
   group('pages', () {
     test('the account page follows the interface language', () async {
       final uz = await load({'uiLanguage': 'uz'});

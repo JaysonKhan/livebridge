@@ -56,8 +56,11 @@ class MethodChannelLiveBridge implements LiveBridge {
   final MethodChannel _control;
   final EventChannel _eventChannel;
 
+  /// One stream for every listener: each `receiveBroadcastStream()` replaces the channel's single platform handler, so
+  /// a second one would take the events from the first, and cancelling either would stop both. This one subscribes on
+  /// its first listener and cancels after its last.
   @override
-  Stream<BridgeEvent> get events => _eventChannel
+  late final Stream<BridgeEvent> events = _eventChannel
       .receiveBroadcastStream()
       .map((raw) => raw is Map ? BridgeEvent.fromMap(raw) : null)
       .where((e) => e != null)
