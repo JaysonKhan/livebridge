@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,11 +7,15 @@ import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/l10n/app_localizations.dart';
 import 'package:livebridge/l10n/labels.dart';
 import 'package:livebridge/state/host_platform.dart';
+import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/setup_state.dart';
+import 'package:livebridge/bridge/account_client.dart';
+import 'package:livebridge/ui/google_button.dart';
 import 'package:livebridge/ui/home_screen.dart';
 import 'package:livebridge/ui/session_panel.dart';
 import 'package:livebridge/ui/setup_panel.dart';
 
+import 'fake_account_client.dart';
 import 'fake_live_bridge.dart';
 import 'fake_voices_client.dart';
 import 'harness.dart';
@@ -174,6 +179,44 @@ void main() {
     expect(tester.takeException(), isNull);
   }
 
+  /// The first-launch screen at the smallest window (980×680) in every state: closed, own keys open, own gateway open
+  /// with fields filled, two failure sentences, and waiting for the browser. Nothing may overflow.
+  Future<void> exerciseOnboarding(WidgetTester tester, HostPlatform platform, String code) async {
+    final site = FakeAccountClient();
+    await pumpApp(
+      tester,
+      onboarding: true,
+      size: const Size(980, 680),
+      forceLocale: Locale(code),
+      platform: platform,
+      site: site,
+      overrides: [delayProvider.overrideWithValue((_) => Completer<void>().future)],
+    );
+    final l = lookupAppLocalizations(Locale(code));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text(l.onboardingOwnKeys));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('elevenlabs-key')), 'sk-${'x' * 60}');
+    await tester.tap(find.text(l.onboardingOwnGateway));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('onboarding-gateway-token')), 'y' * 80);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    for (final failure in [const AccountError('rate_limited'), const AccountError('network')]) {
+      site.start = failure;
+      await tester.tap(find.byType(GoogleButton));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    site.start = FakeAccountClient().start;
+    await tester.tap(find.byType(GoogleButton));
+    await tester.pumpAndSettle();
+    expect(find.text(l.signInWaitingTitle), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }
+
   for (final platform in HostPlatform.values) {
     for (final code in ['uz', 'ru', 'tr', 'en']) {
       testWidgets('${platform.name} / $code: nothing overflows at 1280×720', (tester) async {
@@ -186,6 +229,14 @@ void main() {
           await exercise(tester, platform, code, size);
         });
       }
+    }
+  }
+
+  for (final platform in HostPlatform.values) {
+    for (final code in ['uz', 'ru', 'tr', 'en']) {
+      testWidgets('${platform.name} / $code: the onboarding fits 980×680', (tester) async {
+        await exerciseOnboarding(tester, platform, code);
+      });
     }
   }
 }

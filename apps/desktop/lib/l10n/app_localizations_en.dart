@@ -959,4 +959,64 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errVoiceNotFound => 'The chosen voice is not available. Choose another or go back to Default.';
+
+  @override
+  String get onboardingTitle => 'Real-time interpreter';
+
+  @override
+  String get onboardingSubtitle => 'Sign in and try 5 minutes for free';
+
+  @override
+  String get signInWithGoogle => 'Sign in with Google';
+
+  @override
+  String get onboardingOwnKeys => 'I have my own API keys';
+
+  @override
+  String get onboardingOwnKeysHint => 'Use your own ElevenLabs and Gemini keys. Nothing is billed here.';
+
+  @override
+  String get elevenlabsKey => 'ElevenLabs API key';
+
+  @override
+  String get geminiKey => 'Gemini API key';
+
+  @override
+  String get saveAndContinue => 'Save and continue';
+
+  @override
+  String get showSecret => 'Show';
+
+  @override
+  String get hideSecret => 'Hide';
+
+  @override
+  String get onboardingOwnGateway => 'Own gateway';
+
+  @override
+  String get onboardingSaveFailed => 'Could not save. Try again.';
+
+  @override
+  String get signInWaitingTitle => 'Continue in your browser';
+
+  @override
+  String get signInWaitingHint => 'Check that this code is on the page, then approve it.';
+
+  @override
+  String get signInOpenAgain => 'Open again';
+
+  @override
+  String get signInExpired => 'The code expired. Sign in again.';
+
+  @override
+  String get signInDenied => 'Sign-in was declined in the browser.';
+
+  @override
+  String get signInNetwork => 'Could not reach the sign-in service. Check your internet connection.';
+
+  @override
+  String get signInRateLimited => 'Too many attempts. Wait a minute and try again.';
+
+  @override
+  String get noticeSignedOut => 'You were signed out. Sign in again.';
 }

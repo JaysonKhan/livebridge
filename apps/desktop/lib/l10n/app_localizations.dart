@@ -1797,6 +1797,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The chosen voice is not available. Choose another or go back to Default.'**
   String get errVoiceNotFound;
+
+  /// No description provided for @onboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Real-time interpreter'**
+  String get onboardingTitle;
+
+  /// No description provided for @onboardingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in and try 5 minutes for free'**
+  String get onboardingSubtitle;
+
+  /// No description provided for @signInWithGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Google'**
+  String get signInWithGoogle;
+
+  /// No description provided for @onboardingOwnKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'I have my own API keys'**
+  String get onboardingOwnKeys;
+
+  /// No description provided for @onboardingOwnKeysHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your own ElevenLabs and Gemini keys. Nothing is billed here.'**
+  String get onboardingOwnKeysHint;
+
+  /// No description provided for @elevenlabsKey.
+  ///
+  /// In en, this message translates to:
+  /// **'ElevenLabs API key'**
+  String get elevenlabsKey;
+
+  /// No description provided for @geminiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini API key'**
+  String get geminiKey;
+
+  /// No description provided for @saveAndContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and continue'**
+  String get saveAndContinue;
+
+  /// No description provided for @showSecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get showSecret;
+
+  /// No description provided for @hideSecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get hideSecret;
+
+  /// No description provided for @onboardingOwnGateway.
+  ///
+  /// In en, this message translates to:
+  /// **'Own gateway'**
+  String get onboardingOwnGateway;
+
+  /// No description provided for @onboardingSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save. Try again.'**
+  String get onboardingSaveFailed;
+
+  /// No description provided for @signInWaitingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue in your browser'**
+  String get signInWaitingTitle;
+
+  /// No description provided for @signInWaitingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check that this code is on the page, then approve it.'**
+  String get signInWaitingHint;
+
+  /// No description provided for @signInOpenAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Open again'**
+  String get signInOpenAgain;
+
+  /// No description provided for @signInExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'The code expired. Sign in again.'**
+  String get signInExpired;
+
+  /// No description provided for @signInDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in was declined in the browser.'**
+  String get signInDenied;
+
+  /// No description provided for @signInNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the sign-in service. Check your internet connection.'**
+  String get signInNetwork;
+
+  /// No description provided for @signInRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a minute and try again.'**
+  String get signInRateLimited;
+
+  /// No description provided for @noticeSignedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'You were signed out. Sign in again.'**
+  String get noticeSignedOut;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -962,4 +962,64 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get errVoiceNotFound => 'Выбранный голос недоступен. Выберите другой или вернитесь к голосу по умолчанию.';
+
+  @override
+  String get onboardingTitle => 'Переводчик в реальном времени';
+
+  @override
+  String get onboardingSubtitle => 'Войдите и попробуйте 5 минут бесплатно';
+
+  @override
+  String get signInWithGoogle => 'Войти через Google';
+
+  @override
+  String get onboardingOwnKeys => 'У меня есть свои API-ключи';
+
+  @override
+  String get onboardingOwnKeysHint => 'Используйте свои ключи ElevenLabs и Gemini. Здесь ничего не списывается.';
+
+  @override
+  String get elevenlabsKey => 'API-ключ ElevenLabs';
+
+  @override
+  String get geminiKey => 'API-ключ Gemini';
+
+  @override
+  String get saveAndContinue => 'Сохранить и продолжить';
+
+  @override
+  String get showSecret => 'Показать';
+
+  @override
+  String get hideSecret => 'Скрыть';
+
+  @override
+  String get onboardingOwnGateway => 'Свой шлюз';
+
+  @override
+  String get onboardingSaveFailed => 'Не удалось сохранить. Попробуйте ещё раз.';
+
+  @override
+  String get signInWaitingTitle => 'Продолжите в браузере';
+
+  @override
+  String get signInWaitingHint => 'Убедитесь, что на странице тот же код, и подтвердите вход.';
+
+  @override
+  String get signInOpenAgain => 'Открыть снова';
+
+  @override
+  String get signInExpired => 'Срок действия кода истёк. Войдите снова.';
+
+  @override
+  String get signInDenied => 'Вход отклонён в браузере.';
+
+  @override
+  String get signInNetwork => 'Не удалось связаться со службой входа. Проверьте подключение к интернету.';
+
+  @override
+  String get signInRateLimited => 'Слишком много попыток. Подождите минуту и повторите.';
+
+  @override
+  String get noticeSignedOut => 'Вы вышли из аккаунта. Войдите снова.';
 }

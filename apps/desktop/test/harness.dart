@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/l10n/app_localizations.dart';
@@ -8,7 +9,6 @@ import 'package:livebridge/state/host_platform.dart';
 import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/sample_player.dart';
 import 'package:livebridge/ui/app.dart';
-import 'package:livebridge/ui/home_screen.dart';
 
 import 'fake_account_client.dart';
 import 'fake_live_bridge.dart';
@@ -25,7 +25,9 @@ late WidgetTester tt;
 
 /// [forceLocale] pins the UI language (English by default so the assertions stay readable); pass null to let
 /// the saved setting and the system language decide. [platform] forces the macOS or Windows wording (by default the
-/// provider's own choice, which is macOS under `flutter test`).
+/// provider's own choice, which is macOS under `flutter test`). The app starts in the own-gateway mode, as an install
+/// with a saved connection does; [onboarding] starts it as a first launch instead. [site] and [opener] replace the
+/// fake site and browser; [overrides] adds provider overrides (the waits).
 Future<ProviderContainer> pumpApp(
   WidgetTester tester, {
   FakeLiveBridge? bridge,
@@ -33,9 +35,16 @@ Future<ProviderContainer> pumpApp(
   Size size = const Size(1280, 2400),
   Locale? forceLocale = const Locale('en'),
   HostPlatform? platform,
+  bool onboarding = false,
+  FakeAccountClient? site,
+  Future<bool> Function(Uri)? opener,
+  List<Override> overrides = const [],
 }) async {
   tt = tester;
   fake = bridge ?? FakeLiveBridge();
+  if (!onboarding && !fake.settings.containsKey('connectionMode')) {
+    fake.settings = {...fake.settings, 'connectionMode': 'gateway'};
+  }
   fakeVoices = voices ?? FakeVoicesClient();
   fakeSamples = FakeSamplePlayer();
   // Tall enough that the whole (lazy) setup list is built; the test font is much wider than a real one.
@@ -52,15 +61,16 @@ Future<ProviderContainer> pumpApp(
         voicesClientProvider.overrideWithValue(fakeVoices),
         samplePlayerProvider.overrideWithValue(fakeSamples),
         // Nor the site or a browser.
-        accountClientProvider.overrideWithValue(FakeAccountClient()),
-        urlOpenerProvider.overrideWithValue((url) async => true),
+        accountClientProvider.overrideWithValue(site ?? FakeAccountClient()),
+        urlOpenerProvider.overrideWithValue(opener ?? (url) async => true),
         if (platform != null) hostPlatformProvider.overrideWithValue(platform),
+        ...overrides,
       ],
       child: LiveBridgeApp(forcedLocale: forceLocale),
     ),
   );
   await tester.pumpAndSettle();
-  return ProviderScope.containerOf(tester.element(find.byType(HomeScreen)));
+  return ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
 }
 
 Future<void> push(BridgeEvent e) async {

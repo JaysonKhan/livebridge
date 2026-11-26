@@ -963,4 +963,64 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get errVoiceNotFound => 'Seçilen ses kullanılamıyor. Başka bir ses seçin veya Varsayılan\'a dönün.';
+
+  @override
+  String get onboardingTitle => 'Gerçek zamanlı tercüman';
+
+  @override
+  String get onboardingSubtitle => 'Giriş yapın ve 5 dakikayı ücretsiz deneyin';
+
+  @override
+  String get signInWithGoogle => 'Google ile oturum aç';
+
+  @override
+  String get onboardingOwnKeys => 'Kendi API anahtarlarım var';
+
+  @override
+  String get onboardingOwnKeysHint => 'Kendi ElevenLabs ve Gemini anahtarlarınızı kullanın. Burada ücret alınmaz.';
+
+  @override
+  String get elevenlabsKey => 'ElevenLabs API anahtarı';
+
+  @override
+  String get geminiKey => 'Gemini API anahtarı';
+
+  @override
+  String get saveAndContinue => 'Kaydet ve devam et';
+
+  @override
+  String get showSecret => 'Göster';
+
+  @override
+  String get hideSecret => 'Gizle';
+
+  @override
+  String get onboardingOwnGateway => 'Kendi gateway\'im';
+
+  @override
+  String get onboardingSaveFailed => 'Kaydedilemedi. Tekrar deneyin.';
+
+  @override
+  String get signInWaitingTitle => 'Tarayıcınızda devam edin';
+
+  @override
+  String get signInWaitingHint => 'Sayfadaki kodun bu kod olduğunu doğrulayın ve onaylayın.';
+
+  @override
+  String get signInOpenAgain => 'Yeniden aç';
+
+  @override
+  String get signInExpired => 'Kodun süresi doldu. Yeniden giriş yapın.';
+
+  @override
+  String get signInDenied => 'Giriş tarayıcıda reddedildi.';
+
+  @override
+  String get signInNetwork => 'Giriş hizmetine ulaşılamadı. İnternet bağlantınızı kontrol edin.';
+
+  @override
+  String get signInRateLimited => 'Çok fazla deneme yapıldı. Bir dakika bekleyip tekrar deneyin.';
+
+  @override
+  String get noticeSignedOut => 'Oturumunuz kapandı. Yeniden giriş yapın.';
 }

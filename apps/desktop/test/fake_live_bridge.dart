@@ -52,6 +52,9 @@ class FakeLiveBridge implements LiveBridge {
   /// Every `savePreferences` call, in order; they are also merged into [settings] like the real store does.
   final List<Map<String, Object?>> savedPrefs = [];
 
+  /// An error every `savePreferences` call throws (nothing is stored), e.g. a failed Keychain write.
+  Exception? savePreferencesError;
+
   /// While set and not completed, `savePreferences` calls are recorded but do not finish.
   Completer<void>? savePrefsGate;
 
@@ -115,6 +118,8 @@ class FakeLiveBridge implements LiveBridge {
   @override
   Future<void> savePreferences(Map<String, Object?> preferences) async {
     calls.add('savePreferences');
+    final error = savePreferencesError;
+    if (error != null) throw error;
     savedPrefs.add(Map.of(preferences));
     final gate = savePrefsGate;
     if (gate != null) await gate.future;

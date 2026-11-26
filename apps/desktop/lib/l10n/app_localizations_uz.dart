@@ -963,4 +963,65 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get errVoiceNotFound => 'Tanlangan ovoz mavjud emas. Boshqasini tanlang yoki Standart ovozga qayting.';
+
+  @override
+  String get onboardingTitle => 'Real vaqtdagi tarjimon';
+
+  @override
+  String get onboardingSubtitle => 'Kiring va 5 daqiqani bepul sinab ko\'ring';
+
+  @override
+  String get signInWithGoogle => 'Google bilan kirish';
+
+  @override
+  String get onboardingOwnKeys => 'Menda o\'z API kalitlarim bor';
+
+  @override
+  String get onboardingOwnKeysHint =>
+      'O\'zingizning ElevenLabs va Gemini kalitlaringizdan foydalaning. Bu yerda hech narsa hisoblanmaydi.';
+
+  @override
+  String get elevenlabsKey => 'ElevenLabs API kaliti';
+
+  @override
+  String get geminiKey => 'Gemini API kaliti';
+
+  @override
+  String get saveAndContinue => 'Saqlash va davom etish';
+
+  @override
+  String get showSecret => 'Ko\'rsatish';
+
+  @override
+  String get hideSecret => 'Yashirish';
+
+  @override
+  String get onboardingOwnGateway => 'O\'z gateway\'im';
+
+  @override
+  String get onboardingSaveFailed => 'Saqlab bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get signInWaitingTitle => 'Brauzerda davom eting';
+
+  @override
+  String get signInWaitingHint => 'Sahifadagi kod shu kod ekanini tekshiring va tasdiqlang.';
+
+  @override
+  String get signInOpenAgain => 'Qayta ochish';
+
+  @override
+  String get signInExpired => 'Kod muddati tugadi. Qaytadan kiring.';
+
+  @override
+  String get signInDenied => 'Brauzerda kirish rad etildi.';
+
+  @override
+  String get signInNetwork => 'Kirish xizmatiga ulanib bo\'lmadi. Internet aloqasini tekshiring.';
+
+  @override
+  String get signInRateLimited => 'Urinishlar juda ko\'p. Bir daqiqa kutib, qayta urinib ko\'ring.';
+
+  @override
+  String get noticeSignedOut => 'Hisobingizdan chiqarildingiz. Qaytadan kiring.';
 }
