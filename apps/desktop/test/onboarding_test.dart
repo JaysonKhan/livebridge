@@ -184,6 +184,54 @@ void main() {
     expect(find.text(en.noticeSignedOut), findsNothing);
   });
 
+  group('Back after Change', () {
+    Finder back() => find.byKey(const Key('onboarding-back'));
+
+    testWidgets('a first launch has no Back', (tester) async {
+      await pumpOnboarding(tester);
+      expect(back(), findsNothing);
+    });
+
+    for (final (mode, settings) in [
+      ('gateway', {'connectionMode': 'gateway', 'accessToken': 'static-token', 'gatewayUrl': 'https://gw.example'}),
+      ('keys', {'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'}),
+      ('account', {'connectionMode': 'account', 'accountRefreshToken': 'refresh-0'}),
+    ]) {
+      testWidgets('$mode: Back returns to the main screen in the same mode, nothing typed again', (tester) async {
+        final bridge = FakeLiveBridge()..settings = {...settings};
+        final c = await pumpOnboarding(tester, bridge: bridge);
+        final before = c.read(connectionProvider).mode;
+        expect(before?.name, mode);
+        await tester.tap(find.byKey(const Key('connection-change')));
+        await tester.pumpAndSettle();
+        expect(find.byType(OnboardingScreen), findsOneWidget);
+        expect(find.text(en.onboardingBack), findsOneWidget);
+        await tester.tap(back());
+        await tester.pumpAndSettle();
+        expect(find.byType(HomeScreen), findsOneWidget);
+        expect(c.read(connectionProvider).mode, before);
+        expect(bridge.settings['connectionMode'], mode);
+      });
+    }
+
+    testWidgets('saved keys are filled in, hidden, after Change', (tester) async {
+      final bridge = FakeLiveBridge()
+        ..settings = {'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'};
+      await pumpOnboarding(tester, bridge: bridge);
+      await tester.tap(find.byKey(const Key('connection-change')));
+      await tester.pumpAndSettle();
+      await openKeys();
+      for (final (key, value) in [('elevenlabs-key', 'el-key'), ('gemini-key', 'gm-key')]) {
+        final field = tester.widget<TextField>(
+          find.descendant(of: find.byKey(Key(key)), matching: find.byType(TextField)),
+        );
+        expect(field.controller!.text, value);
+        expect(field.obscureText, isTrue);
+      }
+      expect(enabled(saveKeysButton), isTrue);
+    });
+  });
+
   group('own keys', () {
     testWidgets('open on request; Save and continue needs both keys', (tester) async {
       await pumpOnboarding(tester);

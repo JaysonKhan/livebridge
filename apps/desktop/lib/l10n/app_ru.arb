@@ -304,6 +304,7 @@
   "hideSecret": "Скрыть",
   "onboardingOwnGateway": "Свой шлюз",
   "onboardingSaveFailed": "Не удалось сохранить. Попробуйте ещё раз.",
+  "onboardingBack": "Назад",
   "signInWaitingTitle": "Продолжите в браузере",
   "signInWaitingHint": "Убедитесь, что на странице тот же код, и подтвердите вход.",
   "signInOpenAgain": "Открыть снова",

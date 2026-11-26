@@ -1022,6 +1022,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingSaveFailed => 'Could not save. Try again.';
 
   @override
+  String get onboardingBack => 'Back';
+
+  @override
   String get signInWaitingTitle => 'Continue in your browser';
 
   @override

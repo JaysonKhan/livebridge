@@ -1028,6 +1028,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get onboardingSaveFailed => 'Kaydedilemedi. Tekrar deneyin.';
 
   @override
+  String get onboardingBack => 'Geri';
+
+  @override
   String get signInWaitingTitle => 'Tarayıcınızda devam edin';
 
   @override

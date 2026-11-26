@@ -1918,6 +1918,12 @@ abstract class AppLocalizations {
   /// **'Could not save. Try again.'**
   String get onboardingSaveFailed;
 
+  /// No description provided for @onboardingBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get onboardingBack;
+
   /// No description provided for @signInWaitingTitle.
   ///
   /// In en, this message translates to:

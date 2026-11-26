@@ -1025,6 +1025,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get onboardingSaveFailed => 'Не удалось сохранить. Попробуйте ещё раз.';
 
   @override
+  String get onboardingBack => 'Назад';
+
+  @override
   String get signInWaitingTitle => 'Продолжите в браузере';
 
   @override

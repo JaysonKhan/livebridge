@@ -1028,6 +1028,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get onboardingSaveFailed => 'Saqlab bo\'lmadi. Qayta urinib ko\'ring.';
 
   @override
+  String get onboardingBack => 'Orqaga';
+
+  @override
   String get signInWaitingTitle => 'Brauzerda davom eting';
 
   @override

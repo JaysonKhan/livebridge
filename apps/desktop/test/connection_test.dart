@@ -569,6 +569,84 @@ void main() {
       expect(c.read(connectionProvider).mode, isNull);
     });
 
+    group('Change, then Back, returns to the mode left without asking for its secrets again', () {
+      test('own gateway', () async {
+        final c = await load({
+          'connectionMode': 'gateway',
+          'accessToken': 'static-token',
+          'gatewayUrl': 'https://own.example',
+        });
+        await notifier(c).changeConnection();
+        expect(c.read(connectionProvider).mode, isNull);
+        expect(c.read(connectionProvider).previous, ConnectionMode.gateway);
+        await notifier(c).restorePrevious();
+        expect(c.read(connectionProvider).mode, ConnectionMode.gateway);
+        expect(c.read(connectionProvider).previous, isNull);
+        expect(bridge.savedPrefs.last, {'connectionMode': 'gateway'});
+        await notifier(c).start(base);
+        expect(bridge.startedWith!.gatewayUrl, 'https://own.example');
+        expect(bridge.startedWith!.accessToken, 'static-token');
+      });
+
+      test('own keys', () async {
+        final c = await load({'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'});
+        await notifier(c).changeConnection();
+        expect(c.read(connectionProvider).previous, ConnectionMode.keys);
+        await notifier(c).restorePrevious();
+        expect(c.read(connectionProvider).mode, ConnectionMode.keys);
+        expect(c.read(connectionProvider).hasKeys, isTrue);
+        expect(bridge.savedPrefs.last, {'connectionMode': 'keys'});
+        await notifier(c).start(base);
+        expect(bridge.startedWith!.elevenlabsApiKey, 'el-key');
+        expect(bridge.startedWith!.geminiApiKey, 'gm-key');
+      });
+
+      test('account: the saved refresh token is still there and still used', () async {
+        final c = await load(accountSettings);
+        await notifier(c).changeConnection();
+        expect(c.read(connectionProvider).previous, ConnectionMode.account);
+        expect(bridge.savedPrefs.where(deletesRefreshToken), isEmpty);
+        await notifier(c).restorePrevious();
+        expect(c.read(connectionProvider).mode, ConnectionMode.account);
+        expect(c.read(connectionProvider).account?.email, 'person@example.com');
+        expect(bridge.savedPrefs.last, {'connectionMode': 'account'});
+        await notifier(c).start(base);
+        expect(bridge.startedWith!.accessToken, 'access-1');
+        expect(site.refreshedWith, ['refresh-0'], reason: 'no sign-in and no extra refresh');
+        // Expired meanwhile: the saved refresh token refreshes it as usual.
+        now = now.add(const Duration(minutes: 16));
+        await notifier(c).start(base);
+        expect(bridge.startedWith!.accessToken, 'access-2');
+      });
+
+      test('signing in or saving another mode forgets the mode left', () async {
+        final c = await load({'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'});
+        await notifier(c).changeConnection();
+        await notifier(c).saveGateway('https://own.example', 'static-token');
+        expect(c.read(connectionProvider).previous, isNull);
+        await notifier(c).changeConnection();
+        expect(c.read(connectionProvider).previous, ConnectionMode.gateway);
+        await notifier(c).saveKeys('el-key', 'gm-key');
+        expect(c.read(connectionProvider).previous, isNull);
+        await notifier(c).changeConnection();
+        site.polls.add(
+          DeviceGranted(
+            TokenPair(
+              accessToken: 'access-g',
+              refreshToken: 'refresh-g',
+              expiresAt: now.add(const Duration(minutes: 15)),
+            ),
+          ),
+        );
+        final done = notifier(c).beginSignIn();
+        await flush();
+        await delays.next();
+        await done;
+        expect(c.read(connectionProvider).mode, ConnectionMode.account);
+        expect(c.read(connectionProvider).previous, isNull);
+      });
+    });
+
     test('signOut logs out, deletes the refresh token and saves "none"', () async {
       final c = await load(accountSettings);
       await notifier(c).signOut();

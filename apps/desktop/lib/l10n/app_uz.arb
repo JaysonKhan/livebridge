@@ -304,6 +304,7 @@
   "hideSecret": "Yashirish",
   "onboardingOwnGateway": "O'z gateway'im",
   "onboardingSaveFailed": "Saqlab bo'lmadi. Qayta urinib ko'ring.",
+  "onboardingBack": "Orqaga",
   "signInWaitingTitle": "Brauzerda davom eting",
   "signInWaitingHint": "Sahifadagi kod shu kod ekanini tekshiring va tasdiqlang.",
   "signInOpenAgain": "Qayta ochish",

@@ -304,6 +304,7 @@
   "hideSecret": "Gizle",
   "onboardingOwnGateway": "Kendi gateway'im",
   "onboardingSaveFailed": "Kaydedilemedi. Tekrar deneyin.",
+  "onboardingBack": "Geri",
   "signInWaitingTitle": "Tarayıcınızda devam edin",
   "signInWaitingHint": "Sayfadaki kodun bu kod olduğunu doğrulayın ve onaylayın.",
   "signInOpenAgain": "Yeniden aç",

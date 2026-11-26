@@ -605,6 +605,7 @@
   "hideSecret": "Hide",
   "onboardingOwnGateway": "Own gateway",
   "onboardingSaveFailed": "Could not save. Try again.",
+  "onboardingBack": "Back",
   "signInWaitingTitle": "Continue in your browser",
   "signInWaitingHint": "Check that this code is on the page, then approve it.",
   "signInOpenAgain": "Open again",

@@ -22,13 +22,14 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-enum _Group { keys, gateway }
+enum _Group { keys, gateway, back }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const _contentWidth = 440.0;
 
-  final _elevenlabs = TextEditingController();
-  final _gemini = TextEditingController();
+  // After "Change", the saved keys and token are filled in (hidden), so going on with them needs no typing.
+  late final _elevenlabs = TextEditingController(text: ref.read(connectionProvider.notifier).savedKeys.elevenlabs);
+  late final _gemini = TextEditingController(text: ref.read(connectionProvider.notifier).savedKeys.gemini);
   late final _gatewayUrl = TextEditingController(text: ref.read(setupProvider).gatewayUrl);
   late final _gatewayToken = TextEditingController(text: ref.read(setupProvider).accessToken);
 
@@ -74,6 +75,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     () => ref.read(connectionProvider.notifier).saveGateway(_gatewayUrl.text.trim(), _gatewayToken.text.trim()),
   );
 
+  void _back() => _save(_Group.back, ref.read(connectionProvider.notifier).restorePrevious);
+
   void _gatewayOpened(bool open) {
     if (!open) return;
     final saved = ref.read(setupProvider);
@@ -85,6 +88,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final signIn = ref.watch(connectionProvider.select((s) => s.signIn));
     final notice = ref.watch(connectionProvider.select((s) => s.notice));
+    final canGoBack = ref.watch(connectionProvider.select((s) => s.previous)) != null;
     final l = context.l10n;
     final notifier = ref.read(connectionProvider.notifier);
     final text = Theme.of(context).textTheme;
@@ -146,6 +150,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (canGoBack) ...[
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                key: const Key('onboarding-back'),
+                onPressed: _saving ? null : _back,
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: Text(l.onboardingBack),
+              ),
+            ),
+            if (_failed == _Group.back)
+              Text(l.onboardingSaveFailed, style: text.bodySmall!.copyWith(color: t.critical.foreground)),
+            const SizedBox(height: 8),
+          ],
           Text(
             l.onboardingTitle,
             textAlign: TextAlign.center,

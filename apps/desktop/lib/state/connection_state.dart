@@ -102,6 +102,7 @@ class ConnectionState {
     this.packages = const [],
     this.notice,
     this.hasKeys = false,
+    this.previous,
   });
 
   /// How sessions are paid for; null = not chosen yet (onboarding).
@@ -122,6 +123,9 @@ class ConnectionState {
 
   /// Both own provider keys are saved.
   final bool hasKeys;
+
+  /// The mode left with "Change", which the onboarding can go back to; null when there is none (in memory only).
+  final ConnectionMode? previous;
 
   /// About how many minutes the balance lasts in [mode]; null when the balance or the rates are unknown.
   int? minutesLeft(SessionMode mode) {
@@ -145,6 +149,7 @@ class ConnectionState {
     List<Package>? packages,
     Object? notice = _keep,
     bool? hasKeys,
+    Object? previous = _keep,
   }) => ConnectionState(
     mode: identical(mode, _keep) ? this.mode : mode as ConnectionMode?,
     loaded: loaded ?? this.loaded,
@@ -153,6 +158,7 @@ class ConnectionState {
     packages: packages ?? this.packages,
     notice: identical(notice, _keep) ? this.notice : notice as String?,
     hasKeys: hasKeys ?? this.hasKeys,
+    previous: identical(previous, _keep) ? this.previous : previous as ConnectionMode?,
   );
 }
 
@@ -336,7 +342,13 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
       if (ref.mounted) ref.read(sessionProvider.notifier).reportException(e, 'saveSettings');
     }
     if (!ref.mounted) return;
-    state = state.copyWith(mode: ConnectionMode.account, signIn: const SignInIdle(), account: null, notice: null);
+    state = state.copyWith(
+      mode: ConnectionMode.account,
+      signIn: const SignInIdle(),
+      account: null,
+      notice: null,
+      previous: null,
+    );
     await refreshAccount();
   }
 
@@ -381,8 +393,17 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     _signInRun++;
     _elevenlabsKey = _text(el);
     _geminiKey = _text(gm);
-    state = state.copyWith(mode: ConnectionMode.keys, hasKeys: _hasKeys, signIn: const SignInIdle(), notice: null);
+    state = state.copyWith(
+      mode: ConnectionMode.keys,
+      hasKeys: _hasKeys,
+      signIn: const SignInIdle(),
+      notice: null,
+      previous: null,
+    );
   }
+
+  /// The saved own keys, to fill in the onboarding's fields after "Change"; empty when none are saved.
+  ({String elevenlabs, String gemini}) get savedKeys => (elevenlabs: _elevenlabsKey ?? '', gemini: _geminiKey ?? '');
 
   /// Chooses the user's own gateway; the address and token also fill the setup fields. Throws the bridge's error when
   /// they could not be saved; nothing changes then.
@@ -394,16 +415,28 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     ref.read(setupProvider.notifier)
       ..setGatewayUrl(u)
       ..setAccessToken(t);
-    state = state.copyWith(mode: ConnectionMode.gateway, signIn: const SignInIdle(), notice: null);
+    state = state.copyWith(mode: ConnectionMode.gateway, signIn: const SignInIdle(), notice: null, previous: null);
   }
 
-  /// Back to onboarding, after stopping a running session; the saved keys, token and refresh token are kept. Throws the
-  /// bridge's error when the choice could not be saved.
+  /// Back to onboarding, after stopping a running session; the saved keys, token and refresh token are kept, and the
+  /// mode left is remembered for [restorePrevious]. Throws the bridge's error when the choice could not be saved.
   Future<void> changeConnection() async {
+    final left = state.mode;
     await _stopRunningSession();
     await _bridge.savePreferences({'connectionMode': 'none'});
     _signInRun++;
-    state = state.copyWith(mode: null, signIn: const SignInIdle(), notice: null);
+    state = state.copyWith(mode: null, signIn: const SignInIdle(), notice: null, previous: left);
+  }
+
+  /// Undoes "Change": back to the mode left, with its saved secrets (an account resumes with its refresh token, which
+  /// "Change" kept). Throws the bridge's error when the choice could not be saved; nothing changes then.
+  Future<void> restorePrevious() async {
+    final previous = state.previous;
+    if (previous == null) return;
+    await _bridge.savePreferences({'connectionMode': previous.name});
+    _signInRun++;
+    state = state.copyWith(mode: previous, signIn: const SignInIdle(), notice: null, previous: null);
+    if (previous == ConnectionMode.account) await refreshAccount();
   }
 
   /// Stops a running session, signs this computer out on the site (best effort), deletes the refresh token and goes back
@@ -450,7 +483,7 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
       if (ref.mounted) ref.read(sessionProvider.notifier).reportException(e, 'saveSettings');
     }
     if (!ref.mounted) return;
-    state = state.copyWith(mode: null, account: null, signIn: const SignInIdle(), notice: notice);
+    state = state.copyWith(mode: null, account: null, signIn: const SignInIdle(), notice: notice, previous: null);
   }
 
   /// Ends a running session before the mode becomes null: onboarding has no Stop, and an account session is billed.
