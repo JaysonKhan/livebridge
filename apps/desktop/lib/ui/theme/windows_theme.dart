@@ -39,6 +39,11 @@ LiveBridgeTokens windowsTokens(Brightness brightness) {
     cardStroke: pick(0x0F000000, 0x19000000),
     // AcrylicBackgroundFillColorDefault fallback.
     flyout: pick(0xFFF9F9F9, 0xFF2C2C2C),
+    // SurfaceStrokeColorFlyout; MenuFlyout / ComboBox list geometry.
+    flyoutStroke: pick(0x0F000000, 0x33000000),
+    menuRadius: 8,
+    menuInset: 4,
+    menuItemHeight: 32,
     dialog: card,
     controlFill: pick(0xB3FFFFFF, 0x0FFFFFFF),
     controlFillHover: pick(0x80F9F9F9, 0x15FFFFFF),

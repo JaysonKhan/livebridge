@@ -16,8 +16,27 @@ import 'theme/tokens.dart';
 class SessionPanel extends ConsumerWidget {
   const SessionPanel({super.key});
 
+  /// On large screens the session content stops at this width and stays centred, so the controls, the push-to-talk
+  /// bar and the caption lines do not stretch across the whole display.
+  static const maxContentWidth = 1600.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: maxContentWidth),
+        child: const _SessionContent(),
+      ),
+    );
+  }
+}
+
+class _SessionContent extends StatelessWidget {
+  const _SessionContent();
+
+  @override
+  Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.all(12),
       child: Column(

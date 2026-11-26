@@ -11,12 +11,12 @@ import '../state/session_state.dart';
 import '../state/setup_state.dart';
 import 'adaptive/control_border.dart';
 import 'adaptive/labeled_field.dart';
+import 'adaptive/platform_dropdown.dart';
 import 'adaptive/platform_radio.dart';
 import 'adaptive/pressable.dart';
 import 'analytics_section.dart';
 import 'device_test.dart';
 import 'routing_help.dart';
-import 'theme/app_theme.dart';
 import 'theme/tokens.dart';
 
 class SetupPanel extends ConsumerWidget {
@@ -255,44 +255,13 @@ class _LanguageDropdown extends StatelessWidget {
     const first = ['uz', 'en', 'ru', 'tr'];
     final rest = [
       for (final code in kLanguages.keys)
-        if (!first.contains(code)) (code: code, name: l.languageName(code, systemNames)),
-    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    final entries = [for (final code in first) (code: code, name: l.languageName(code)), ...rest];
-    final t = context.tokens;
+        if (!first.contains(code)) (value: code, label: l.languageName(code, systemNames)),
+    ]..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    final entries = [for (final code in first) (value: code, label: l.languageName(code)), ...rest];
     return LabeledField(
       label: label,
       mergeSemantics: false,
-      // The menu button inside the field: small enough that the field keeps the control height.
-      child: IconButtonTheme(
-        data: IconButtonThemeData(
-          style: IconButtonTheme.of(context).style!.copyWith(
-            minimumSize: WidgetStatePropertyAll(Size.square(t.controlHeight - 8)),
-            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          ),
-        ),
-        child: DropdownMenu<String>(
-          // Rebuilt when the interface language or the names change, so the field shows the current name.
-          key: ValueKey('$value-${l.localeName}-${systemNames.length}'),
-          initialSelection: value,
-          expandedInsets: EdgeInsets.zero,
-          menuHeight: 320,
-          enableFilter: true,
-          requestFocusOnTap: true,
-          trailingIcon: Icon(t.isWindows ? Icons.keyboard_arrow_down : Icons.unfold_more, size: 16),
-          selectedTrailingIcon: Icon(t.isWindows ? Icons.keyboard_arrow_up : Icons.unfold_more, size: 16),
-          onSelected: (code) {
-            if (code != null) onChanged(code);
-          },
-          dropdownMenuEntries: [
-            for (final e in entries)
-              DropdownMenuEntry(
-                value: e.code,
-                label: e.name,
-                labelWidget: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-          ],
-        ),
-      ),
+      child: PlatformDropdown<String>(entries: entries, value: value, filter: true, onChanged: onChanged),
     );
   }
 }
@@ -313,39 +282,14 @@ class _DeviceDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = devices.any((d) => d.uid == selectedUid) ? selectedUid : null;
-    final t = context.tokens;
-    final text = Theme.of(context).textTheme;
     return LabeledField(
       label: label,
-      child: InputDecorator(
-        // A dense DropdownButton is 24 px tall.
-        decoration: InputDecoration(border: comboBoxBorder(t), contentPadding: fieldContentPadding(t, 24)),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            isDense: true,
-            value: value,
-            style: text.bodyMedium!.copyWith(color: t.textPrimary),
-            dropdownColor: t.flyout,
-            borderRadius: BorderRadius.circular(8),
-            iconSize: 16,
-            icon: Icon(t.isWindows ? Icons.keyboard_arrow_down : Icons.unfold_more, color: t.textSecondary),
-            hint: Text(
-              context.l10n.notSelected,
-              style: text.bodyMedium!.copyWith(color: t.textSecondary),
-              overflow: TextOverflow.ellipsis,
-            ),
-            items: [
-              for (final d in devices)
-                DropdownMenuItem(
-                  value: d.uid,
-                  child: Text(d.name, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: onChanged,
-          ),
-        ),
+      mergeSemantics: false,
+      child: PlatformDropdown<String>(
+        entries: [for (final d in devices) (value: d.uid, label: d.name)],
+        value: devices.any((d) => d.uid == selectedUid) ? selectedUid : null,
+        hint: context.l10n.notSelected,
+        onChanged: onChanged,
       ),
     );
   }

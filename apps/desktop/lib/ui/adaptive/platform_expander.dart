@@ -40,7 +40,7 @@ class PlatformExpander extends StatefulWidget {
   State<PlatformExpander> createState() => _PlatformExpanderState();
 }
 
-class _PlatformExpanderState extends State<PlatformExpander> {
+class _PlatformExpanderState extends State<PlatformExpander> with AutomaticKeepAliveClientMixin {
   late ExpansibleController _controller = widget.controller ?? ExpansibleController();
 
   @override
@@ -67,8 +67,13 @@ class _PlatformExpanderState extends State<PlatformExpander> {
     super.dispose();
   }
 
+  /// An open section stays alive while scrolled out of the setup list, so it is still open when it comes back.
+  @override
+  bool get wantKeepAlive => _controller.isExpanded;
+
   void _changed() {
     setState(() {});
+    updateKeepAlive();
     widget.onExpansionChanged?.call(_controller.isExpanded);
   }
 
@@ -168,6 +173,7 @@ class _PlatformExpanderState extends State<PlatformExpander> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Expansible(
       controller: _controller,
       maintainState: false,

@@ -121,14 +121,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 dismissLabel: l.dismissNotice,
                 onDismiss: ref.read(setupProvider.notifier).dismissNotice,
               ),
-            const Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(width: 400, child: _SetupColumn()),
-                  VerticalDivider(width: 1),
-                  Expanded(child: SessionPanel()),
-                ],
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: setupColumnWidth(constraints.maxWidth), child: const _SetupColumn()),
+                    const VerticalDivider(width: 1),
+                    const Expanded(child: SessionPanel()),
+                  ],
+                ),
               ),
             ),
           ],
@@ -137,6 +139,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
+
+/// The setup column: 400 px in the default window, growing with the window (a quarter of it) up to 480 px on large
+/// screens.
+double setupColumnWidth(double windowWidth) => (windowWidth / 4).clamp(400, 480);
 
 /// The setup panel with the Start/Stop footer pinned below it.
 class _SetupColumn extends StatelessWidget {

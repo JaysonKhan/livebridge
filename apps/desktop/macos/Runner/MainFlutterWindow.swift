@@ -27,12 +27,17 @@ class MainFlutterWindow: NSWindow {
     // traffic lights are hidden, so the header is told to drop the room it keeps for them.
     let windowChannel = FlutterMethodChannel(
       name: "livebridge/window", binaryMessenger: flutterViewController.engine.binaryMessenger)
-    for (name, fullScreen) in [
-      (NSWindow.willEnterFullScreenNotification, true), (NSWindow.willExitFullScreenNotification, false),
-    ] {
-      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { _ in
-        windowChannel.invokeMethod("fullScreen", arguments: fullScreen)
-      }
+    let center = NotificationCenter.default
+    center.addObserver(forName: NSWindow.willEnterFullScreenNotification, object: self, queue: .main) { [weak self] _ in
+      // In full screen the empty toolbar is drawn as an opaque band over the header; the header needs no toolbar.
+      self?.toolbar?.isVisible = false
+      windowChannel.invokeMethod("fullScreen", arguments: true)
+    }
+    center.addObserver(forName: NSWindow.willExitFullScreenNotification, object: self, queue: .main) { _ in
+      windowChannel.invokeMethod("fullScreen", arguments: false)
+    }
+    center.addObserver(forName: NSWindow.didExitFullScreenNotification, object: self, queue: .main) { [weak self] _ in
+      self?.toolbar?.isVisible = true
     }
     windowChannel.setMethodCallHandler { [weak self] call, result in
       guard let self else { return result(nil) }

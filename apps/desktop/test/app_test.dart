@@ -109,8 +109,10 @@ void main() {
       // The four interface languages lead the list; the rest follow by name.
       await tester.tap(find.descendant(of: find.byKey(const Key('my-language')), matching: find.byType(TextField)));
       await tester.pumpAndSettle();
+      // Only this picker's menu: the header language picker is a menu of the same kind.
+      final items = find.descendant(of: find.byKey(const Key('my-language')), matching: find.byType(MenuItemButton));
       final labels = tester
-          .widgetList<Text>(find.descendant(of: find.byType(MenuItemButton), matching: find.byType(Text)))
+          .widgetList<Text>(find.descendant(of: items, matching: find.byType(Text)))
           .map((t) => t.data)
           .toList();
       expect(labels.take(6), ['Uzbek', 'English', 'Russian', 'Turkish', 'Afrikaans', 'Amharic']);

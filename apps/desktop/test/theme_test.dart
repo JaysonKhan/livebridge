@@ -7,6 +7,7 @@ import 'package:livebridge/ui/adaptive/control_border.dart';
 import 'package:livebridge/ui/adaptive/fluent_switch.dart';
 import 'package:livebridge/ui/adaptive/platform_header.dart';
 import 'package:livebridge/ui/setup_panel.dart';
+import 'package:livebridge/ui/theme/app_theme.dart';
 import 'package:livebridge/ui/theme/brand.dart';
 import 'package:livebridge/ui/theme/macos_theme.dart';
 import 'package:livebridge/ui/theme/tokens.dart';
@@ -159,6 +160,70 @@ void main() {
         });
       });
     }
+  }
+
+  for (final platform in HostPlatform.values) {
+    final windows = platform == HostPlatform.windows;
+    testWidgets('${platform.name}: every picker opens the same platform menu', (tester) async {
+      await pumpApp(tester, platform: platform);
+      final t = _tokens(tester);
+      final text = Theme.of(tester.element(find.byType(SetupPanel))).textTheme;
+      // The highlighted row: accent with white text on macOS, the subtle fill on Windows.
+      final item = platformMenuItemStyle(t, text);
+      expect(item.backgroundColor!.resolve({WidgetState.hovered}), windows ? t.subtleFill : t.accent);
+      expect(item.foregroundColor!.resolve({WidgetState.hovered}), windows ? t.textPrimary : Colors.white);
+      expect(
+        platformMenuItemStyle(t, text, current: true).backgroundColor!.resolve({}),
+        windows ? t.subtleFill : Colors.transparent,
+      );
+
+      for (final (key, current, other) in [
+        ('mic-dropdown', 'MacBook Microphone', 'BlackHole 2ch'),
+        ('language-picker', 'English', 'Русский'),
+        ('my-language', 'Uzbek', 'English'),
+      ]) {
+        await tester.tap(find.descendant(of: find.byKey(Key(key)), matching: find.byType(TextField)));
+        await tester.pumpAndSettle();
+        // The open menu's rows (the last of each label; DropdownMenu also keeps an invisible copy for measuring).
+        final row = find.widgetWithText(MenuItemButton, current).last;
+        final otherRow = find.widgetWithText(MenuItemButton, other).last;
+        expect(tester.getSize(row).height, windows ? 32 : 22, reason: key);
+        if (windows) {
+          Color pill(Finder of) =>
+              (tester
+                          .widget<Container>(
+                            find.descendant(
+                              of: of,
+                              matching: find.byWidgetPredicate(
+                                (w) =>
+                                    w is Container &&
+                                    w.constraints == const BoxConstraints.tightFor(width: 3, height: 16),
+                              ),
+                            ),
+                          )
+                          .decoration!
+                      as BoxDecoration)
+                  .color!;
+          expect(pill(row), t.accent, reason: key);
+          expect(pill(otherRow), Colors.transparent, reason: key);
+        } else {
+          expect(
+            find.descendant(of: row, matching: find.byIcon(Icons.check)),
+            findsOneWidget,
+            reason: key,
+          );
+          expect(
+            find.descendant(of: otherRow, matching: find.byIcon(Icons.check)),
+            findsNothing,
+            reason: key,
+          );
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+      // The header picker is a compact pop-up button, not a full-width field.
+      expect(tester.getSize(find.byKey(const Key('language-picker'))).width, lessThan(240));
+    });
   }
 
   testWidgets('macOS full screen drops the room kept for the hidden traffic lights', (tester) async {

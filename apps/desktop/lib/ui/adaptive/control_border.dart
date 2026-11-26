@@ -1,8 +1,31 @@
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/tokens.dart';
+
+/// Whether focus came from the keyboard: true after a key press, false again after a pointer press. Flutter shows
+/// focus after mouse clicks too; Windows and macOS do not draw a focus ring on a drop-down that was clicked.
+abstract final class KeyboardFocus {
+  static bool _active = false;
+  static bool _listening = false;
+
+  static bool get active {
+    if (!_listening) {
+      _listening = true;
+      HardwareKeyboard.instance.addHandler((_) {
+        _active = true;
+        return false;
+      });
+      GestureBinding.instance.pointerRouter.addGlobalRoute((event) {
+        if (event is PointerDownEvent) _active = false;
+      });
+    }
+    return _active;
+  }
+}
 
 /// How keyboard focus is drawn around a control. Windows: a 2 px outer stroke and a 1 px inner stroke, 3 px out
 /// from the control (WinUI focus visual). macOS: a 3 px focus ring in the accent at 50 %.

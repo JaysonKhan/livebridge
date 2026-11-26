@@ -17,19 +17,7 @@ ThemeData buildTheme(HostPlatform platform, Brightness brightness) {
   final body = text.bodyMedium!.copyWith(color: t.textPrimary);
   final small = text.bodySmall!.copyWith(color: t.textSecondary);
   final input = inputDecorationTheme(t, text);
-  final menu = MenuStyle(
-    backgroundColor: WidgetStatePropertyAll(t.flyout),
-    surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-    shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: dark ? 0.5 : 0.18)),
-    elevation: const WidgetStatePropertyAll(8),
-    padding: const WidgetStatePropertyAll(EdgeInsets.all(4)),
-    shape: WidgetStatePropertyAll(
-      RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: t.cardStroke),
-      ),
-    ),
-  );
+  final menu = platformMenuStyle(t, brightness);
   final scheme = ColorScheme(
     brightness: brightness,
     primary: t.accent,
@@ -96,22 +84,7 @@ ThemeData buildTheme(HostPlatform platform, Brightness brightness) {
     inputDecorationTheme: input,
     dropdownMenuTheme: DropdownMenuThemeData(textStyle: body, inputDecorationTheme: input, menuStyle: menu),
     menuTheme: MenuThemeData(style: menu),
-    menuButtonTheme: MenuButtonThemeData(
-      style: ButtonStyle(
-        textStyle: WidgetStatePropertyAll(body),
-        foregroundColor: WidgetStatePropertyAll(t.textPrimary),
-        backgroundColor: _states((s) {
-          if (s.contains(WidgetState.pressed)) return t.subtleFillPressed;
-          if (s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)) return t.subtleFill;
-          return Colors.transparent;
-        }),
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.controlRadius))),
-        minimumSize: WidgetStatePropertyAll(Size(0, windows ? 32 : 22)),
-        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: windows ? 12 : 8)),
-        visualDensity: VisualDensity.standard,
-      ),
-    ),
+    menuButtonTheme: MenuButtonThemeData(style: platformMenuItemStyle(t, text)),
     cardTheme: CardThemeData(
       color: t.card,
       elevation: 0,
@@ -217,6 +190,70 @@ ThemeData buildTheme(HostPlatform platform, Brightness brightness) {
     ),
   );
 }
+
+/// The pop-up menu panel of both platforms. macOS (NSMenu): the menu material, radius 6, a hairline edge and a soft
+/// shadow, rows inset 5 px. Windows (MenuFlyout / ComboBox list): the flyout fill and stroke, radius 8, rows inset 4 px.
+MenuStyle platformMenuStyle(LiveBridgeTokens t, Brightness brightness) => MenuStyle(
+  backgroundColor: WidgetStatePropertyAll(t.flyout),
+  surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+  shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: brightness == Brightness.dark ? 0.55 : 0.22)),
+  elevation: const WidgetStatePropertyAll(8),
+  padding: WidgetStatePropertyAll(EdgeInsets.all(t.menuInset)),
+  visualDensity: VisualDensity.standard,
+  shape: WidgetStatePropertyAll(
+    RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(t.menuRadius),
+      side: BorderSide(color: t.flyoutStroke, width: t.isWindows ? 1 : 0.5),
+    ),
+  ),
+);
+
+/// A row in a pop-up menu. macOS: 22 pt rows, the highlighted row (pointer or keyboard) filled with the accent and
+/// its text white, radius 4. Windows: 32 px rows, a subtle fill under the pointer, radius 4; the [current] item keeps
+/// the subtle fill (with its accent pill, see `PlatformDropdown`).
+ButtonStyle platformMenuItemStyle(LiveBridgeTokens t, TextTheme text, {bool current = false}) {
+  bool highlighted(Set<WidgetState> s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused);
+  Color foreground(Set<WidgetState> s) {
+    if (s.contains(WidgetState.disabled)) return t.textDisabled;
+    if (!t.isWindows && (highlighted(s) || s.contains(WidgetState.pressed))) return t.onAccent;
+    return t.textPrimary;
+  }
+
+  return ButtonStyle(
+    textStyle: WidgetStatePropertyAll(text.bodyMedium),
+    foregroundColor: _states(foreground),
+    iconColor: _states(foreground),
+    backgroundColor: _states((s) {
+      if (s.contains(WidgetState.disabled)) return Colors.transparent;
+      if (t.isWindows) {
+        if (s.contains(WidgetState.pressed)) return t.subtleFillPressed;
+        return highlighted(s) || current ? t.subtleFill : Colors.transparent;
+      }
+      if (s.contains(WidgetState.pressed)) return t.accentPressed;
+      return highlighted(s) ? t.accent : Colors.transparent;
+    }),
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(4))),
+    minimumSize: WidgetStatePropertyAll(Size(0, t.menuItemHeight)),
+    padding: WidgetStatePropertyAll(
+      t.isWindows ? const EdgeInsets.only(right: 12) : const EdgeInsets.only(left: 4, right: 10),
+    ),
+    visualDensity: VisualDensity.standard,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    splashFactory: NoSplash.splashFactory,
+  );
+}
+
+/// The field of a drop-down that is not typed into: a standard button (Windows ComboBox, macOS pop-up button).
+InputDecorationThemeData comboBoxDecorationTheme(LiveBridgeTokens t, TextTheme text) =>
+    inputDecorationTheme(t, text).copyWith(
+      border: comboBoxBorder(t),
+      fillColor: WidgetStateColor.resolveWith((s) {
+        if (s.contains(WidgetState.disabled)) return t.controlFillDisabled;
+        if (s.contains(WidgetState.hovered)) return t.controlFillHover;
+        return t.controlFill;
+      }),
+    );
 
 WidgetStateProperty<T> _states<T>(T Function(Set<WidgetState> states) resolve) =>
     WidgetStateProperty.resolveWith(resolve);
@@ -415,8 +452,8 @@ InputBorder textBoxBorder(LiveBridgeTokens t) => WidgetStateInputBorder.resolveW
 /// A drop-down that is not typed into looks like a standard button: Windows ComboBox (control fill, elevation
 /// border), macOS pop-up button (push-button bezel).
 InputBorder comboBoxBorder(LiveBridgeTokens t) => WidgetStateInputBorder.resolveWith((s) {
-  final focused =
-      s.contains(WidgetState.focused) && FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+  // A clicked drop-down shows no ring; one reached with the keyboard does.
+  final focused = s.contains(WidgetState.focused) && KeyboardFocus.active;
   return ControlInputBorder(
     borderSide: BorderSide(color: t.controlStroke),
     radius: t.controlRadius,

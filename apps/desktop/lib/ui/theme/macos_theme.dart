@@ -44,7 +44,12 @@ LiveBridgeTokens macosTokens(Brightness brightness) {
     card: box,
     cardSecondary: box,
     cardStroke: pick(0x0F000000, 0x14FFFFFF),
-    flyout: box,
+    // The menu material (NSMenu) with its hairline edge; NSPopUpButton menu geometry.
+    flyout: pick(0xFFF2F2F2, 0xFF2B2B2B),
+    flyoutStroke: pick(0x24000000, 0x26FFFFFF),
+    menuRadius: 6,
+    menuInset: 5,
+    menuItemHeight: 22,
     dialog: pick(0xFFECECEC, 0xFF262626),
     controlFill: pushFill,
     controlFillHover: pushFill,

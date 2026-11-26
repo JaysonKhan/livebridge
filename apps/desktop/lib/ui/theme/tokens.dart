@@ -31,6 +31,10 @@ class LiveBridgeTokens extends ThemeExtension<LiveBridgeTokens> {
     required this.cardSecondary,
     required this.cardStroke,
     required this.flyout,
+    required this.flyoutStroke,
+    required this.menuRadius,
+    required this.menuInset,
+    required this.menuItemHeight,
     required this.dialog,
     required this.controlFill,
     required this.controlFillHover,
@@ -123,6 +127,13 @@ class LiveBridgeTokens extends ThemeExtension<LiveBridgeTokens> {
 
   /// Menus and tooltips.
   final Color flyout;
+  final Color flyoutStroke;
+
+  /// Pop-up menus: corner radius (Windows 8, macOS 6), the inset of the highlighted row from the menu edge
+  /// (Windows 4, macOS 5) and the row height (Windows 32, macOS 22).
+  final double menuRadius;
+  final double menuInset;
+  final double menuItemHeight;
   final Color dialog;
 
   // Controls.
@@ -237,6 +248,10 @@ class LiveBridgeTokens extends ThemeExtension<LiveBridgeTokens> {
       cardSecondary: c(cardSecondary, other.cardSecondary),
       cardStroke: c(cardStroke, other.cardStroke),
       flyout: c(flyout, other.flyout),
+      flyoutStroke: c(flyoutStroke, other.flyoutStroke),
+      menuRadius: d(menuRadius, other.menuRadius),
+      menuInset: d(menuInset, other.menuInset),
+      menuItemHeight: d(menuItemHeight, other.menuItemHeight),
       dialog: c(dialog, other.dialog),
       controlFill: c(controlFill, other.controlFill),
       controlFillHover: c(controlFillHover, other.controlFillHover),
