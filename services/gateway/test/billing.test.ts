@@ -3,8 +3,8 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import type { AudioFrame } from "../../../packages/protocol/src/index.ts";
-import { BillingReporter, UsageMeter } from "../src/billing.ts";
-import { silentLogger } from "../src/log.ts";
+import { BillingReporter, UsageMeter, type ReporterOptions } from "../src/billing.ts";
+import { createLogger, silentLogger } from "../src/log.ts";
 import { DirectionPipeline } from "../src/pipeline.ts";
 import { createFakeProviders } from "../src/providers/fake.ts";
 import type { StreamingSTT } from "../src/providers/types.ts";
@@ -14,8 +14,11 @@ const EVERY_MS = 10_000;
 const ACCOUNT = "6f1c0000-0000-4000-8000-000000000001";
 const SESSION = "0b7e3c2a-5d41-4f7a-9c1e-2a6b8d9e0f13";
 
-/** A site that keeps each report's body exactly as the real client would send it, and answers from a script. */
-function fakeSite(script: (number | "fail")[] = []) {
+/**
+ * A site that keeps each report's body exactly as the real client would send it, and answers from a script: a
+ * balance, "fail" (the site client's own error) or "crash" (any other error).
+ */
+function fakeSite(script: (number | "fail" | "crash")[] = []) {
   const bodies: string[] = [];
   const site: SiteClient = {
     authorize: () => Promise.reject(new Error("not used")),
@@ -23,6 +26,7 @@ function fakeSite(script: (number | "fail")[] = []) {
       bodies.push(JSON.stringify(report));
       const reply = script.shift() ?? 1000;
       if (reply === "fail") throw new SiteError("unavailable");
+      if (reply === "crash") throw new Error("socket hang up");
       return { chargedUnits: 1, balanceUnits: reply };
     },
   };
@@ -36,20 +40,29 @@ function fakeSite(script: (number | "fail")[] = []) {
   return { site, bodies, sent };
 }
 
-function reporterWith(site: SiteClient) {
+function reporterWith(site: SiteClient, options: Partial<ReporterOptions> = {}) {
   const meter = new UsageMeter();
   const balances: number[] = [];
   const fatals: string[] = [];
+  const lines: string[] = [];
   const reporter = new BillingReporter({
     site,
     accountId: ACCOUNT,
     sessionId: SESSION,
     meter,
     everyMs: EVERY_MS,
+    log: createLogger((line) => lines.push(line)),
     onBalance: (units) => balances.push(units),
     onFatal: (code) => fatals.push(code),
+    ...options,
   });
-  return { reporter, meter, balances, fatals };
+  /** The log lines as written, without their timestamp. */
+  const logs = () =>
+    lines.map((line) => {
+      const { t, ...rest } = JSON.parse(line);
+      return rest;
+    });
+  return { reporter, meter, balances, fatals, lines, logs };
 }
 
 /** Lets every promise the fake site settled run to completion; setImmediate is not mocked. */
@@ -176,6 +189,21 @@ test("reporter: a failed report is resent unchanged at the next interval; usage 
   assert.deepEqual(fatals, []);
 });
 
+test("reporter: each failed report is logged with its number, the failure count and the code, and nothing else", async (t) => {
+  const advance = clock(t);
+  const { site } = fakeSite(["fail", "crash", 450]);
+  const { reporter, meter, lines, logs } = reporterWith(site);
+  reporter.start();
+  meter.addStt("out", 3_200);
+  for (let i = 0; i < 3; i++) await advance();
+  assert.deepEqual(logs(), [
+    { level: "warn", event: "billing.report_failed", session: SESSION, seq: 0, failures: 1, code: "unavailable" },
+    { level: "warn", event: "billing.report_failed", session: SESSION, seq: 0, failures: 2, code: "unknown" },
+  ]);
+  const log = lines.join("\n");
+  assert.ok(!log.includes(ACCOUNT) && !log.includes("hang up"));
+});
+
 test("reporter: three failed reports in a row are fatal billing_unavailable, said once, and reporting stops", async (t) => {
   const advance = clock(t);
   const { site, bodies } = fakeSite(["fail", "fail", "fail"]);
@@ -264,14 +292,56 @@ test("reporter: stop() sends what is left, the unanswered report first and uncha
   assert.deepEqual(fatals, []);
 });
 
-test("reporter: stop() gives up quietly after three failed attempts", async () => {
+test("reporter: stop() pauses between final attempts and, after the third failure, logs the report it dropped", async (t) => {
+  const advance = clock(t);
   const { site, bodies } = fakeSite(["fail", "fail", "fail", "fail"]);
-  const { reporter, meter, fatals } = reporterWith(site);
+  const { reporter, meter, fatals, logs } = reporterWith(site);
   meter.addStt("out", 3_200);
-  await reporter.stop();
+  const stopped = reporter.stop();
+  await settle();
+  assert.equal(bodies.length, 1);
+  // A site that is restarting refuses at once; the next attempt waits half a second.
+  await advance(499);
+  assert.equal(bodies.length, 1);
+  await advance(1);
+  assert.equal(bodies.length, 2);
+  await advance(500);
   assert.equal(bodies.length, 3);
+  await stopped;
   assert.equal(new Set(bodies).size, 1);
   assert.deepEqual(fatals, []);
+  assert.deepEqual(
+    logs().map((l) => [l.event, l.failures]),
+    [
+      ["billing.report_failed", 1],
+      ["billing.report_failed", 2],
+      ["billing.report_failed", 3],
+      ["billing.final_dropped", undefined],
+    ],
+  );
+  assert.deepEqual(logs().at(-1), { level: "warn", event: "billing.final_dropped", session: SESSION, seq: 0 });
+});
+
+test("reporter: a callback that throws is logged; neither the interval nor stop() rejects", async (t) => {
+  const advance = clock(t);
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => void unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  t.after(() => process.off("unhandledRejection", onUnhandled));
+  const { site } = fakeSite([400]);
+  const { reporter, meter, lines, logs } = reporterWith(site, {
+    onBalance: () => {
+      throw new Error("socket gone");
+    },
+  });
+  reporter.start();
+  meter.addStt("out", 3_200);
+  await advance();
+  await reporter.stop();
+  await settle();
+  assert.deepEqual(unhandled, []);
+  assert.deepEqual(logs(), [{ level: "error", event: "billing.callback_failed", session: SESSION }]);
+  assert.ok(!lines.join("\n").includes("socket gone"));
 });
 
 test("reporter: while a report is unanswered an interval sends nothing; stop() waits for the answer, then sends the rest", async (t) => {

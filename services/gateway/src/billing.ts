@@ -2,7 +2,8 @@
 // meter; the reporter asks the site in the background, so a slow or failed report never delays audio. The site turns
 // the raw counters into units and answers with the balance that is left.
 import type { Direction } from "../../../packages/protocol/src/index.ts";
-import type { SiteClient, UsageReport } from "./site.ts";
+import type { Logger } from "./log.ts";
+import { SiteError, type SiteClient, type UsageReport } from "./site.ts";
 
 /** 16 kHz s16le mono capture audio. */
 const BYTES_PER_MS = 32;
@@ -11,6 +12,7 @@ const MAX_STT_MS = 120_000;
 const MAX_TTS_CHARS = 20_000;
 /** Consecutive failed reports before the session is stopped; also what the final report is allowed at the end. */
 const MAX_FAILURES = 3;
+const FINAL_RETRY_PAUSE_MS = 500;
 
 export type Usage = { sttMsOut: number; sttMsIn: number; ttsChars: number };
 
@@ -46,6 +48,10 @@ export interface ReporterOptions {
   sessionId: string;
   meter: UsageMeter;
   everyMs: number;
+  /** Failures only, with primitive fields: the session id, the report's number and the site's error code. */
+  log: Logger;
+  /** Pause between the final report's attempts. Default 500 ms. */
+  retryPauseMs?: number;
   /** The balance the site answered after a report it accepted. */
   onBalance(units: number): void;
   /** The session must end. Called at most once, and never once stop() has begun. */
@@ -77,7 +83,7 @@ export class BillingReporter {
     this.timer = setInterval(() => this.tick(), this.options.everyMs);
   }
 
-  /** Sends what is left (up to three failed attempts in all, then gives up quietly). The same promise every call. */
+  /** Sends what is left (three failed attempts in all, then logs what it dropped). The same promise every call. */
   stop(): Promise<void> {
     return (this.stopping ??= this.finish());
   }
@@ -85,7 +91,10 @@ export class BillingReporter {
   private tick() {
     // One site call at a time: an interval that finds one still unanswered leaves it be.
     if (this.inFlight || this.fatal || this.stopping) return;
-    this.inFlight = this.report().finally(() => (this.inFlight = null));
+    this.inFlight = this.report()
+      // Only a callback can throw here. Logged without its message; a rejection here would take the process down.
+      .catch(() => this.options.log.error("billing.callback_failed", { session: this.options.sessionId }))
+      .finally(() => (this.inFlight = null));
   }
 
   private async report() {
@@ -94,9 +103,10 @@ export class BillingReporter {
       let balance: number;
       try {
         ({ balanceUnits: balance } = await this.options.site.usage(report));
-      } catch {
+      } catch (error) {
         // Every failure counts, whatever the site said; the same report goes again at the next interval.
-        if (++this.failures >= MAX_FAILURES) this.die("billing_unavailable");
+        this.failed(report, ++this.failures, error);
+        if (this.failures >= MAX_FAILURES) this.die("billing_unavailable");
         return;
       }
       this.accepted();
@@ -112,16 +122,29 @@ export class BillingReporter {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     await this.inFlight;
-    for (let failures = 0; failures < MAX_FAILURES; ) {
-      const report = this.pending ?? this.cut();
-      if (!report) return;
+    let failures = 0;
+    for (let report = this.pending ?? this.cut(); report; report = this.pending ?? this.cut()) {
       try {
         await this.options.site.usage(report);
         this.accepted();
-      } catch {
-        failures++;
+      } catch (error) {
+        this.failed(report, ++failures, error);
+        if (failures >= MAX_FAILURES)
+          return this.options.log.warn("billing.final_dropped", { session: this.options.sessionId, seq: report.seq });
+        // A site that is restarting refuses at once: give it a moment before the next attempt.
+        const pause = this.options.retryPauseMs ?? FINAL_RETRY_PAUSE_MS;
+        await new Promise((resolve) => setTimeout(resolve, pause));
       }
     }
+  }
+
+  private failed(report: UsageReport, failures: number, error: unknown) {
+    this.options.log.warn("billing.report_failed", {
+      session: this.options.sessionId,
+      seq: report.seq,
+      failures,
+      code: error instanceof SiteError ? error.code : "unknown",
+    });
   }
 
   /** Moves the meter into the carry and cuts the next report from it, no larger than the site accepts. */

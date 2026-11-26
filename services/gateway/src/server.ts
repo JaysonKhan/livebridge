@@ -134,6 +134,8 @@ export function createGateway({
   >();
   /** Connected sessions by the admission ticket each holds. */
   const sessions = new Map<Ticket, Session>();
+  /** Final usage reports still under way, also those of sessions that have already closed. */
+  const finalReports = new Set<Promise<void>>();
   const admission = new Admission({
     total: config.MAX_SESSIONS,
     account: config.MAX_ACCOUNT_SESSIONS,
@@ -348,6 +350,9 @@ export function createGateway({
         onClosed: () => {
           sessions.delete(entry.ticket);
           admission.release(entry.ticket);
+          const report = session.finished;
+          finalReports.add(report);
+          void report.then(() => finalReports.delete(report));
         },
       });
       sessions.set(entry.ticket, session);
@@ -366,13 +371,12 @@ export function createGateway({
       }),
     close: async () => {
       for (const token of pending.keys()) forget(token);
-      const open = [...sessions.values()];
-      for (const session of open) session.close();
+      for (const session of sessions.values()) session.close();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      // A closed account session is still sending its final usage report; shutting down must not cut it off.
-      await Promise.allSettled(open.map((session) => session.finished));
+      // Closed account sessions may still be sending their final usage report; shutting down must not cut it off.
+      await Promise.allSettled(finalReports);
     },
   };
 }

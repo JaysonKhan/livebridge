@@ -1032,7 +1032,7 @@ const usageReports = (site: Awaited<ReturnType<typeof startFakeSite>>) =>
   site.requests.filter((r) => r.path.endsWith("/usage/")).map((r) => r.body);
 
 test("account mode: usage is reported while the call runs, each balance reaches the client, and none left ends it", async () => {
-  const { base, site } = await startWithSite(chargingFrom([480, 0]), {
+  const { base, site, logLines } = await startWithSite(chargingFrom([480, 0]), {
     env: { USAGE_REPORT_SECONDS: "2" },
     fake: { transcripts: ["Salom, ishlar qalay?", "Rahmat, yaxshi."] },
   });
@@ -1079,13 +1079,25 @@ test("account mode: usage is reported while the call runs, each balance reaches 
   // Everything was already reported, so the session's end sent nothing more.
   assert.deepEqual(usageReports(site), [report(0, 600, 300, first.text), report(1, 600, 0, second.text)]);
   assert.deepEqual(site.failures, []);
+  // The journal says why the session ended: its id and the code, nothing about the account.
+  assert.deepEqual(billingLog(logLines), [
+    { level: "warn", event: "billing.fatal", session: issued.body.session_id, code: "balance_exhausted" },
+  ]);
+  assert.ok(!logLines.join("\n").includes(ACCOUNT_TOKEN));
 });
 
-test("account mode: shutting the gateway down waits for each session's final usage report", async () => {
-  const fakeSite = (runningSite = await startFakeSite({ secret: SITE_SECRET, handle: chargingFrom([480]) }));
+/** The log's billing lines, without their timestamp. */
+const billingLog = (logLines: string[]) =>
+  logLines
+    .map((line) => JSON.parse(line))
+    .filter((line) => line.event.startsWith("billing."))
+    .map(({ t, ...rest }) => rest);
+
+/** A busy site: each usage answer comes 100 ms after the request. `answered` lists the seq of each one answered. */
+async function startSlowSite(balances: number[]) {
+  const fakeSite = (runningSite = await startFakeSite({ secret: SITE_SECRET, handle: chargingFrom(balances) }));
   const real = createSiteClient({ socketPath: fakeSite.socketPath, host: fakeSite.host, secret: SITE_SECRET });
   const answered: number[] = [];
-  // A busy site: its answer comes a little after the request.
   const site: SiteClient = {
     authorize: real.authorize,
     usage: async (report) => {
@@ -1095,6 +1107,11 @@ test("account mode: shutting the gateway down waits for each session's final usa
       return answer;
     },
   };
+  return { fakeSite, site, answered };
+}
+
+test("account mode: shutting the gateway down waits for each session's final usage report", async () => {
+  const { fakeSite, site, answered } = await startSlowSite([480]);
   const { base, gateway } = await start({ site });
   const issued = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
   const client = await TestClient.open(base, issued.body.token!);
@@ -1102,6 +1119,27 @@ test("account mode: shutting the gateway down waits for each session's final usa
   await pushToTalk(client, 1);
   await client.message("metrics");
   // The interval (10 s by default) never came: the only report is the one sent at the end.
+  await gateway.close();
+  running = undefined;
+  assert.deepEqual(answered, [0]);
+  assert.deepEqual(
+    usageReports(fakeSite).map((r) => [r.seq, r.stt_ms_out, r.stt_ms_in]),
+    [[0, 600, 0]],
+  );
+});
+
+test("account mode: a session that closed just before shutdown still has its final report delivered", async () => {
+  const { fakeSite, site, answered } = await startSlowSite([480]);
+  const { base, gateway } = await start({ site });
+  const issued = await requestSession(base, { mode: "account" }, ACCOUNT_TOKEN);
+  const client = await TestClient.open(base, issued.body.token!);
+  await client.configure();
+  await pushToTalk(client, 1);
+  await client.message("metrics");
+  await client.close();
+  await sleep(20);
+  // The session is gone, but its final report is still on its way when the gateway is told to stop.
+  assert.deepEqual(answered, []);
   await gateway.close();
   running = undefined;
   assert.deepEqual(answered, [0]);
@@ -1300,7 +1338,10 @@ test("an unused session token expires on its own: its slot (and a keys session's
 });
 
 test("no access token, provider key, static token or site secret reaches the log in any mode", async () => {
-  const { base, logLines, site } = await startWithSite(undefined, {
+  // The site refuses usage reports, so the account session's final report fails, is dropped, and says so in the log.
+  const refusingUsage = (path: string, body: any): FakeSiteReply =>
+    path.endsWith("/usage/") ? { status: 503, body: { error: "unavailable" } } : authorizeFrom(ACCOUNTS)(path, body);
+  const { base, logLines, site, gateway } = await startWithSite(refusingUsage, {
     env: { MAX_SESSIONS: "3" },
     fake: { transcripts: ["bir", "ikki", "uch"] },
   });
@@ -1318,11 +1359,22 @@ test("no access token, provider key, static token or site secret reaches the log
     await client.message("metrics");
     await client.close();
   }
-  await sleep(20);
+  // Shutting down waits for the account session's final report: three refused attempts, then it is dropped.
+  await gateway.close();
+  running = undefined;
   assert.deepEqual(site.failures, []);
   const log = logLines.join("\n");
   for (const mode of ["token", "account", "keys"])
     assert.ok(log.includes(`"mode":"${mode}"`), `no ${mode} session in the log`);
+  const session = issued[1]!.body.session_id;
+  const failed = (failures: number) =>
+    ({ level: "warn", event: "billing.report_failed", session, seq: 0, failures, code: "unavailable" });
+  assert.deepEqual(billingLog(logLines), [
+    failed(1),
+    failed(2),
+    failed(3),
+    { level: "warn", event: "billing.final_dropped", session, seq: 0 },
+  ]);
   for (const forbidden of [
     ACCESS_TOKEN,
     ACCOUNT_TOKEN,

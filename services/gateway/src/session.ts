@@ -65,15 +65,18 @@ export class Session {
         sessionId: deps.id,
         meter: this.meter,
         everyMs: deps.config.USAGE_REPORT_SECONDS * 1000,
+        log: deps.log,
         onBalance: (units) =>
           this.send({ v: 1, type: "account.balance", balance_units: units }),
-        onFatal: (code) =>
+        onFatal: (code) => {
+          deps.log.warn("billing.fatal", { session: deps.id, code });
           this.end(
             code,
             code === "balance_exhausted"
               ? "the account balance is used up"
               : "usage could not be reported; billing is unavailable",
-          ),
+          );
+        },
       });
     }
     this.expiry = setTimeout(
