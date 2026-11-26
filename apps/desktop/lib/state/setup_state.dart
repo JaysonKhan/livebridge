@@ -34,6 +34,8 @@ class SetupState {
     this.gatewayUrl = 'http://127.0.0.1:8201',
     this.accessToken = '',
     this.translationModel = '',
+    this.outVoiceId,
+    this.inVoiceId,
     this.micPermission = 'undetermined',
     this.lostDevices = const [],
     this.captionFontSize = 18,
@@ -57,6 +59,10 @@ class SetupState {
   final String gatewayUrl;
   final String accessToken;
   final String translationModel;
+
+  /// The voice chosen for each direction (a provider voice id); null = the gateway's configured voice.
+  final String? outVoiceId;
+  final String? inVoiceId;
   final String micPermission;
   final List<LostDevice> lostDevices;
   final double captionFontSize;
@@ -82,6 +88,8 @@ class SetupState {
     String? gatewayUrl,
     String? accessToken,
     String? translationModel,
+    Object? outVoiceId = _keep,
+    Object? inVoiceId = _keep,
     String? micPermission,
     List<LostDevice>? lostDevices,
     double? captionFontSize,
@@ -102,6 +110,8 @@ class SetupState {
     gatewayUrl: gatewayUrl ?? this.gatewayUrl,
     accessToken: accessToken ?? this.accessToken,
     translationModel: translationModel ?? this.translationModel,
+    outVoiceId: identical(outVoiceId, _keep) ? this.outVoiceId : outVoiceId as String?,
+    inVoiceId: identical(inVoiceId, _keep) ? this.inVoiceId : inVoiceId as String?,
     micPermission: micPermission ?? this.micPermission,
     lostDevices: lostDevices ?? this.lostDevices,
     captionFontSize: captionFontSize ?? this.captionFontSize,
@@ -142,8 +152,14 @@ class SetupState {
     mode: mode,
     outCommit: outCommit,
     translationModel: translationModel.trim().isEmpty ? null : translationModel.trim(),
+    // Always both: the gateway ignores the voice of a direction that does not speak.
+    outVoiceId: outVoiceId,
+    inVoiceId: inVoiceId,
   );
 }
+
+/// A saved voice id, or null when nothing usable is saved.
+String? _savedVoice(Object? value) => value is String && value.isNotEmpty ? value : null;
 
 class SetupNotifier extends Notifier<SetupState> {
   @override
@@ -179,6 +195,8 @@ class SetupNotifier extends Notifier<SetupState> {
         gatewayUrl: saved['gatewayUrl'] as String?,
         accessToken: saved['accessToken'] as String?,
         translationModel: saved['translationModel'] as String?,
+        outVoiceId: _savedVoice(saved['outVoiceId']),
+        inVoiceId: _savedVoice(saved['inVoiceId']),
         myLang: kLanguages.containsKey(saved['myLang']) ? saved['myLang'] as String : null,
         targetLang: kLanguages.containsKey(saved['targetLang']) ? saved['targetLang'] as String : null,
         mode: parseWire(SessionMode.values, saved['mode']),
@@ -255,6 +273,10 @@ class SetupNotifier extends Notifier<SetupState> {
   void setGatewayUrl(String v) => state = state.copyWith(gatewayUrl: v);
   void setAccessToken(String v) => state = state.copyWith(accessToken: v);
   void setTranslationModel(String v) => state = state.copyWith(translationModel: v);
+
+  /// Null goes back to the gateway's configured voice.
+  void setOutVoice(String? id) => state = state.copyWith(outVoiceId: id);
+  void setInVoice(String? id) => state = state.copyWith(inVoiceId: id);
   void dismissNotice() => state = state.copyWith(lostDevices: const []);
 
   /// Saves preference keys; a failure shows up in the error strip.

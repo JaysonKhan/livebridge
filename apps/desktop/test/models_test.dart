@@ -91,6 +91,7 @@ void main() {
       mode: SessionMode.bidirectional,
       outCommit: OutCommit.turnPrediction,
       translationModel: null,
+      outVoiceId: 'voiceChosenOut01',
     );
     expect(c.toMap(), {
       'gatewayUrl': 'http://x',
@@ -104,6 +105,8 @@ void main() {
       'mode': 'bidirectional',
       'outCommit': 'turn_prediction',
       'translationModel': null,
+      'outVoiceId': 'voiceChosenOut01',
+      'inVoiceId': null,
     });
   });
 

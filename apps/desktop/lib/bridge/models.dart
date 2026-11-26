@@ -153,6 +153,73 @@ class AudioProcess {
   final bool isPlaying;
 }
 
+/// One synthesized voice the gateway offers (`GET /v1/voices`).
+class Voice {
+  const Voice({
+    required this.id,
+    required this.name,
+    this.gender,
+    this.age,
+    this.accent,
+    this.language,
+    this.useCase,
+    this.description,
+    this.category,
+    this.previewUrl,
+    this.previews = const {},
+  });
+
+  final String id;
+  final String name;
+  final String? gender;
+  final String? age;
+  final String? accent;
+  final String? language;
+  final String? useCase;
+  final String? description;
+  final String? category;
+
+  /// The voice's general sample.
+  final String? previewUrl;
+
+  /// A sample per language code, where the provider has one.
+  final Map<String, String> previews;
+
+  /// Null when [json] is not a voice: an id and a name are required.
+  static Voice? fromJson(Object? json) {
+    if (json is! Map) return null;
+    String? text(String key) {
+      final value = json[key];
+      return value is String && value.isNotEmpty ? value : null;
+    }
+
+    final id = text('id');
+    final name = text('name');
+    if (id == null || name == null) return null;
+    final previews = json['previews'];
+    return Voice(
+      id: id,
+      name: name,
+      gender: text('gender'),
+      age: text('age'),
+      accent: text('accent'),
+      language: text('language'),
+      useCase: text('use_case'),
+      description: text('description'),
+      category: text('category'),
+      previewUrl: text('preview_url'),
+      previews: {
+        if (previews is Map)
+          for (final MapEntry(:key, :value) in previews.entries)
+            if (key is String && value is String) key: value,
+      },
+    );
+  }
+
+  /// The address of the sample to play for a session language: that language's own, else the general one.
+  String? sampleFor(String lang) => previews[lang] ?? previewUrl;
+}
+
 class StartConfig {
   const StartConfig({
     required this.gatewayUrl,
@@ -166,6 +233,8 @@ class StartConfig {
     required this.mode,
     required this.outCommit,
     required this.translationModel,
+    this.outVoiceId,
+    this.inVoiceId,
   });
 
   final String gatewayUrl;
@@ -182,6 +251,10 @@ class StartConfig {
   final OutCommit outCommit;
   final String? translationModel;
 
+  /// The voice chosen for the owner's translated speech and for the other participant's; null = the gateway's own.
+  final String? outVoiceId;
+  final String? inVoiceId;
+
   Map<String, Object?> toMap() => {
     'gatewayUrl': gatewayUrl,
     'accessToken': accessToken,
@@ -194,6 +267,8 @@ class StartConfig {
     'mode': mode.wire,
     'outCommit': outCommit.wire,
     'translationModel': translationModel,
+    'outVoiceId': outVoiceId,
+    'inVoiceId': inVoiceId,
   };
 }
 

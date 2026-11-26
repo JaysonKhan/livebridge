@@ -586,5 +586,48 @@ void main() {
       expect(find.text('https://bridge.example.com'), findsOneWidget);
       expect(startEnabled(), isTrue);
     });
+
+    Future<void> startSession(WidgetTester tester) async {
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(en.consentCheckbox));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('saved voices are loaded and travel with the start config', (tester) async {
+      final bridge = FakeLiveBridge()
+        ..settings = {'accessToken': 'saved-token', 'outVoiceId': 'voiceChosenOut01', 'inVoiceId': 'voiceChosenIn001'};
+      final c = await pumpApp(tester, bridge: bridge);
+      expect(c.read(setupProvider).outVoiceId, 'voiceChosenOut01');
+      expect(c.read(setupProvider).inVoiceId, 'voiceChosenIn001');
+      await startSession(tester);
+      expect(fake.startedWith!.outVoiceId, 'voiceChosenOut01');
+      expect(fake.startedWith!.inVoiceId, 'voiceChosenIn001');
+      expect(fake.savedWith!.toMap()['inVoiceId'], 'voiceChosenIn001');
+    });
+
+    testWidgets('with no voice saved both are left to the gateway; a choice can be made and undone', (tester) async {
+      // Anything that is not a non-empty string counts as "nothing saved".
+      final bridge = FakeLiveBridge()..settings = {'accessToken': 'saved-token', 'outVoiceId': '', 'inVoiceId': 5};
+      final c = await pumpApp(tester, bridge: bridge);
+      expect(c.read(setupProvider).outVoiceId, isNull);
+      expect(c.read(setupProvider).inVoiceId, isNull);
+
+      final setup = c.read(setupProvider.notifier);
+      setup.setOutVoice('voiceChosenOut01');
+      setup.setInVoice('voiceChosenIn001');
+      expect(c.read(setupProvider).outVoiceId, 'voiceChosenOut01');
+      expect(c.read(setupProvider).inVoiceId, 'voiceChosenIn001');
+      setup.setOutVoice(null);
+      expect(c.read(setupProvider).outVoiceId, isNull);
+      expect(c.read(setupProvider).inVoiceId, 'voiceChosenIn001');
+      setup.setInVoice(null);
+
+      await startSession(tester);
+      expect(fake.startedWith!.outVoiceId, isNull);
+      expect(fake.startedWith!.inVoiceId, isNull);
+    });
   });
 }
