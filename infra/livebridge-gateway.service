@@ -14,8 +14,9 @@ Environment=NODE_ENV=production
 ExecStart=/usr/bin/node services/gateway/src/main.ts
 Restart=on-failure
 RestartSec=3
-# Sessions are in memory; on stop the gateway closes them and waits for each account session's final usage report,
-# which gives up after about 10 s when the site does not answer. 15 s covers that before systemd kills the process.
+# Sessions are in memory; on stop the gateway closes them and waits for each account session's final usage report.
+# When the site does not answer that takes up to about 13 s (a 3 s call already in flight, then three 3 s attempts
+# with two 0.5 s pauses), still inside the 15 s systemd allows before it kills the process.
 TimeoutStopSec=15
 NoNewPrivileges=true
 PrivateTmp=true
