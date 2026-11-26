@@ -35,6 +35,36 @@ Every hosted turn was faster: the three provider hops leave from the server, a f
 and only the audio crosses the long link. Six turns is a small sample; the design's condition for making the hosted
 gateway the default (not slower) is met by it.
 
+## Account mode vs static token on the hosted gateway (2026-11-26)
+
+After accounts shipped, the same fixture sentences (uz → en and en → uz, 1–30 words, real providers) were sent from
+the Mac to the hosted gateway with `npm run bench -- --gateway … --mode token|account` and timed on the Mac from
+`turn.commit` to the first synthesized frame. Stage columns are the gateway's own per-turn `metrics`. Account mode adds
+a signed call to the site when a session starts and an integer addition per audio frame; usage reports run every 10 s
+in the background.
+
+| | Static token | Account |
+|---|---:|---:|
+| Turns (failed) | 40 (0) | 20 (1) |
+| **End of speech → first translated audio at the Mac**, median | **984 ms** | **990 ms** |
+| End of speech → first translated audio, p95 | 1215 ms | 1404 ms |
+| STT: commit → committed transcript, median | 148 ms | 147 ms |
+| Translation: first text, median | 433 ms | 489 ms |
+| Translation: complete, median | 573 ms | 617 ms |
+| TTS: text sent → first audio, median | 96 ms | 95 ms |
+| **Session creation** (`POST /v1/sessions` → answer, at the Mac), median | 616 ms (2 sessions) | 477 ms (3 sessions) |
+
+The per-turn medians are within noise of each other: speech-to-text and synthesis are identical, and the translation
+difference is the model's own variance (the gateway does nothing different on that path in account mode). Creating an
+account session, which asks the site to authorize the token over its local socket, was not slower than a token
+session; the time is dominated by the round trip from the Mac. The one failed account turn and the token run's slowest
+turn (8.2 s) were both 30-word sentences that the benchmark client stopped waiting for or matched late; the gateway
+logged no error for either. The account run's usage arrived at the site as 15 reports across its 3 sessions.
+
+Own keys, the same way (`--mode keys`, uz → en only, 10 turns, 0 failed): first translated audio median 798 ms,
+STT 144 ms, translation first text 355 ms, TTS first audio 92 ms; session creation 538 ms. The keys reached the
+providers only through that session; the gateway's log holds none of them.
+
 ## Real providers — gateway benchmark
 
 `npm run bench -- --rounds 3 --models gemini-3.5-flash-lite` — 10 sentences × 3 rounds × 4 directions = 120 turns.
