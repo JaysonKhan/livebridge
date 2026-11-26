@@ -55,12 +55,14 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `outVoiceId` | String? | voice of the owner's translated speech; absent = the gateway's configured voice |
 | `inVoiceId` | String? | voice of the remote participant's translated speech; absent = the gateway's configured voice |
 
-Refused session requests and terminal refusals during an automatic reconnect end the session with the gateway's code as
-an `error` event (`fatal: true`): `unauthorized`, `invalid_token`, `balance_empty`, `billing_unavailable`,
-`accounts_unavailable`, `bad_request`. `session_limit`, `rate_limited` and `gateway_error` are retried on the next
-reconnect. In account mode the gateway also ends a running session with the fatal codes `balance_exhausted`,
-`billing_unavailable`, `idle_timeout` (10 minutes without speech) and `session_replaced` (the account continued on
-another device).
+On the first connection of a session every refusal is fatal: the session ends with the gateway's code as an `error`
+event (`fatal: true`), `session_limit`, `rate_limited`, `gateway_error` and `gateway_unreachable` (no answer) included.
+On an automatic reconnect only the terminal refusals end the session that way: `unauthorized`, `invalid_token`,
+`balance_empty`, `billing_unavailable`, `accounts_unavailable`, `bad_request`. `session_limit`, `rate_limited`,
+`gateway_error` and an unreachable gateway are retried at the next reconnect; when the last attempt fails the session
+ends with `gateway_unreachable`. In account mode the gateway also ends a running session with the fatal codes
+`balance_exhausted`, `billing_unavailable`, `idle_timeout` (10 minutes without speech) and `session_replaced` (the
+account continued on another device).
 
 A voice id is 10 to 40 ASCII letters and digits. Anything else is treated as absent — the start is not refused — and
 the host sends `voices: { out?, in? }` in `session.configure` only for the ids that are set.
