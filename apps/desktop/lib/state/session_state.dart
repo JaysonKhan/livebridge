@@ -194,6 +194,8 @@ class SessionNotifier extends Notifier<SessionState> {
         state = err.fatal ? _idleWith(error: err) : state.copyWith(error: err);
       case DevicesChangedEvent():
         unawaited(ref.read(setupProvider.notifier).refreshDevices());
+      case BalanceEvent():
+        break; // The connection keeps the account's balance.
     }
   }
 

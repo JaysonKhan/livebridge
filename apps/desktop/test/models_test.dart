@@ -107,6 +107,9 @@ void main() {
       'translationModel': null,
       'outVoiceId': 'voiceChosenOut01',
       'inVoiceId': null,
+      'connection': 'token',
+      'elevenlabsApiKey': null,
+      'geminiApiKey': null,
     });
   });
 

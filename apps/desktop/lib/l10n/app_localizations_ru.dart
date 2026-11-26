@@ -145,6 +145,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get blockEnterToken => 'Введите токен доступа.';
 
   @override
+  String get blockEnterKeys => 'Введите свои ключи ElevenLabs и Gemini.';
+
+  @override
+  String get blockBalanceEmpty => 'Баланс пуст. Пополните его, чтобы начать.';
+
+  @override
   String noticeMicLost(String name) {
     return 'Микрофон «$name» больше недоступен. Выберите другой микрофон.';
   }

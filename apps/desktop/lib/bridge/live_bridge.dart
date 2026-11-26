@@ -10,6 +10,8 @@ abstract class LiveBridge {
   Future<List<AudioDevice>> listDevices();
   Future<List<AudioProcess>> listAudioProcesses();
   Future<Map<String, Object?>> loadSettings();
+
+  /// Saves what a Start remembers ([StartConfig.toSettingsMap]): never the gateway, a token or a key.
   Future<void> saveSettings(StartConfig config);
 
   /// Saves preference keys (contract `saveSettings`: the given keys are merged, `null` removes a key).
@@ -34,6 +36,9 @@ abstract class LiveBridge {
   Future<void> stopMeters();
   Future<void> testTone(String uid);
   Future<void> start(StartConfig config);
+
+  /// Replaces the access token the running session uses at its next automatic reconnect.
+  Future<void> updateAccessToken(String accessToken);
   Future<void> stop();
   Future<void> pttDown();
   Future<void> pttUp();
@@ -75,7 +80,7 @@ class MethodChannelLiveBridge implements LiveBridge {
       await _control.invokeMapMethod<String, Object?>('loadSettings') ?? const {};
 
   @override
-  Future<void> saveSettings(StartConfig config) => _control.invokeMethod<void>('saveSettings', config.toMap());
+  Future<void> saveSettings(StartConfig config) => _control.invokeMethod<void>('saveSettings', config.toSettingsMap());
 
   @override
   Future<void> savePreferences(Map<String, Object?> preferences) =>
@@ -135,6 +140,10 @@ class MethodChannelLiveBridge implements LiveBridge {
 
   @override
   Future<void> start(StartConfig config) => _control.invokeMethod<void>('start', config.toMap());
+
+  @override
+  Future<void> updateAccessToken(String accessToken) =>
+      _control.invokeMethod<void>('updateAccessToken', {'accessToken': accessToken});
 
   @override
   Future<void> stop() => _control.invokeMethod<void>('stop');

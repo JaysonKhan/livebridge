@@ -144,6 +144,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get blockEnterToken => 'Kirish tokenini kiriting.';
 
   @override
+  String get blockEnterKeys => 'ElevenLabs va Gemini kalitlaringizni kiriting.';
+
+  @override
+  String get blockBalanceEmpty => 'Balansingiz bo\'sh. Boshlash uchun hisobni to\'ldiring.';
+
+  @override
   String noticeMicLost(String name) {
     return '\"$name\" mikrofoni endi mavjud emas. Boshqa mikrofon tanlang.';
   }

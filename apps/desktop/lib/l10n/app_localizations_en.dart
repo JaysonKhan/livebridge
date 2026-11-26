@@ -144,6 +144,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockEnterToken => 'Enter the access token.';
 
   @override
+  String get blockEnterKeys => 'Enter your ElevenLabs and Gemini keys.';
+
+  @override
+  String get blockBalanceEmpty => 'Your balance is empty. Top up to start.';
+
+  @override
   String noticeMicLost(String name) {
     return 'Microphone \"$name\" is no longer available. Choose another microphone.';
   }

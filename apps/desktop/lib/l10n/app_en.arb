@@ -63,6 +63,8 @@
   "blockSameLanguages": "Choose two different languages.",
   "blockEnterGateway": "Enter the gateway URL.",
   "blockEnterToken": "Enter the access token.",
+  "blockEnterKeys": "Enter your ElevenLabs and Gemini keys.",
+  "blockBalanceEmpty": "Your balance is empty. Top up to start.",
   "noticeMicLost": "Microphone \"{name}\" is no longer available. Choose another microphone.",
   "@noticeMicLost": {
     "placeholders": {

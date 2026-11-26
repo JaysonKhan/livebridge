@@ -145,6 +145,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get blockEnterToken => 'Erişim jetonunu girin.';
 
   @override
+  String get blockEnterKeys => 'ElevenLabs ve Gemini anahtarlarınızı girin.';
+
+  @override
+  String get blockBalanceEmpty => 'Bakiyeniz boş. Başlamak için bakiye yükleyin.';
+
+  @override
   String noticeMicLost(String name) {
     return '\"$name\" mikrofonu artık kullanılamıyor. Başka bir mikrofon seçin.';
   }

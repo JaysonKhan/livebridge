@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
+import '../state/connection_state.dart';
 import '../state/host_platform.dart';
 import '../state/route_check.dart';
 import '../state/session_state.dart';
@@ -166,7 +167,7 @@ class _StartFooter extends ConsumerWidget {
   Future<void> _start(BuildContext context, WidgetRef ref) async {
     final agreed = await showConsentDialog(context);
     if (!agreed || !context.mounted) return;
-    await ref.read(sessionProvider.notifier).start(ref.read(setupProvider).toConfig());
+    await ref.read(connectionProvider.notifier).start(ref.read(setupProvider).toConfig());
   }
 
   @override
@@ -174,7 +175,12 @@ class _StartFooter extends ConsumerWidget {
     final engine = ref.watch(sessionProvider.select((s) => s.engine));
     final setup = ref.watch(setupProvider);
     final l = context.l10n;
-    final blockers = startBlockers(setup, l, ref.watch(hostPlatformProvider));
+    final blockers = startBlockers(
+      setup,
+      l,
+      ref.watch(hostPlatformProvider),
+      connection: ref.watch(connectionProvider),
+    );
     final running = engine != EngineState.idle;
     final t = context.tokens;
     return Padding(

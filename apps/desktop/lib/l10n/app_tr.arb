@@ -42,6 +42,8 @@
   "blockSameLanguages": "İki farklı dil seçin.",
   "blockEnterGateway": "Gateway adresini girin.",
   "blockEnterToken": "Erişim jetonunu girin.",
+  "blockEnterKeys": "ElevenLabs ve Gemini anahtarlarınızı girin.",
+  "blockBalanceEmpty": "Bakiyeniz boş. Başlamak için bakiye yükleyin.",
   "noticeMicLost": "\"{name}\" mikrofonu artık kullanılamıyor. Başka bir mikrofon seçin.",
   "noticeHeadphonesLost": "\"{name}\" kulaklığı artık kullanılamıyor. Başka bir kulaklık seçin.",
   "startSession": "Oturumu başlat",

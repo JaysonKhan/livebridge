@@ -42,6 +42,8 @@
   "blockSameLanguages": "Выберите два разных языка.",
   "blockEnterGateway": "Введите адрес шлюза.",
   "blockEnterToken": "Введите токен доступа.",
+  "blockEnterKeys": "Введите свои ключи ElevenLabs и Gemini.",
+  "blockBalanceEmpty": "Баланс пуст. Пополните его, чтобы начать.",
   "noticeMicLost": "Микрофон «{name}» больше недоступен. Выберите другой микрофон.",
   "noticeHeadphonesLost": "Наушники «{name}» больше недоступны. Выберите другие наушники.",
   "startSession": "Начать сессию",

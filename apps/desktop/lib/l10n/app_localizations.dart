@@ -346,6 +346,18 @@ abstract class AppLocalizations {
   /// **'Enter the access token.'**
   String get blockEnterToken;
 
+  /// No description provided for @blockEnterKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your ElevenLabs and Gemini keys.'**
+  String get blockEnterKeys;
+
+  /// No description provided for @blockBalanceEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance is empty. Top up to start.'**
+  String get blockBalanceEmpty;
+
   /// No description provided for @noticeMicLost.
   ///
   /// In en, this message translates to:

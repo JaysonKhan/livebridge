@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/l10n/app_localizations.dart';
+import 'package:livebridge/state/connection_state.dart';
 import 'package:livebridge/state/host_platform.dart';
 import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/sample_player.dart';
 import 'package:livebridge/ui/app.dart';
 import 'package:livebridge/ui/home_screen.dart';
 
+import 'fake_account_client.dart';
 import 'fake_live_bridge.dart';
 import 'fake_sample_player.dart';
 import 'fake_voices_client.dart';
@@ -49,6 +51,9 @@ Future<ProviderContainer> pumpApp(
         // No test reaches a gateway or the audio plugin.
         voicesClientProvider.overrideWithValue(fakeVoices),
         samplePlayerProvider.overrideWithValue(fakeSamples),
+        // Nor the site or a browser.
+        accountClientProvider.overrideWithValue(FakeAccountClient()),
+        urlOpenerProvider.overrideWithValue((url) async => true),
         if (platform != null) hostPlatformProvider.overrideWithValue(platform),
       ],
       child: LiveBridgeApp(forcedLocale: forceLocale),

@@ -46,8 +46,20 @@ class FakeLiveBridge implements LiveBridge {
   StartConfig? startedWith;
   StartConfig? savedWith;
 
+  /// What every `saveSettings` call stored (the config's settings map), in order; also merged into [settings].
+  final List<Map<String, Object?>> savedSettings = [];
+
   /// Every `savePreferences` call, in order; they are also merged into [settings] like the real store does.
   final List<Map<String, Object?>> savedPrefs = [];
+
+  /// While set and not completed, `savePreferences` calls are recorded but do not finish.
+  Completer<void>? savePrefsGate;
+
+  /// How many times `loadSettings` was asked.
+  int loadSettingsCount = 0;
+
+  /// Every token handed to the running session with `updateAccessToken`, in order.
+  final List<String> updatedTokens = [];
 
   /// `languageNames`: the system's names per interface language (code -> name); empty = none known.
   Map<String, Map<String, String>> systemLanguageNames = {};
@@ -87,18 +99,25 @@ class FakeLiveBridge implements LiveBridge {
   Future<List<AudioProcess>> listAudioProcesses() async => List.of(processes);
 
   @override
-  Future<Map<String, Object?>> loadSettings() async => settings;
+  Future<Map<String, Object?>> loadSettings() async {
+    loadSettingsCount++;
+    return settings;
+  }
 
   @override
   Future<void> saveSettings(StartConfig config) async {
     calls.add('saveSettings');
     savedWith = config;
+    savedSettings.add(config.toSettingsMap());
+    settings = {...settings, ...config.toSettingsMap()};
   }
 
   @override
   Future<void> savePreferences(Map<String, Object?> preferences) async {
     calls.add('savePreferences');
     savedPrefs.add(Map.of(preferences));
+    final gate = savePrefsGate;
+    if (gate != null) await gate.future;
     settings = {...settings, ...preferences};
   }
 
@@ -172,6 +191,12 @@ class FakeLiveBridge implements LiveBridge {
   Future<void> start(StartConfig config) async {
     calls.add('start');
     startedWith = config;
+  }
+
+  @override
+  Future<void> updateAccessToken(String accessToken) async {
+    calls.add('updateAccessToken');
+    updatedTokens.add(accessToken);
   }
 
   @override

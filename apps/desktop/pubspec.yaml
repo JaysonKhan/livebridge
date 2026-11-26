@@ -39,6 +39,7 @@ dependencies:
   flutter_riverpod: ^3.5.0
   intl: ^0.20.3
   audioplayers: ^6.8.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

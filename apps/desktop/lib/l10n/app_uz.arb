@@ -42,6 +42,8 @@
   "blockSameLanguages": "Ikki xil til tanlang.",
   "blockEnterGateway": "Gateway manzilini kiriting.",
   "blockEnterToken": "Kirish tokenini kiriting.",
+  "blockEnterKeys": "ElevenLabs va Gemini kalitlaringizni kiriting.",
+  "blockBalanceEmpty": "Balansingiz bo'sh. Boshlash uchun hisobni to'ldiring.",
   "noticeMicLost": "\"{name}\" mikrofoni endi mavjud emas. Boshqa mikrofon tanlang.",
   "noticeHeadphonesLost": "\"{name}\" naushnigi endi mavjud emas. Boshqa naushnik tanlang.",
   "startSession": "Sessiyani boshlash",

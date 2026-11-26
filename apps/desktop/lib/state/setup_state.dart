@@ -182,7 +182,7 @@ class SetupNotifier extends Notifier<SetupState> {
   Future<void> load() async {
     final bridge = ref.read(bridgeProvider);
     try {
-      final saved = await bridge.loadSettings();
+      final saved = await ref.read(savedSettingsProvider);
       final devices = await bridge.listDevices();
       final processes = await bridge.listAudioProcesses();
       final permission = await bridge.microphonePermission();

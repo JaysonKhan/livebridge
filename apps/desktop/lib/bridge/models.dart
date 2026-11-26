@@ -85,6 +85,22 @@ enum OutCommit implements Wire {
   final String wire;
 }
 
+/// How a session is paid for. The saved preference `connectionMode` stores [name]; `start` sends [wire].
+enum ConnectionMode implements Wire {
+  /// A signed-in account on the hosted gateway, paid from its balance.
+  account('account'),
+
+  /// The user's own provider keys on the hosted gateway.
+  keys('keys'),
+
+  /// The user's own gateway with its static token.
+  gateway('token');
+
+  const ConnectionMode(this.wire);
+  @override
+  final String wire;
+}
+
 /// The owner's judgement of one translated turn (`none` is sent over the bridge to clear it).
 enum TurnRating implements Wire {
   good('good'),
@@ -235,9 +251,14 @@ class StartConfig {
     required this.translationModel,
     this.outVoiceId,
     this.inVoiceId,
+    this.connection = ConnectionMode.gateway,
+    this.elevenlabsApiKey,
+    this.geminiApiKey,
   });
 
   final String gatewayUrl;
+
+  /// The static gateway token or the account's access token; empty with [ConnectionMode.keys].
   final String accessToken;
   final String micUid;
   final String headphonesUid;
@@ -255,6 +276,39 @@ class StartConfig {
   final String? outVoiceId;
   final String? inVoiceId;
 
+  final ConnectionMode connection;
+
+  /// The user's own provider keys, with [ConnectionMode.keys] only.
+  final String? elevenlabsApiKey;
+  final String? geminiApiKey;
+
+  /// The same config paid for another way: [connection] with its gateway and secrets.
+  StartConfig withAuth({
+    required ConnectionMode connection,
+    required String gatewayUrl,
+    String accessToken = '',
+    String? elevenlabsApiKey,
+    String? geminiApiKey,
+  }) => StartConfig(
+    gatewayUrl: gatewayUrl,
+    accessToken: accessToken,
+    micUid: micUid,
+    headphonesUid: headphonesUid,
+    virtualMicUid: virtualMicUid,
+    sourcePids: sourcePids,
+    myLang: myLang,
+    targetLang: targetLang,
+    mode: mode,
+    outCommit: outCommit,
+    translationModel: translationModel,
+    outVoiceId: outVoiceId,
+    inVoiceId: inVoiceId,
+    connection: connection,
+    elevenlabsApiKey: elevenlabsApiKey,
+    geminiApiKey: geminiApiKey,
+  );
+
+  /// The `start` arguments.
   Map<String, Object?> toMap() => {
     'gatewayUrl': gatewayUrl,
     'accessToken': accessToken,
@@ -269,6 +323,18 @@ class StartConfig {
     'translationModel': translationModel,
     'outVoiceId': outVoiceId,
     'inVoiceId': inVoiceId,
+    'connection': connection.wire,
+    'elevenlabsApiKey': elevenlabsApiKey,
+    'geminiApiKey': geminiApiKey,
+  };
+
+  /// What a Start saves: the route and session choices. The gateway address, the token, the keys and the connection
+  /// are left out, not nulled — a null would delete the saved own-gateway address or token — so they are saved only
+  /// when the user chooses them.
+  Map<String, Object?> toSettingsMap() => {
+    for (final MapEntry(:key, :value) in toMap().entries)
+      if (!const {'gatewayUrl', 'accessToken', 'connection', 'elevenlabsApiKey', 'geminiApiKey'}.contains(key))
+        key: value,
   };
 }
 
@@ -345,6 +411,8 @@ sealed class BridgeEvent {
         );
       case 'devicesChanged':
         return const DevicesChangedEvent();
+      case 'balance':
+        return BalanceEvent((m['balanceUnits'] as num).toInt());
     }
     return null;
   }
@@ -441,6 +509,13 @@ final class ErrorEvent extends BridgeEvent {
 
 final class DevicesChangedEvent extends BridgeEvent {
   const DevicesChangedEvent();
+}
+
+/// The account's balance after the gateway charged the running session.
+final class BalanceEvent extends BridgeEvent {
+  const BalanceEvent(this.balanceUnits);
+
+  final int balanceUnits;
 }
 
 /// Percentiles of one timing series, in milliseconds.
