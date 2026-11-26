@@ -168,8 +168,15 @@ can speak and that realtime speech-to-text can recognise. The default is Uzbek â
 **Voice.** Both directions default to **JaysonKhan - Natural Uzbek Voice** (`ehTFHBkERkWR22A3sR8M`): the author's own
 voice, published by the author in the ElevenLabs Voice Library. Voice Library voices need a paid ElevenLabs plan; if
 your account rejects the id, add the voice to *My Voices* from the Voice Library and use the id shown there. To
-speak in your own voice, put your own clone's id in `ELEVENLABS_OWNER_VOICE_ID`. The other participant's voice is
-never cloned.
+speak in your own voice, put your own clone's id in `ELEVENLABS_OWNER_VOICE_ID`, or choose it in the app. The other
+participant's voice is never cloned.
+
+**Choosing voices in the app.** The **Voices** group in the setup column has a row for each direction â€” *My voice
+(outgoing)* and *Their voice (incoming)*. **Change** opens the voices of the gateway's ElevenLabs account: search by
+name, filter by gender, age, accent, language and use, listen to a sample, then click a voice. **Default** goes back
+to the voice the gateway is configured with. A row is switched off when the selected mode speaks nothing in that
+direction. The list needs the access token, and the gateway's ElevenLabs key needs the *voices read* permission;
+without it the picker says the list is not available and sessions keep the configured voices.
 
 ## Safeguards
 
@@ -269,8 +276,8 @@ clear message. The settings you are most likely to touch:
 |---|---|
 | `GATEWAY_ACCESS_TOKEN` | Client credential (32+ characters). The app keeps it in the macOS Keychain. |
 | `ELEVENLABS_API_KEY`, `GEMINI_API_KEY` | Provider keys. They never leave the gateway. |
-| `ELEVENLABS_OWNER_VOICE_ID` | Voice of your translated speech. |
-| `ELEVENLABS_INCOMING_VOICE_ID` | Voice of the other participant's translated speech. |
+| `ELEVENLABS_OWNER_VOICE_ID` | Voice of your translated speech when none is chosen in the app. |
+| `ELEVENLABS_INCOMING_VOICE_ID` | Voice of the other participant's translated speech when none is chosen in the app. |
 | `VOICES_EXCLUDED_CATEGORIES` | Voice categories left out of the list the app can choose from (comma-separated; empty by default). |
 | `TRANSLATION_MODEL` / `TRANSLATION_FALLBACK_MODEL` | Gemini models; the fallback is used when the primary fails. |
 | `PROVIDER_MODE` | `real`, or `fake` for placeholder providers. |

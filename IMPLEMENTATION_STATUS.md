@@ -1,6 +1,6 @@
 # LiveBridge AI — implementation status
 
-**Updated:** 2026-11-25 (default voice, opt-in statistics and feedback) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
+**Updated:** 2026-11-26 (voice choice in the app) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
 
 ## Where it stands
 
@@ -62,12 +62,15 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | What | Command | Result |
 |---|---|---|
 | TypeScript typecheck | `npm run typecheck` | clean |
-| Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **79 passed, 0 failed** |
-| Swift engine unit tests | `swift test` | **26 passed**, 1 skipped (the live-collector test below) |
-| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **122 passed** |
+| Protocol, gateway, adapters (mock servers), bench harness | `npm test` | **97 passed, 0 failed** |
+| Swift engine unit tests | `swift test` | **29 passed**, 1 skipped (the live-collector test below) |
+| Flutter analysis / widget tests | `flutter analyze`, `flutter test` | no issues / **229 passed** |
 | App end to end (fake providers) | `flutter test integration_test/session_test.dart -d macos` | passed — real UI, engine and microphone |
-| Release build | `flutter build macos --release` | `JK - LiveBridge.app`, 46 MB, ad-hoc signed, macOS 14.2+ |
-| **Live API probe** | `npm run probe` | 27 checks: 0 failed, 3 skipped (key lacks `user_read` / `voices_read`) |
+| Release build | `flutter build macos --release` | `JK - LiveBridge.app`, 48 MB, ad-hoc signed, macOS 14.2+ |
+| **Live API probe** | `npm run probe` | 32 checks: 0 failed, 1 skipped (key lacks `user_read`). Voices: 108 in the account on 2 pages, 106 offered by the gateway, a sample fetched with no key, three voices of each category spoken by the realtime model |
+| **Voice sample player on a device** | `flutter test integration_test/sample_player_test.dart -d macos --dart-define=LB_SAMPLE_URL=…` | passed — a real sample played 9.3 s to its end; a dead address ended as idle; a second sample replaced the first |
+| **Chosen voices with the real providers** | a session with `voices` through the gateway, recorded speech both ways, then the same with none | chosen stock voices: median pitch 218 / 218 Hz; defaults: 122 / 165 Hz; 4 turns, 0 errors |
+| **Voice choice in the app, end to end** | the app on this Mac against the gateway with the real key (no speech captured) | 106 voices in the picker, filter and two samples, a voice chosen per direction → the gateway received exactly those two ids and opened the outgoing synthesizer with the chosen one; after **Default** none were sent |
 | **Real benchmark** | `npm run bench -- --rounds 3 --models gemini-3.5-flash-lite` | 120 turns, 0 failed, first audio p50 1333 / p95 2490 ms |
 | **Real end to end on hardware** | `lbaudio session --mic-file …` | 24 turns, 0 errors, median 1350–1407 ms, max 1806 ms, owner's voice |
 | 60-minute soak (fake providers) | `tests/soak.sh 60` | 1090 turns, 0 errors, no drift, no memory growth |
@@ -115,7 +118,9 @@ into any output.
 | The interface follows the platform: Windows 11 / Fluent on Windows, macOS on the Mac, one teal/mint brand accent on both (`lib/ui/theme/`, `lib/ui/adaptive/`) | Owner's request (2026-11-26). Values from Microsoft's WinUI theme resources and Apple's HIG; brand shades chosen for ≥ 4.5:1 text contrast. macOS gets a unified transparent title bar with the header beside the traffic lights; Windows 11 paints its title bar in the page colour. Every interface language is checked for clipped text by `test/layout_overflow_test.dart`. Dragging the window by the macOS header is implemented but was not tried by hand |
 | Opt-in statistics and feedback go to a collector on the author's site (`docs/telemetry-api.md`) | Off by default, numbers only. **The collector is not deployed yet** — until it is, uploads fail quietly and are retried |
 | Cancel = close and reopen that direction's TTS socket | The dialogue socket documents no per-turn cancel |
-| Riverpod; settings via the native bridge (UserDefaults + Keychain) | No Flutter plugin with native code, so no CocoaPods |
+| Riverpod; settings via the native bridge (UserDefaults + Keychain) | One Flutter plugin with native code, `audioplayers`, only to play voice samples; on macOS it is linked as a Swift package, so still no CocoaPods |
+| Voices are chosen in the app from the gateway's ElevenLabs account: `GET /v1/voices` (cached 10 minutes), optional `voices` in `session.configure`, a picker with search, filters and samples (`docs/specs/2026-11-26-accounts-paid-service-voices-design.md`, step 1) | Owner's design of 2026-11-26. The app reads the list itself over HTTP — one implementation for both platforms; the native hosts only copy the two ids into the configure message |
+| A library voice its owner has switched off (`sharing.status: copied_disabled`) is left out of the list; the provider's `voice_not_found` and `voice_disabled` reach the app as error `voice_not_found` | Found by speaking with all 108 voices of the account once: 106 worked, the 2 refused ones were exactly the switched-off ones. The provider accepts any voice id when a session opens and refuses it only when a turn is spoken, so the app is told in words at that turn |
 | App is **not sandboxed** | Process taps and private aggregate devices; personal-use build |
 | systemd service behind nginx on port 8201 (Docker files provided too) | Matches the server's conventions |
 | Setup guide in Uzbek, UI in simple English | Spec allowed either |
@@ -128,7 +133,7 @@ a real Windows PC after each stage.
 
 | Piece | State |
 |---|---|
-| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, analytics log, the engine's session logic (twin of `Engine.swift`), resampler and multi-source mixer, telemetry uploader | **tested on both platforms**: 1 804 checks with clang on the Mac (also under address/UB and thread sanitizers) and the same five test programs built by MSVC and run on Windows in CI |
+| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, analytics log, the engine's session logic (twin of `Engine.swift`), resampler and multi-source mixer, telemetry uploader | **tested on both platforms**: 1 850 checks with clang on the Mac (also under address/UB and thread sanitizers) and the same five test programs built by MSVC and run on Windows in CI (the 46 checks added with the voice choice have not run there yet: branch `voices` is not pushed) |
 | Windows platform layer (`apps/desktop/windows/runner/`): engine thread, WASAPI microphone capture, render sinks for the headphones and the VB-CABLE virtual microphone, per-process loopback capture of the meeting app (mixed when several), process and device lists, test tone, meters, WinHTTP gateway socket, statistics upload and feedback, Save dialogs, settings (token in the Credential Manager) | **compiles on CI** with `/W4 /WX`, no warnings — and **has never been run**: no session has executed on a Windows PC yet |
 | Interface on Windows (VB-CABLE detection, Windows wording, privacy hint) | done; 8 widget tests force the Windows variant |
 | Installer (Inno Setup, per user, Start menu "JK - LiveBridge", Visual C++ runtime bundled) | builds in CI; not installed on a real PC yet |

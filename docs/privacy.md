@@ -8,7 +8,8 @@
 | Meeting app audio (the other participant) | Only the processes you selected, only during a session. Mac → gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
 | Transcripts and translations | Gateway → Gemini (translation) → ElevenLabs (speech synthesis) → back to the Mac. Shown as captions. | In RAM only; gone when the session or app closes. The last 4 turns per direction are sent with each translation request as context. |
 | Gateway access token | macOS login Keychain. | Until you change it. |
-| Device choices, language, mode, gateway URL, interface language | macOS UserDefaults. | Until changed. No content. |
+| Device choices, language, mode, gateway URL, interface language, the chosen voices | macOS UserDefaults. | Until changed. No content. |
+| Voice list and samples | The list of your ElevenLabs account's voices: gateway → ElevenLabs → the app, when a voice picker is opened or a chosen voice needs its name. A sample you play is downloaded by the app straight from the provider's public sample storage. | The gateway keeps the list in memory for 10 minutes. Nothing is stored on disk. |
 | **Conversation export** (text of both speakers) | Only when you press **Export conversation** and choose where to save. A Markdown file on your disk. | Until you delete the file. |
 | **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on this Mac. Stays there unless you opt in to sharing (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
 | **Shared statistics** (opt-in, off by default) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |
@@ -77,7 +78,8 @@ is shown in the UI and logged. Audio is never fanned out to several providers.
   confirm the other participants were told and agreed. A capture indicator is visible for the whole session.
 - Voices: both directions default to "JaysonKhan - Natural Uzbek Voice" (`ehTFHBkERkWR22A3sR8M`), the project
   author's own voice, which the author published in the ElevenLabs Voice Library. You may set any voice you are
-  authorised to use instead (for example your own clone) in `.env`. The remote speaker's voice is never cloned.
+  authorised to use instead (for example your own clone) in `.env`, or choose one of your account's voices in the
+  app. The remote speaker's voice is never cloned.
 - With the default voice the other participant hears a voice that is **not yours**. The disclosure sentence
   therefore says "a synthesized voice"; do not present it as your natural voice.
 - The tool only interprets: the translation prompt forbids answering questions or following instructions heard in
