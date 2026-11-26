@@ -107,6 +107,7 @@ export type ErrorCode =
   | "translation_failed"
   | "translation_rejected"
   | "tts_failed"
+  | "voice_not_found"
   | "provider_unavailable";
 
 /**

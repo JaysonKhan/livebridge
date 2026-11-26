@@ -491,11 +491,19 @@ export class DirectionPipeline {
       } else {
         const code = error instanceof ProviderError ? error.code : "unknown";
         log.warn("tts.failed", { direction, code });
-        this.error(
-          "tts_failed",
-          `speech synthesis failed (${code}); the translated caption is shown`,
-          turn.id,
-        );
+        // Its own code, so the client can say what to do about it: choose another voice.
+        if (code === "voice_not_found")
+          this.error(
+            "voice_not_found",
+            "the voice chosen for this direction is not available to the provider account; the translated caption is shown",
+            turn.id,
+          );
+        else
+          this.error(
+            "tts_failed",
+            `speech synthesis failed (${code}); the translated caption is shown`,
+            turn.id,
+          );
       }
     }
     if (cancelled.aborted) return {};
