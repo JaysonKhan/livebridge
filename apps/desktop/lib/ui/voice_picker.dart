@@ -133,6 +133,10 @@ class _VoicePickerState extends ConsumerState<_VoicePicker> {
     final theme = Theme.of(context);
     final out = widget.direction == Direction.out;
     final mode = ref.watch(connectionProvider.select((s) => s.mode)) ?? ConnectionMode.gateway;
+    // A sign-out or a change of connection leaves this list meaningless: close it rather than show another mode's.
+    ref.listen(connectionProvider.select((s) => s.mode), (before, after) {
+      if (after != before) Navigator.of(context).maybePop();
+    });
     // The own gateway's address is part of what is asked; the other modes use the hosted gateway.
     final listKey = (
       mode: mode,

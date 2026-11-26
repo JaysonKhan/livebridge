@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:livebridge/bridge/account_client.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/bridge/voices_client.dart';
 import 'package:livebridge/state/connection_state.dart';
@@ -611,6 +612,87 @@ void main() {
       expect(setup.toConfig(ConnectionMode.account).outVoiceId, isNull);
       expect(setup.toConfig(ConnectionMode.gateway).outVoiceId, 'gateway-out');
       expect(setup.toConfig().outVoiceId, 'gateway-out');
+    });
+
+    testWidgets('a Start leaves the own gateway\'s saved voices as they were, in keys and account mode', (
+      tester,
+    ) async {
+      for (final settings in [keysSettings, accountSettings]) {
+        await pumpMode(tester, {
+          ...settings,
+          'outVoiceId': _aria,
+          'outVoiceName': 'Fake Aria',
+          'inVoiceId': _bruno,
+          'inVoiceName': 'Fake Bruno',
+        });
+        await tester.tap(startButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(en.consentCheckbox));
+        await tester.pump();
+        await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+        await tester.pumpAndSettle();
+        expect(fake.startedWith, isNotNull, reason: '${settings['connectionMode']}');
+        expect(fake.savedWith, isNotNull);
+        expect(fake.settings['outVoiceId'], _aria, reason: '${settings['connectionMode']}');
+        expect(fake.settings['inVoiceId'], _bruno, reason: '${settings['connectionMode']}');
+        expect(fake.savedSettings.last.containsKey('outVoiceId'), isFalse);
+        expect(fake.savedSettings.last.containsKey('inVoiceId'), isFalse);
+      }
+    });
+
+    testWidgets('account: a computer the site signed out is signed out once, with no second refresh', (tester) async {
+      var now = DateTime.utc(2026, 11, 26, 12);
+      final site = FakeAccountClient()..now = () => now;
+      final c = await pumpApp(
+        tester,
+        bridge: FakeLiveBridge()..settings = {...accountSettings},
+        site: site,
+        overrides: [
+          delayProvider.overrideWithValue((_) => Completer<void>().future),
+          clockProvider.overrideWithValue(() => now),
+        ],
+      );
+      c.read(setupProvider.notifier).setMode(SessionMode.bidirectional);
+      await tester.pumpAndSettle();
+      final refreshes = site.refreshedWith.length;
+      final signOuts = () => fake.savedPrefs.where((p) => p['connectionMode'] == 'none').length;
+      expect(signOuts(), 0);
+
+      // The access token has run out and the site no longer knows this computer.
+      now = now.add(const Duration(minutes: 20));
+      site.refreshError = const AccountSignedOut();
+      await tester.tap(_outChange);
+      await tester.pumpAndSettle();
+
+      expect(site.refreshedWith.length, refreshes + 1);
+      expect(signOuts(), 1);
+      expect(fakeVoices.calls, isEmpty);
+    });
+
+    testWidgets('account: the gateway refuses the token and the site refuses the refresh: one sign-out, no more', (
+      tester,
+    ) async {
+      final site = FakeAccountClient();
+      final c = await pumpApp(
+        tester,
+        bridge: FakeLiveBridge()..settings = {...accountSettings},
+        site: site,
+        overrides: [delayProvider.overrideWithValue((_) => Completer<void>().future)],
+      );
+      c.read(setupProvider.notifier).setMode(SessionMode.bidirectional);
+      await tester.pumpAndSettle();
+      final refreshes = site.refreshedWith.length;
+
+      fakeVoices.failure = VoicesFailure.unauthorized;
+      site.refreshError = const AccountSignedOut();
+      await tester.tap(_outChange);
+      await tester.pumpAndSettle();
+
+      expect(site.refreshedWith.length, refreshes + 1);
+      expect(fake.savedPrefs.where((p) => p['connectionMode'] == 'none').length, 1);
+      // Only the first request was made, to the hosted gateway; nothing went to the own gateway afterwards.
+      expect(fakeVoices.calls.map((call) => call.url), [kHostedGateway]);
+      expect(_picker, findsNothing);
     });
 
     testWidgets('Start in keys mode sends the keys-mode voices', (tester) async {

@@ -40,14 +40,22 @@ final voicesProvider = FutureProvider.autoDispose.family<List<Voice>, ({Connecti
   (ref, key) async {
     final client = ref.watch(voicesClientProvider);
     final connection = ref.read(connectionProvider.notifier);
+    // Never ask in another mode's name than the one this list was opened for (a sign-out in between changes it).
+    void checkMode() {
+      if (ref.read(connectionProvider).mode != key.mode) throw const VoicesException(VoicesFailure.unauthorized);
+    }
+
     var access = await connection.voicesAccess();
+    checkMode();
     try {
       return await client.list(gatewayUrl: access.url, auth: access.auth);
     } on VoicesException catch (e) {
       // An account's access token can be refused just as it ran out: refresh it once and ask again.
       if (key.mode != ConnectionMode.account || e.failure != VoicesFailure.unauthorized) rethrow;
     }
+    checkMode();
     access = await connection.voicesAccess(forceRefresh: true);
+    checkMode();
     return client.list(gatewayUrl: access.url, auth: access.auth);
   },
   // A failure is shown with a Retry button. Retrying unasked would hide it and keep asking a gateway that refused.

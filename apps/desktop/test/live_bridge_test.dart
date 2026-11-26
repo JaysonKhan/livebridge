@@ -82,6 +82,8 @@ void main() {
       mode: SessionMode.captions,
       outCommit: OutCommit.manual,
       translationModel: null,
+      outVoiceId: 'voice-out',
+      inVoiceId: 'voice-in',
     );
     const secretKeys = ['accessToken', 'gatewayUrl', 'elevenlabsApiKey', 'geminiApiKey', 'connection'];
     final configs = {
@@ -108,6 +110,9 @@ void main() {
           expect(args.containsKey(key), isFalse, reason: key);
         }
         expect(args['micUid'], 'mic1');
+        // Voice choices are saved when picked, under their mode's names; a Start must not write the gateway's.
+        expect(args.containsKey('outVoiceId'), isFalse);
+        expect(args.containsKey('inVoiceId'), isFalse);
       });
     }
 
@@ -119,6 +124,7 @@ void main() {
       expect(start['connection'], 'keys');
       expect(start['elevenlabsApiKey'], 'el-key');
       expect(start['geminiApiKey'], 'gm-key');
+      expect([start['outVoiceId'], start['inVoiceId']], ['voice-out', 'voice-in']);
       expect(calls.last.method, 'updateAccessToken');
       expect(calls.last.arguments, {'accessToken': 'access-2'});
     });

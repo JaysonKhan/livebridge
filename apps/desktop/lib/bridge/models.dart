@@ -330,10 +330,19 @@ class StartConfig {
 
   /// What a Start saves: the route and session choices. The gateway address, the token, the keys and the connection
   /// are left out, not nulled — a null would delete the saved own-gateway address or token — so they are saved only
-  /// when the user chooses them.
+  /// when the user chooses them. The voices are left out too: a choice is saved when it is picked, under its connection
+  /// mode's own names, and a Start of another mode must not overwrite or erase them.
   Map<String, Object?> toSettingsMap() => {
     for (final MapEntry(:key, :value) in toMap().entries)
-      if (!const {'gatewayUrl', 'accessToken', 'connection', 'elevenlabsApiKey', 'geminiApiKey'}.contains(key))
+      if (!const {
+        'gatewayUrl',
+        'accessToken',
+        'connection',
+        'elevenlabsApiKey',
+        'geminiApiKey',
+        'outVoiceId',
+        'inVoiceId',
+      }.contains(key))
         key: value,
   };
 }
