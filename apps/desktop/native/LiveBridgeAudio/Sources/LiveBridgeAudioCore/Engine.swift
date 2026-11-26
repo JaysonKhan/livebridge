@@ -306,6 +306,30 @@ public final class Engine: @unchecked Sendable {
         connect()
     }
 
+    /// The gateway refused this credential or account; retrying the same request cannot succeed.
+    private static let terminalRefusals: Set<String> = [
+        "unauthorized", "invalid_token", "balance_empty", "billing_unavailable", "accounts_unavailable", "bad_request",
+    ]
+
+    /// First connection: fail loudly. Later ones are retries of a session that was already running; they keep
+    /// retrying unless the gateway's refusal is terminal, in which case it is surfaced with its own code.
+    private func connectionFailed(_ error: AudioEngineError) {
+        if phase == .connecting || Self.terminalRefusals.contains(error.code) {
+            emitError(error, fatal: true)
+            stopSession(message: nil)
+        } else {
+            connectionLost(error.message)
+        }
+    }
+
+    /// Runs the reconnect failure path as if the session were degraded and a retry was just refused.
+    func failReconnectForTesting(_ error: AudioEngineError) {
+        queue.sync {
+            phase = .degraded
+            connectionFailed(error)
+        }
+    }
+
     /// The request the next (re)connection will send, built from the config as it is now.
     func nextSessionRequest() -> URLRequest? {
         queue.sync { config.map { GatewayTransport.sessionRequest(baseURL: $0.gatewayURL, config: $0) } }
@@ -326,13 +350,7 @@ public final class Engine: @unchecked Sendable {
             guard let self, self.transport === transport else { return }
             switch result {
             case .failure(let error):
-                // First connection: fail loudly. Later ones are retries of a session that was already running.
-                if self.phase == .connecting {
-                    self.emitError(error, fatal: true)
-                    self.stopSession(message: nil)
-                } else {
-                    self.connectionLost(error.message)
-                }
+                self.connectionFailed(error)
             case .success:
                 transport.send(Self.configureMessage(for: config))
             }

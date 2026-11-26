@@ -137,8 +137,14 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
         telemetry.uploadPending()
       }
       Settings.queue.async {
-        Settings.save(arguments)
-        DispatchQueue.main.async { result(nil) }
+        let failed = Settings.save(arguments)
+        DispatchQueue.main.async {
+          // Only the item's key is named, never its value.
+          result(
+            failed.isEmpty
+              ? nil
+              : FlutterError(code: "settings_failed", message: "could not store: \(failed.sorted().joined(separator: ", "))", details: nil))
+        }
       }
     case "languageNames":
       // Language names in the interface language, from the system's own locale data.
@@ -329,23 +335,38 @@ private enum Settings {
   }
 
   /// Merges the given keys into what is stored; a null value removes a key (a secret's Keychain item included), and
-  /// a key that is absent is left alone.
-  static func save(_ values: [String: Any]) {
-    if ephemeral { return }
+  /// a key that is absent is left alone. Returns the keys of secrets whose Keychain write or delete failed.
+  @discardableResult
+  static func save(_ values: [String: Any]) -> [String] {
+    if ephemeral { return [] }
     var settings = preferences()
     for (key, value) in values where secretAccounts[key] == nil && key != "sourcePids" {
       // Process ids are only meaningful while those processes run, so they are never stored.
       if value is NSNull { settings.removeValue(forKey: key) } else { settings[key] = value }
     }
+    var failed: [String] = []
     for (key, account) in secretAccounts {
       guard let value = values[key], value is NSNull || value is String else { continue }
-      SecItemDelete(keychainQuery(account: account) as CFDictionary)
+      let query = keychainQuery(account: account)
+      let status: OSStatus
       if let secret = value as? String, !secret.isEmpty {
-        var item = keychainQuery(account: account)
-        item[kSecValueData as String] = Data(secret.utf8)
-        SecItemAdd(item as CFDictionary, nil)
+        // Update in place so a failed write never leaves the old value deleted; add only when there is none yet.
+        let data = Data(secret.utf8)
+        let updated = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if updated == errSecItemNotFound {
+          var item = query
+          item[kSecValueData as String] = data
+          status = SecItemAdd(item as CFDictionary, nil)
+        } else {
+          status = updated
+        }
+      } else {
+        let deleted = SecItemDelete(query as CFDictionary)
+        status = deleted == errSecItemNotFound ? errSecSuccess : deleted
       }
+      if status != errSecSuccess { failed.append(key) }
     }
     UserDefaults.standard.set(settings, forKey: defaultsKey)
+    return failed
   }
 }

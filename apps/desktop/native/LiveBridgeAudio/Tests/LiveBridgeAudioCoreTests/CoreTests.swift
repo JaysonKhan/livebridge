@@ -384,6 +384,32 @@ final class ConnectionModeTests: XCTestCase {
         XCTAssertEqual(engine.nextSessionRequest()?.value(forHTTPHeaderField: "Authorization"), "Bearer new-access")
     }
 
+    func testTerminalRefusalsDuringReconnectEndTheSessionWithTheirOwnCode() throws {
+        for code in ["unauthorized", "invalid_token", "balance_empty", "billing_unavailable", "accounts_unavailable", "bad_request"] {
+            let engine = Engine()
+            engine.installConfigForTesting(try config(["connection": "account"]))
+            var events: [[String: Any]] = []
+            engine.onEvent = { events.append($0) }
+            engine.failReconnectForTesting(AudioEngineError(code, "refused"))
+            let error = try XCTUnwrap(events.first { $0["type"] as? String == "error" }, code)
+            XCTAssertEqual(error["code"] as? String, code)
+            XCTAssertEqual(error["fatal"] as? Bool, true)
+            XCTAssertEqual(events.last?["state"] as? String, "idle", code)
+        }
+    }
+
+    func testTransientFailuresDuringReconnectKeepRetrying() throws {
+        for code in ["session_limit", "rate_limited", "gateway_error", "gateway_unreachable"] {
+            let engine = Engine()
+            engine.installConfigForTesting(try config(["connection": "account"]))
+            var events: [[String: Any]] = []
+            engine.onEvent = { events.append($0) }
+            engine.failReconnectForTesting(AudioEngineError(code, "refused"))
+            XCTAssertNil(events.first { $0["type"] as? String == "error" }, code)
+            XCTAssertEqual(events.last?["state"] as? String, "degraded", code)
+        }
+    }
+
     func testBalanceMessageBecomesABalanceEvent() {
         let engine = Engine()
         var events: [[String: Any]] = []
