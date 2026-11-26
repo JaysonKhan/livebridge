@@ -17,6 +17,24 @@ Nothing here measures real human speech, a real meeting app, or the owner's serv
 | LiveBridge's own overhead (capture → gateway → playback) | p50 19 ms, p95 27 ms |
 | 60-minute stability (fake providers) | 1090 turns, 0 errors, no latency drift, no memory growth |
 
+## Hosted vs local gateway (2026-11-26)
+
+The same six recorded turns (uz → en and en → uz, three sentences each, real providers, push-to-talk commits) were sent
+from the Mac through a gateway running on the Mac and through the gateway deployed on the server, timed on the Mac
+from the commit to the first synthesized frame.
+
+| | Local gateway | Hosted gateway |
+|---|---|---|
+| **End of speech → first translated audio at the Mac** (median) | 1029 ms | **809 ms** |
+| Per turn | 1004–1267 ms | 731–897 ms |
+| STT: commit → committed transcript (median) | 261 ms | 150 ms |
+| Translation: first text (median) | 484 ms | 366 ms |
+| TTS: text sent → first audio (median) | 193 ms | 80 ms |
+
+Every hosted turn was faster: the three provider hops leave from the server, a few milliseconds from the providers,
+and only the audio crosses the long link. Six turns is a small sample; the design's condition for making the hosted
+gateway the default (not slower) is met by it.
+
 ## Real providers — gateway benchmark
 
 `npm run bench -- --rounds 3 --models gemini-3.5-flash-lite` — 10 sentences × 3 rounds × 4 directions = 120 turns.

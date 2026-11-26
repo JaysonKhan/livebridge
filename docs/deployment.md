@@ -1,9 +1,9 @@
 # Gateway deployment
 
 **First deployed on 2026-11-26**, with the owner's go-ahead: Node.js on the server, the repository under
-`/var/www/livebridge`, the systemd service — the gateway answers `GET /healthz` on the server's localhost and
-`./deploy.sh` has run end to end. Still to do there: the public hostname (DNS record, certificate, nginx vhost). The
-steps assume a conventional Linux server: plain systemd services under
+`/var/www/livebridge`, the systemd service, and a hostname of its own with a Let's Encrypt certificate and the
+sample nginx vhost — the gateway answers over HTTPS and `./deploy.sh` has run end to end. The steps assume a
+conventional Linux server: plain systemd services under
 `/var/www/<name>`, an nginx reverse proxy, Let's Encrypt certificates, and a `./deploy.sh` that never edits files on
 the server. Server-specific details (addresses, other services, security tooling) are deliberately not recorded in
 this repository.
@@ -83,6 +83,9 @@ silent; nothing else depends on it.
 - A service restart (deploy, OS updates) drops the call's connection for a few seconds; the app reconnects
   automatically (up to five attempts) and speech during the gap must be repeated.
 - nginx `limit_conn` is 4 per address in the sample vhost.
+- The per-address request limit (20 a minute, `POST /v1/sessions` and `GET /v1/voices` together) counts the address
+  nginx puts in `X-Forwarded-For`; the gateway believes that header only from loopback, so nginx must overwrite it
+  (the sample vhost does). Without it every caller would share one budget.
 - **Check before going live:** the gateway answers `429` on `POST /v1/sessions` when a session is already active or
   the per-address rate limit is hit, and `401` for a wrong token. If the server runs fail2ban (or similar) on a
   shared access log, make sure those responses cannot ban your own address; give this vhost its own access log if
