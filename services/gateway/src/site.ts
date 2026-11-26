@@ -64,7 +64,10 @@ export function createSiteClient(options: {
       .digest("hex");
     return new Promise((resolve, reject) => {
       const unavailable = () => reject(new SiteError("unavailable"));
+      // `agent: false`: a fresh connection per call. A pooled one the site has since closed would fail with
+      // ECONNRESET, and an authorize at session start would wrongly answer "unavailable".
       const req = request({
+        agent: false,
         socketPath: options.socketPath,
         method: "POST",
         path,

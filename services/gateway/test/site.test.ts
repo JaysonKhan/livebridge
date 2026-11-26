@@ -148,16 +148,21 @@ test("site: every other outcome is unavailable (HTML 404, 500, non-JSON or malfo
   let next = 0;
   await withSite(
     () => replies[next]!,
-    async (_site, client) => {
+    async (site, client) => {
       for (next = 0; next < replies.length; next++) {
         await assert.rejects(client.authorize(TOKEN), code("unavailable"), `reply ${next}`);
       }
+      // Unavailable for the reply's own sake, not because the site refused the signature.
+      assert.deepEqual(site.failures, []);
+      assert.equal(site.requests.length, replies.length);
     },
   );
   await withSite(
     () => ({ status: 200, body: { charged_units: 1 } }),
-    async (_site, client) => {
+    async (site, client) => {
       await assert.rejects(client.usage(REPORT), code("unavailable"));
+      assert.deepEqual(site.failures, []);
+      assert.equal(site.requests.length, 1);
     },
   );
 });
@@ -187,12 +192,27 @@ test("site: a missing socket file is unavailable", async () => {
 test("site: errors never carry the token, the secret or a response body", async () => {
   await withSite(
     () => ({ status: 500, body: `leak ${TOKEN} ${SECRET}` }),
-    async (_site, client) => {
+    async (site, client) => {
       await assert.rejects(client.authorize(TOKEN), (error: unknown) => {
         const text = String((error as Error).message) + String((error as Error).stack);
         assert.ok(!text.includes(TOKEN) && !text.includes(SECRET) && !text.includes("leak"));
         return error instanceof SiteError;
       });
+      assert.deepEqual(site.failures, []);
+      assert.equal(site.requests.length, 1);
+    },
+  );
+});
+
+test("site: every call opens its own connection (none is pooled for reuse)", async () => {
+  await withSite(
+    () => ({ status: 200, body: { charged_units: 1, balance_units: 1 } }),
+    async (site, client) => {
+      await client.usage(REPORT);
+      await client.usage(REPORT);
+      assert.equal(site.requests.length, 2);
+      // Without `agent: false` the global agent sends keep-alive and may reuse the socket.
+      for (const request of site.requests) assert.equal(request.headers.connection, "close");
     },
   );
 });
