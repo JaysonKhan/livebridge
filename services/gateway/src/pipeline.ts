@@ -81,7 +81,7 @@ export class DirectionPipeline {
   private synthSequence = 0;
   private dropped = 0;
   private commitRequestedAt: number | null = null;
-  private lastOverflowWarning = 0;
+  private lastOverflowWarning = -Infinity;
   private readonly queue: Turn[] = [];
   private working = false;
   private cancel = new AbortController();
