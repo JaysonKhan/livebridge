@@ -1599,6 +1599,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not send your feedback. Check your connection and try again.'**
   String get feedbackFailed;
+
+  /// No description provided for @sectionVoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Voices'**
+  String get sectionVoices;
+
+  /// No description provided for @voiceOut.
+  ///
+  /// In en, this message translates to:
+  /// **'My voice (outgoing)'**
+  String get voiceOut;
+
+  /// No description provided for @voiceIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Their voice (incoming)'**
+  String get voiceIn;
+
+  /// No description provided for @voiceDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get voiceDefault;
+
+  /// No description provided for @voiceChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get voiceChange;
+
+  /// No description provided for @voiceNeedsToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the gateway token to choose voices.'**
+  String get voiceNeedsToken;
+
+  /// No description provided for @voicePickerTitleOut.
+  ///
+  /// In en, this message translates to:
+  /// **'My voice'**
+  String get voicePickerTitleOut;
+
+  /// No description provided for @voicePickerTitleIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Their voice'**
+  String get voicePickerTitleIn;
+
+  /// No description provided for @voiceSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search voices'**
+  String get voiceSearch;
+
+  /// No description provided for @voiceFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get voiceFilterAll;
+
+  /// No description provided for @voiceFilterGender.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get voiceFilterGender;
+
+  /// No description provided for @voiceFilterAge.
+  ///
+  /// In en, this message translates to:
+  /// **'Age'**
+  String get voiceFilterAge;
+
+  /// No description provided for @voiceFilterAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent'**
+  String get voiceFilterAccent;
+
+  /// No description provided for @voiceFilterLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get voiceFilterLanguage;
+
+  /// No description provided for @voiceFilterUseCase.
+  ///
+  /// In en, this message translates to:
+  /// **'Use'**
+  String get voiceFilterUseCase;
+
+  /// No description provided for @voiceGenderMale.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get voiceGenderMale;
+
+  /// No description provided for @voiceGenderFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get voiceGenderFemale;
+
+  /// No description provided for @voiceGenderNeutral.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral'**
+  String get voiceGenderNeutral;
+
+  /// No description provided for @voiceAgeYoung.
+  ///
+  /// In en, this message translates to:
+  /// **'Young'**
+  String get voiceAgeYoung;
+
+  /// No description provided for @voiceAgeMiddle.
+  ///
+  /// In en, this message translates to:
+  /// **'Middle-aged'**
+  String get voiceAgeMiddle;
+
+  /// No description provided for @voiceAgeOld.
+  ///
+  /// In en, this message translates to:
+  /// **'Old'**
+  String get voiceAgeOld;
+
+  /// No description provided for @voicePlaySample.
+  ///
+  /// In en, this message translates to:
+  /// **'Play sample'**
+  String get voicePlaySample;
+
+  /// No description provided for @voiceStopSample.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get voiceStopSample;
+
+  /// No description provided for @voiceNoSample.
+  ///
+  /// In en, this message translates to:
+  /// **'No sample'**
+  String get voiceNoSample;
+
+  /// No description provided for @voiceNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No voices match'**
+  String get voiceNoMatch;
+
+  /// No description provided for @voiceRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get voiceRetry;
+
+  /// No description provided for @voicesUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'The gateway refused the token.'**
+  String get voicesUnauthorized;
+
+  /// No description provided for @voicesUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This gateway cannot list voices. Update it to choose a voice.'**
+  String get voicesUnsupported;
+
+  /// No description provided for @voicesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The voice list is not available right now.'**
+  String get voicesUnavailable;
+
+  /// No description provided for @voicesNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the gateway.'**
+  String get voicesNetwork;
+
+  /// No description provided for @errVoiceNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The chosen voice is not available. Choose another or go back to Default.'**
+  String get errVoiceNotFound;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

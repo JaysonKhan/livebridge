@@ -863,4 +863,97 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get feedbackFailed => 'Не удалось отправить отзыв. Проверьте соединение и попробуйте снова.';
+
+  @override
+  String get sectionVoices => 'Голоса';
+
+  @override
+  String get voiceOut => 'Мой голос (исходящий)';
+
+  @override
+  String get voiceIn => 'Голос собеседника (входящий)';
+
+  @override
+  String get voiceDefault => 'По умолчанию';
+
+  @override
+  String get voiceChange => 'Изменить';
+
+  @override
+  String get voiceNeedsToken => 'Чтобы выбрать голос, введите токен доступа.';
+
+  @override
+  String get voicePickerTitleOut => 'Мой голос';
+
+  @override
+  String get voicePickerTitleIn => 'Голос собеседника';
+
+  @override
+  String get voiceSearch => 'Поиск голосов';
+
+  @override
+  String get voiceFilterAll => 'Все';
+
+  @override
+  String get voiceFilterGender => 'Пол';
+
+  @override
+  String get voiceFilterAge => 'Возраст';
+
+  @override
+  String get voiceFilterAccent => 'Акцент';
+
+  @override
+  String get voiceFilterLanguage => 'Язык';
+
+  @override
+  String get voiceFilterUseCase => 'Назначение';
+
+  @override
+  String get voiceGenderMale => 'Мужской';
+
+  @override
+  String get voiceGenderFemale => 'Женский';
+
+  @override
+  String get voiceGenderNeutral => 'Нейтральный';
+
+  @override
+  String get voiceAgeYoung => 'Молодой';
+
+  @override
+  String get voiceAgeMiddle => 'Средних лет';
+
+  @override
+  String get voiceAgeOld => 'Пожилой';
+
+  @override
+  String get voicePlaySample => 'Прослушать образец';
+
+  @override
+  String get voiceStopSample => 'Остановить';
+
+  @override
+  String get voiceNoSample => 'Нет образца';
+
+  @override
+  String get voiceNoMatch => 'Подходящих голосов нет';
+
+  @override
+  String get voiceRetry => 'Повторить';
+
+  @override
+  String get voicesUnauthorized => 'Шлюз отклонил токен.';
+
+  @override
+  String get voicesUnsupported => 'Этот шлюз не умеет показывать список голосов. Обновите его, чтобы выбрать голос.';
+
+  @override
+  String get voicesUnavailable => 'Список голосов сейчас недоступен.';
+
+  @override
+  String get voicesNetwork => 'Не удалось связаться со шлюзом.';
+
+  @override
+  String get errVoiceNotFound => 'Выбранный голос недоступен. Выберите другой или вернитесь к голосу по умолчанию.';
 }

@@ -864,4 +864,97 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get feedbackFailed => 'Fikringizni yuborib bo\'lmadi. Ulanishni tekshirib, qayta urinib ko\'ring.';
+
+  @override
+  String get sectionVoices => 'Ovozlar';
+
+  @override
+  String get voiceOut => 'Mening ovozim (chiquvchi)';
+
+  @override
+  String get voiceIn => 'Suhbatdosh ovozi (kiruvchi)';
+
+  @override
+  String get voiceDefault => 'Standart';
+
+  @override
+  String get voiceChange => 'O\'zgartirish';
+
+  @override
+  String get voiceNeedsToken => 'Ovoz tanlash uchun kirish tokenini kiriting.';
+
+  @override
+  String get voicePickerTitleOut => 'Mening ovozim';
+
+  @override
+  String get voicePickerTitleIn => 'Suhbatdosh ovozi';
+
+  @override
+  String get voiceSearch => 'Ovozlarni qidirish';
+
+  @override
+  String get voiceFilterAll => 'Hammasi';
+
+  @override
+  String get voiceFilterGender => 'Jins';
+
+  @override
+  String get voiceFilterAge => 'Yosh';
+
+  @override
+  String get voiceFilterAccent => 'Aksent';
+
+  @override
+  String get voiceFilterLanguage => 'Til';
+
+  @override
+  String get voiceFilterUseCase => 'Qo\'llanish';
+
+  @override
+  String get voiceGenderMale => 'Erkak';
+
+  @override
+  String get voiceGenderFemale => 'Ayol';
+
+  @override
+  String get voiceGenderNeutral => 'Neytral';
+
+  @override
+  String get voiceAgeYoung => 'Yosh';
+
+  @override
+  String get voiceAgeMiddle => 'O\'rta yosh';
+
+  @override
+  String get voiceAgeOld => 'Keksa';
+
+  @override
+  String get voicePlaySample => 'Namunani eshitish';
+
+  @override
+  String get voiceStopSample => 'To\'xtatish';
+
+  @override
+  String get voiceNoSample => 'Namuna yo\'q';
+
+  @override
+  String get voiceNoMatch => 'Mos ovoz topilmadi';
+
+  @override
+  String get voiceRetry => 'Qayta urinish';
+
+  @override
+  String get voicesUnauthorized => 'Gateway tokenni qabul qilmadi.';
+
+  @override
+  String get voicesUnsupported => 'Bu gateway ovozlar ro\'yxatini bera olmaydi. Ovoz tanlash uchun uni yangilang.';
+
+  @override
+  String get voicesUnavailable => 'Ovozlar ro\'yxati hozir mavjud emas.';
+
+  @override
+  String get voicesNetwork => 'Gateway\'ga ulanib bo\'lmadi.';
+
+  @override
+  String get errVoiceNotFound => 'Tanlangan ovoz mavjud emas. Boshqasini tanlang yoki Standart ovozga qayting.';
 }

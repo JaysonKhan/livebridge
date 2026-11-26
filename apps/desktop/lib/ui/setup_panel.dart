@@ -18,6 +18,7 @@ import 'analytics_section.dart';
 import 'device_test.dart';
 import 'routing_help.dart';
 import 'theme/tokens.dart';
+import 'voices_section.dart';
 
 class SetupPanel extends ConsumerWidget {
   const SetupPanel({super.key});
@@ -41,6 +42,7 @@ class SetupPanel extends ConsumerWidget {
               ),
             const _LanguageAndMode(key: ValueKey('lang')),
             const _DevicesSection(key: ValueKey('devices')),
+            const VoicesSection(key: ValueKey('voices')),
             const _MeetingSourceSection(key: ValueKey('source')),
             const _GatewaySection(key: ValueKey('gateway')),
             const Card(key: ValueKey('wizard'), child: DeviceTestSection()),

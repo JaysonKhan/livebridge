@@ -860,4 +860,97 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feedbackFailed => 'Could not send your feedback. Check your connection and try again.';
+
+  @override
+  String get sectionVoices => 'Voices';
+
+  @override
+  String get voiceOut => 'My voice (outgoing)';
+
+  @override
+  String get voiceIn => 'Their voice (incoming)';
+
+  @override
+  String get voiceDefault => 'Default';
+
+  @override
+  String get voiceChange => 'Change';
+
+  @override
+  String get voiceNeedsToken => 'Enter the gateway token to choose voices.';
+
+  @override
+  String get voicePickerTitleOut => 'My voice';
+
+  @override
+  String get voicePickerTitleIn => 'Their voice';
+
+  @override
+  String get voiceSearch => 'Search voices';
+
+  @override
+  String get voiceFilterAll => 'All';
+
+  @override
+  String get voiceFilterGender => 'Gender';
+
+  @override
+  String get voiceFilterAge => 'Age';
+
+  @override
+  String get voiceFilterAccent => 'Accent';
+
+  @override
+  String get voiceFilterLanguage => 'Language';
+
+  @override
+  String get voiceFilterUseCase => 'Use';
+
+  @override
+  String get voiceGenderMale => 'Male';
+
+  @override
+  String get voiceGenderFemale => 'Female';
+
+  @override
+  String get voiceGenderNeutral => 'Neutral';
+
+  @override
+  String get voiceAgeYoung => 'Young';
+
+  @override
+  String get voiceAgeMiddle => 'Middle-aged';
+
+  @override
+  String get voiceAgeOld => 'Old';
+
+  @override
+  String get voicePlaySample => 'Play sample';
+
+  @override
+  String get voiceStopSample => 'Stop';
+
+  @override
+  String get voiceNoSample => 'No sample';
+
+  @override
+  String get voiceNoMatch => 'No voices match';
+
+  @override
+  String get voiceRetry => 'Retry';
+
+  @override
+  String get voicesUnauthorized => 'The gateway refused the token.';
+
+  @override
+  String get voicesUnsupported => 'This gateway cannot list voices. Update it to choose a voice.';
+
+  @override
+  String get voicesUnavailable => 'The voice list is not available right now.';
+
+  @override
+  String get voicesNetwork => 'Could not reach the gateway.';
+
+  @override
+  String get errVoiceNotFound => 'The chosen voice is not available. Choose another or go back to Default.';
 }

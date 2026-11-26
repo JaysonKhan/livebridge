@@ -6,12 +6,39 @@ import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/l10n/app_localizations.dart';
 import 'package:livebridge/l10n/labels.dart';
 import 'package:livebridge/state/host_platform.dart';
+import 'package:livebridge/state/setup_state.dart';
 import 'package:livebridge/ui/home_screen.dart';
 import 'package:livebridge/ui/session_panel.dart';
 import 'package:livebridge/ui/setup_panel.dart';
 
 import 'fake_live_bridge.dart';
+import 'fake_voices_client.dart';
 import 'harness.dart';
+
+/// Voices as wide as the provider's get: a 71-character name, every tag, the longest label values seen live.
+const _wideVoices = [
+  Voice(
+    id: 'fakevoice0000000021',
+    name: 'Sardor - Cheerful, Playful, Bright and Friendly Uzbek Conversation Voice',
+    gender: 'male',
+    age: 'middle_aged',
+    accent: 'modern standard',
+    language: 'uz',
+    useCase: 'informative_educational',
+    description: 'A long description that only the search reads.',
+    previewUrl: 'https://samples.example/sardor.mp3',
+  ),
+  Voice(
+    id: 'fakevoice0000000022',
+    name: 'Short',
+    gender: 'female',
+    age: 'young',
+    accent: 'american',
+    language: 'en',
+    useCase: 'characters_animation',
+  ),
+  Voice(id: 'fakevoice0000000023', name: 'No tags at all'),
+];
 
 /// Every interface language on both platform looks, at the default window size and on large screens, with every
 /// section of the setup column built and opened: any clipped row (a RenderFlex overflow) fails the test. The test font
@@ -61,7 +88,14 @@ void main() {
         errors: {'tts_failed': 2},
         path: '/Users/x/LiveBridge/analytics.jsonl',
       );
-    await pumpApp(tester, bridge: bridge, size: size, forceLocale: Locale(code), platform: platform);
+    final c = await pumpApp(
+      tester,
+      bridge: bridge,
+      voices: FakeVoicesClient(voices: _wideVoices),
+      size: size,
+      forceLocale: Locale(code),
+      platform: platform,
+    );
     final l = lookupAppLocalizations(Locale(code));
 
     // The setup column grows with the window up to 480; the session content stops at 1600 and stays centred.
@@ -89,6 +123,40 @@ void main() {
     }
 
     await scrollThroughSetup(tester);
+
+    // The Voices group with the longest voice name chosen, then its picker open with every filter and tag.
+    c.read(setupProvider.notifier)
+      ..setAccessToken('token')
+      ..setMode(SessionMode.bidirectional)
+      ..setOutVoice('fakevoice0000000021');
+    await tester.pump(const Duration(seconds: 1));
+    final change = find.byKey(const Key('voice-out-change'));
+    final position = setupScroll(tester)..jumpTo(0);
+    await tester.pump();
+    while (change.evaluate().isEmpty && position.pixels < position.maxScrollExtent) {
+      position.jumpTo(math.min(position.pixels + 200, position.maxScrollExtent));
+      await tester.pump();
+    }
+    await tester.ensureVisible(change);
+    await tester.pumpAndSettle();
+    // The chosen voice is named in its row, however long the name.
+    expect(find.text(_wideVoices.first.name), findsOneWidget);
+    await tester.tap(change);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('voice-picker')), findsOneWidget);
+    expect(find.text(l.voicePickerTitleOut), findsOneWidget);
+    for (final facet in ['gender', 'age', 'accent', 'language', 'use']) {
+      expect(find.byKey(Key('voice-filter-$facet')), findsOneWidget, reason: facet);
+    }
+    final dialog = tester.getSize(find.byKey(const Key('voice-picker')));
+    expect(dialog.width, lessThanOrEqualTo(560));
+    expect(dialog.height, lessThanOrEqualTo(640));
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.widgetWithText(OutlinedButton, l.cancel));
+    await tester.pumpAndSettle();
+    c.read(setupProvider.notifier).setMode(SessionMode.captions);
+    await tester.pump();
+
     await open(tester, l.testDevicesTitle);
     await open(tester, l.routingTitle);
     for (final topic in [l.routingZoomDesktopTitle, l.routingWebTitle, l.routingUpworkTitle, l.routingBackTitle]) {

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../bridge/languages.dart';
 import '../bridge/models.dart';
+import '../bridge/voices_client.dart';
 import '../state/host_platform.dart';
 import 'app_localizations.dart';
 
@@ -47,6 +48,14 @@ extension AppLocalizationsLabels on AppLocalizations {
 
   String laneTitle(Direction d) => d == Direction.out ? laneOut : laneIn;
 
+  /// Why the voice list could not be shown.
+  String voicesFailure(VoicesFailure failure) => switch (failure) {
+    VoicesFailure.unauthorized => voicesUnauthorized,
+    VoicesFailure.unsupported => voicesUnsupported,
+    VoicesFailure.unavailable => voicesUnavailable,
+    VoicesFailure.network => voicesNetwork,
+  };
+
   String turnSkipped(SkipReason reason) => switch (reason) {
     SkipReason.sameLanguage => turnSkippedSameLanguage,
     SkipReason.echo => turnSkippedEcho,
@@ -58,6 +67,7 @@ extension AppLocalizationsLabels on AppLocalizations {
     'translation_failed' => errTranslationFailed,
     'translation_rejected' => errTranslationRejected,
     'tts_failed' => errTtsFailed,
+    'voice_not_found' => errVoiceNotFound,
     'capture_backlog' => errCaptureBacklog,
     'capture_overflow' => errCaptureOverflow,
     'synthesis_congested' => errSynthesisCongested,

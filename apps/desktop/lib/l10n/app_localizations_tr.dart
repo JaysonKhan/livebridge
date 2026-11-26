@@ -864,4 +864,97 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get feedbackFailed => 'Geri bildiriminiz gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.';
+
+  @override
+  String get sectionVoices => 'Sesler';
+
+  @override
+  String get voiceOut => 'Benim sesim (giden)';
+
+  @override
+  String get voiceIn => 'Karşı tarafın sesi (gelen)';
+
+  @override
+  String get voiceDefault => 'Varsayılan';
+
+  @override
+  String get voiceChange => 'Değiştir';
+
+  @override
+  String get voiceNeedsToken => 'Ses seçmek için erişim jetonunu girin.';
+
+  @override
+  String get voicePickerTitleOut => 'Benim sesim';
+
+  @override
+  String get voicePickerTitleIn => 'Karşı tarafın sesi';
+
+  @override
+  String get voiceSearch => 'Ses ara';
+
+  @override
+  String get voiceFilterAll => 'Tümü';
+
+  @override
+  String get voiceFilterGender => 'Cinsiyet';
+
+  @override
+  String get voiceFilterAge => 'Yaş';
+
+  @override
+  String get voiceFilterAccent => 'Aksan';
+
+  @override
+  String get voiceFilterLanguage => 'Dil';
+
+  @override
+  String get voiceFilterUseCase => 'Kullanım';
+
+  @override
+  String get voiceGenderMale => 'Erkek';
+
+  @override
+  String get voiceGenderFemale => 'Kadın';
+
+  @override
+  String get voiceGenderNeutral => 'Nötr';
+
+  @override
+  String get voiceAgeYoung => 'Genç';
+
+  @override
+  String get voiceAgeMiddle => 'Orta yaşlı';
+
+  @override
+  String get voiceAgeOld => 'Yaşlı';
+
+  @override
+  String get voicePlaySample => 'Örneği dinle';
+
+  @override
+  String get voiceStopSample => 'Durdur';
+
+  @override
+  String get voiceNoSample => 'Örnek yok';
+
+  @override
+  String get voiceNoMatch => 'Eşleşen ses yok';
+
+  @override
+  String get voiceRetry => 'Tekrar dene';
+
+  @override
+  String get voicesUnauthorized => 'Gateway jetonu reddetti.';
+
+  @override
+  String get voicesUnsupported => 'Bu gateway sesleri listeleyemiyor. Ses seçmek için onu güncelleyin.';
+
+  @override
+  String get voicesUnavailable => 'Ses listesi şu anda kullanılamıyor.';
+
+  @override
+  String get voicesNetwork => 'Gateway\'e ulaşılamadı.';
+
+  @override
+  String get errVoiceNotFound => 'Seçilen ses kullanılamıyor. Başka bir ses seçin veya Varsayılan\'a dönün.';
 }
