@@ -19,6 +19,10 @@ abstract class SamplePlayer {
 /// Samples through the `audioplayers` plugin, on the system's default output. Each sample gets a player of its own,
 /// so nothing a replaced sample still reports can be mistaken for the current one.
 class AudioplayersSamplePlayer implements SamplePlayer {
+  /// [newPlayer] makes the plugin's player for one sample; tests pass a stand-in.
+  AudioplayersSamplePlayer({this._newPlayer = AudioPlayer.new});
+
+  final AudioPlayer Function() _newPlayer;
   final _playing = StreamController<String?>.broadcast();
   AudioPlayer? _player;
 
@@ -28,7 +32,7 @@ class AudioplayersSamplePlayer implements SamplePlayer {
   @override
   Future<void> play(String url) async {
     _release();
-    final player = AudioPlayer();
+    final player = _newPlayer();
     _player = player;
     // An error on the plugin's event stream ends the sample like its last second does.
     player.onPlayerComplete.listen((_) => _ended(player), onError: (Object _) => _ended(player));
