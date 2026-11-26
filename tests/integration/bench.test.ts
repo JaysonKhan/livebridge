@@ -8,6 +8,7 @@ import { loadConfig } from "../../services/gateway/src/config.ts";
 import { silentLogger } from "../../services/gateway/src/log.ts";
 import { createFakeProviders } from "../../services/gateway/src/providers/fake.ts";
 import { createRealProviders } from "../../services/gateway/src/providers/real.ts";
+import type { ProviderFactory } from "../../services/gateway/src/providers/types.ts";
 import { SiteError, type SiteClient, type UsageReport } from "../../services/gateway/src/site.ts";
 import {
   deviceSignIn,
@@ -216,8 +217,69 @@ test("remote benchmark, token and own keys: turns through a running gateway, ses
   }
 });
 
-/** The site's app API as far as the bench uses it (device sign-in, refresh, sign-out), on a local port. */
-async function startDeviceSite() {
+test("remote benchmark: what a timed-out turn still sends later is never counted for the next turn", async () => {
+  const inner = createFakeProviders({
+    delayMs: 2,
+    transcripts: ["birinchi", "ikkinchi", "uchinchi", "to'rtinchi"],
+    translate: (req) => `said ${req.text}`,
+  });
+  let commits = 0;
+  // The first turn's transcript comes back late: after that turn has timed out, while the next one is running.
+  const factory: ProviderFactory = {
+    ...inner,
+    stt: (options) =>
+      inner.stt({
+        ...options,
+        events: {
+          ...options.events,
+          onCommitted: (text) =>
+            ++commits === 1
+              ? void setTimeout(() => options.events.onCommitted(text), 600)
+              : options.events.onCommitted(text),
+        },
+      }),
+  };
+  const { gateway, base } = await startGateway({ factory, env: { MAX_SESSIONS: "2" } });
+  try {
+    const result = await runRemoteBench({
+      gateway: base,
+      credentials: { mode: "token", token: ACCESS_TOKEN },
+      sentences: uzSentences,
+      audioFor: fakeAudio,
+      models: [],
+      directions: [["uz", "en"]],
+      rounds: 2,
+      turnTimeoutMs: 300,
+    });
+    assert.equal(result.fatal, undefined);
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.turns.length, 4);
+    assert.deepEqual(
+      result.turns.map((t) => [t.ok, t.error, t.transcript, t.translation]),
+      [
+        [false, "timeout", undefined, undefined],
+        [true, undefined, "ikkinchi", "said ikkinchi"],
+        [true, undefined, "uchinchi", "said uchinchi"],
+        [true, undefined, "to'rtinchi", "said to'rtinchi"],
+      ],
+    );
+    // The turn that timed out ended its session; the rest ran in a new one.
+    assert.equal(result.sessions.length, 2);
+  } finally {
+    await gateway.close();
+  }
+});
+
+/**
+ * The site's app API as far as the bench uses it (device sign-in, refresh, sign-out), on a local port. The first token
+ * polls get `pollAnswers`, one each; the next one gets the tokens.
+ */
+async function startDeviceSite(
+  pollAnswers: [number, object][] = [
+    [400, { error: "authorization_pending" }],
+    [400, { error: "slow_down" }],
+  ],
+) {
   const DEVICE_CODE = "secret-device-code-0123456789";
   const calls: { path: string; body: any; authorization?: string }[] = [];
   const issued: { access_token: string; refresh_token: string }[] = [];
@@ -250,9 +312,8 @@ async function startDeviceSite() {
         });
       if (path === "device/token/") {
         if (body?.device_code !== DEVICE_CODE) return send(400, { error: "invalid_grant" });
-        polls++;
-        if (polls === 1) return send(400, { error: "authorization_pending" });
-        if (polls === 2) return send(400, { error: "slow_down" });
+        const early = pollAnswers[polls++];
+        if (early) return send(...early);
         // 30 s is under the bench's refresh margin, so the first use refreshes it.
         return send(200, pair(30));
       }
@@ -276,6 +337,21 @@ async function startDeviceSite() {
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
+
+test("device sign-in: a 429 from the site while polling waits longer and keeps polling, like slow_down", async () => {
+  const site = await startDeviceSite([
+    [429, { error: "rate_limited" }],
+    [429, {}],
+  ]);
+  try {
+    const slept: number[] = [];
+    const account = await deviceSignIn({ site: site.base, say: () => {}, sleep: async (ms) => void slept.push(ms) });
+    assert.deepEqual(slept, [5000, 10000, 15000]);
+    assert.equal(await account.accessToken(), site.issued.at(-1)!.access_token);
+  } finally {
+    await site.close();
+  }
+});
 
 test("remote benchmark, account: device sign-in, one shared refresh, a fatal error stops the run and keeps what was measured, sign-out", async () => {
   const site = await startDeviceSite();

@@ -442,6 +442,8 @@ export interface RemoteOptions {
   onProgress?: (line: string) => void;
   /** Called after every turn, so results can be saved as they are produced. */
   onTurn?: (turn: BenchTurn) => void;
+  /** How long a turn may take from its commit. Default 20 s; overridable for tests. */
+  turnTimeoutMs?: number;
 }
 
 /** Ends the whole run: every later session would be refused or ended the same way. */
@@ -570,7 +572,8 @@ export async function deviceSignIn(options: {
     }
     if (reply.status === 200 && isPair(reply.json)) return new AccountTokens(options.site, reply.json);
     if (reply.code === "authorization_pending") continue;
-    if (reply.code === "slow_down") {
+    // A 429 from the site's request limit means what slow_down means: poll less often; the code is still valid.
+    if (reply.code === "slow_down" || reply.status === 429) {
       interval += 5;
       continue;
     }
@@ -730,7 +733,7 @@ class RemoteClient {
 }
 
 /** One turn through the gateway, paced in real time like the in-process run. */
-async function remoteTurn(client: RemoteClient, audio: Buffer, startSequence: number) {
+async function remoteTurn(client: RemoteClient, audio: Buffer, startSequence: number, timeoutMs: number) {
   client.messages.length = 0;
   client.firstAudioAt = undefined;
   const after = client.afterTurn;
@@ -754,10 +757,10 @@ async function remoteTurn(client: RemoteClient, audio: Buffer, startSequence: nu
       client.messages.find(
         (m) => settled(m) && (m.type === "metrics" || m.type === "turn.skipped" || m.type === "error"),
       ),
-    20_000,
+    timeoutMs,
   );
   const messages = client.messages.filter(settled);
-  // What still arrives for this turn (or for one that timed out) must not be taken for the next turn's.
+  // What still arrives for this turn must not be taken for the next turn's (one that timed out ends its session).
   client.afterTurn = Math.max(after, ...messages.map((m) => turnOf(m) ?? 0));
   return { committedAt, sequence, done, messages, firstAudioAt: client.firstAudioAt };
 }
@@ -773,10 +776,20 @@ async function runRemoteGroup(
 ) {
   const label = model ?? "gateway default";
   const direction = `${source}-${target}`;
-  const session = await createSession(options.gateway, options.credentials);
-  result.sessions.push({ direction, model: label, ms: Math.round(session.ms) });
-  const client = await RemoteClient.open(options.gateway, session.wsPath, session.token);
-  try {
+  /** A new session, configured and ready; its creation is timed. */
+  const connect = async () => {
+    const session = await createSession(options.gateway, options.credentials);
+    result.sessions.push({ direction, model: label, ms: Math.round(session.ms) });
+    const client = await RemoteClient.open(options.gateway, session.wsPath, session.token);
+    try {
+      await configure(client);
+      return client;
+    } catch (error) {
+      await client.close();
+      throw error;
+    }
+  };
+  const configure = async (client: RemoteClient) => {
     client.send({
       v: 1,
       type: "session.configure",
@@ -804,10 +817,21 @@ async function runRemoteGroup(
     if (!ready)
       throw new Error(`providers not ready for ${source}->${target}: ${JSON.stringify(client.messages.at(-1))}`);
     result.providers ??= ready.providers;
+  };
+  let client = await connect();
+  try {
     let sequence = 0;
+    let timedOut = false;
     for (let round = 0; round < options.rounds; round++) {
       for (const [index, sentence] of sentences.entries()) {
-        const turn = await remoteTurn(client, audio[index]!, sequence);
+        // A turn that timed out can still be answered later, and nothing in that answer tells it from the next turn's:
+        // the run goes on in a new session, so none of it can be counted for a turn it does not belong to.
+        if (timedOut) {
+          await client.close();
+          client = await connect();
+        }
+        const turn = await remoteTurn(client, audio[index]!, sequence, options.turnTimeoutMs ?? 20_000);
+        timedOut = !turn.done;
         sequence = turn.sequence;
         result.turns.push(benchTurn({ model: label, direction, sentence, audio: audio[index]!, ...turn }));
         options.onTurn?.(result.turns.at(-1)!);
@@ -824,7 +848,8 @@ async function runRemoteGroup(
 
 /**
  * The benchmark through a running gateway. Turns are timed as in-process, plus the client's own time from commit to
- * the first synthesized frame; each direction (and model) opens one session, whose creation is timed on its own.
+ * the first synthesized frame; each direction (and model) opens one session, and a new one after a turn that timed out;
+ * each session's creation is timed on its own.
  */
 export async function runRemoteBench(options: RemoteOptions): Promise<RemoteResult> {
   const result: RemoteResult = { turns: [], sessions: [], problems: [] };
@@ -871,7 +896,8 @@ export function remoteMeta(
       : "no session was created",
     "Rounds per sentence": run.rounds,
     "Session state":
-      "warm (one session per direction and model, configured before timing; its creation is timed separately above)",
+      "warm (one session per direction and model, and a new one after a turn that timed out; each configured before " +
+      "timing, its creation timed separately above)",
     "Run from": process.env.HOSTNAME ?? "this machine — note the region when comparing runs",
     ...(result.fatal ? { "Stopped early": result.fatal } : {}),
     ...(result.problems.length ? { Incomplete: result.problems.join("; ") } : {}),
