@@ -17,6 +17,7 @@ import {
 import {
   ACCESS_TOKEN,
   listVoices,
+  requestSession,
   sleep,
   speech,
   startGateway,
@@ -781,6 +782,63 @@ test("end to end on the real adapters (mock servers): one push-to-talk turn thro
   const log = logLines.join("\n");
   for (const forbidden of ["Salom", "Hello", MOCK_API_KEY, MOCK_GEMINI_KEY])
     assert.ok(!log.includes(forbidden), `log leaked ${forbidden}`);
+});
+
+test("own keys on the real adapters (mock servers): speech-to-text, translation, synthesis and the key's voice list use the caller's keys, never the gateway's", async () => {
+  const OWN_ELEVENLABS = "own-elevenlabs-key-0123456789";
+  const OWN_GEMINI = "own-gemini-key-0123456789abcd";
+  // These mock providers accept only the caller's keys: anything sent with the gateway's own keys is refused.
+  const el = await eleven({ apiKey: OWN_ELEVENLABS, transcripts: ["Salom, ishlar qalay?"], voicePages: VOICE_PAGES });
+  const gm = await startMockGemini({ "gemini-3.5-flash-lite": { pieces: ["Hello, ", "how are you?"] } }, OWN_GEMINI);
+  cleanup.push(() => gm.close());
+  const { base, gateway, logLines } = await startGateway({
+    env: {
+      PROVIDER_MODE: "real",
+      ELEVENLABS_API_KEY: MOCK_API_KEY,
+      ELEVENLABS_OWNER_VOICE_ID: "voice-owner",
+      ELEVENLABS_INCOMING_VOICE_ID: "voice-stock",
+      ELEVENLABS_BASE_URL: el.base,
+      GEMINI_API_KEY: MOCK_GEMINI_KEY,
+      GEMINI_BASE_URL: gm.base,
+      MAX_KEYS_SESSIONS: "1",
+      // Left out of the gateway's own list only: a caller's own list is that whole account.
+      VOICES_EXCLUDED_CATEGORIES: "cloned, generated",
+    },
+  });
+  cleanup.push(() => gateway.close());
+  const issued = await requestSession(base, {
+    mode: "keys",
+    elevenlabs_api_key: OWN_ELEVENLABS,
+    gemini_api_key: OWN_GEMINI,
+  });
+  assert.equal(issued.status, 201);
+  const client = await TestClient.open(base, issued.body.token!);
+  const ready = await client.configure();
+  assert.deepEqual([ready.directions.out.ready, ready.directions.in.ready], [true, true]);
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(500));
+  client.send({ v: 1, type: "turn.commit", direction: "out" });
+  await client.message("metrics");
+  assert.equal((await client.message("translation.final")).text, "Hello, how are you?");
+  assert.ok(client.frames.length > 0);
+
+  const listed = await fetch(`${base}/v1/voices`, { headers: { "x-elevenlabs-api-key": OWN_ELEVENLABS } });
+  assert.equal(listed.status, 200);
+  assert.deepEqual(
+    ((await listed.json()) as { voices: { name: string }[] }).voices.map((v) => v.name),
+    ["Aria", "Bruno", "Cleo"],
+  );
+
+  const onlyOwn = (what: string, keys: (string | undefined)[], own: string, atLeast: number) => {
+    assert.ok(keys.length >= atLeast, `${what}: ${keys.length} requests`);
+    assert.ok(keys.every((key) => key === own), `${what} was sent another key`);
+  };
+  onlyOwn("speech-to-text", el.stt.apiKeys, OWN_ELEVENLABS, 2);
+  onlyOwn("synthesis", el.tts.apiKeys, OWN_ELEVENLABS, 2);
+  onlyOwn("voice list", el.voices.requests.map((r) => r.apiKey), OWN_ELEVENLABS, 2);
+  onlyOwn("translation", gm.requests.map((r) => r.apiKey), OWN_GEMINI, 1);
+  const log = logLines.join("\n");
+  for (const key of [OWN_ELEVENLABS, OWN_GEMINI]) assert.ok(!log.includes(key), "log leaked a key");
 });
 
 test("GET /v1/voices never logs credentials", async () => {

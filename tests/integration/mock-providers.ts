@@ -31,17 +31,24 @@ export interface ElevenLabsBehaviour {
   voicePages?: Record<string, unknown>[][];
   /** Sent by GET /v2/voices instead of the list, to a key the mock accepts. */
   voicesReply?: { status: number; body: string };
+  /** The one key this mock accepts. Default MOCK_API_KEY. */
+  apiKey?: string;
 }
 
 export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
+  const accepted = behaviour.apiKey ?? MOCK_API_KEY;
   const stt = {
     connections: 0,
+    /** The key presented by each connection attempt, accepted or not. */
+    apiKeys: [] as (string | undefined)[],
     queries: [] as URLSearchParams[],
     chunks: [] as { bytes: number; commit: boolean; sample_rate: number }[],
     sockets: new Set<WebSocket>(),
   };
   const tts = {
     connections: 0,
+    /** The key presented by each connection attempt, accepted or not. */
+    apiKeys: [] as (string | undefined)[],
     queries: [] as URLSearchParams[],
     messages: [] as Record<string, unknown>[],
     sockets: new Set<WebSocket>(),
@@ -57,7 +64,7 @@ export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
       apiKey: req.headers["xi-api-key"] as string | undefined,
       query: url.searchParams,
     });
-    if (req.headers["xi-api-key"] !== MOCK_API_KEY)
+    if (req.headers["xi-api-key"] !== accepted)
       return void res
         .writeHead(401, { "content-type": "application/json" })
         .end('{"detail":{"status":"invalid_api_key"}}');
@@ -79,7 +86,10 @@ export async function startMockElevenLabs(behaviour: ElevenLabsBehaviour = {}) {
 
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "", "http://mock");
-    if (req.headers["xi-api-key"] !== MOCK_API_KEY) {
+    const key = req.headers["xi-api-key"] as string | undefined;
+    if (url.pathname === "/v1/speech-to-text/realtime") stt.apiKeys.push(key);
+    else if (url.pathname === "/v1/text-to-dialogue/stream-input") tts.apiKeys.push(key);
+    if (key !== accepted) {
       socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       return socket.destroy();
     }
@@ -230,6 +240,8 @@ export interface GeminiModelBehaviour {
 
 export async function startMockGemini(
   models: Record<string, GeminiModelBehaviour>,
+  /** The one key this mock accepts. */
+  apiKey = MOCK_GEMINI_KEY,
 ) {
   const requests: {
     model: string;
@@ -255,7 +267,7 @@ export async function startMockGemini(
       body: JSON.parse(raw || "{}"),
     });
     const behaviour = models[model];
-    if (req.headers["x-goog-api-key"] !== MOCK_GEMINI_KEY)
+    if (req.headers["x-goog-api-key"] !== apiKey)
       return void res
         .writeHead(403)
         .end('{"error":{"status":"PERMISSION_DENIED"}}');

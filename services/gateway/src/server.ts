@@ -118,7 +118,8 @@ export function createGateway({
   providersFor = (keys) =>
     config.PROVIDER_MODE === "real"
       ? createRealProviders(
-          { ...config, ELEVENLABS_API_KEY: keys.elevenlabs, GEMINI_API_KEY: keys.gemini },
+          // The excluded categories trim the service account's list; a caller's own list is that whole account.
+          { ...config, ELEVENLABS_API_KEY: keys.elevenlabs, GEMINI_API_KEY: keys.gemini, voicesExcludedCategories: [] },
           log,
         )
       : factory,
