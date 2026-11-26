@@ -250,6 +250,27 @@ test("reporter: a balance of 0 is passed on and then fatal balance_exhausted; re
   assert.equal(bodies.length, 1);
 });
 
+test("reporter: a balance of 0 goes to the client before the fatal, and a hand-off that throws cannot skip the fatal", async (t) => {
+  const advance = clock(t);
+  for (const throws of [false, true]) {
+    const { site } = fakeSite([0]);
+    const events: string[] = [];
+    const { reporter, meter, logs } = reporterWith(site, {
+      onBalance: (units) => {
+        events.push(`balance ${units}`);
+        if (throws) throw new Error("socket gone");
+      },
+      onFatal: (code) => void events.push(`fatal ${code}`),
+    });
+    reporter.start();
+    meter.addStt("in", 3_200);
+    await advance();
+    assert.deepEqual(events, ["balance 0", "fatal balance_exhausted"]);
+    assert.deepEqual(logs(), throws ? [{ level: "error", event: "billing.callback_failed", session: SESSION }] : []);
+    await reporter.stop();
+  }
+});
+
 test("reporter: usage above what one report may carry goes out at once in consecutive numbers", async (t) => {
   const advance = clock(t);
   const { site, sent } = fakeSite([900, 800, 700]);

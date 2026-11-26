@@ -111,8 +111,15 @@ export class BillingReporter {
       }
       this.accepted();
       if (this.stopping) return;
-      this.options.onBalance(balance);
-      if (balance <= 0) return this.die("balance_exhausted");
+      // Decided before the balance is passed on, so a hand-off that throws cannot skip the fatal; the client still
+      // gets the balance first and the fatal after it.
+      const exhausted = balance <= 0;
+      try {
+        this.options.onBalance(balance);
+      } catch {
+        this.options.log.error("billing.callback_failed", { session: this.options.sessionId });
+      }
+      if (exhausted) return this.die("balance_exhausted");
       // More was used than one report may carry: the rest goes now, not at the next interval.
       report = this.carried() ? this.cut() : null;
     }

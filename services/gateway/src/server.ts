@@ -441,7 +441,9 @@ export function createGateway({
           admission.release(entry.ticket);
           const report = session.finished;
           finalReports.add(report);
-          void report.then(() => finalReports.delete(report));
+          // Gone either way it ends; a rejection is not passed on (shutdown's allSettled sees the original).
+          const done = () => void finalReports.delete(report);
+          void report.then(done, done);
         },
       });
       sessions.set(entry.ticket, session);
