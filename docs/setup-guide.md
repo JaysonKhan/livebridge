@@ -1,33 +1,37 @@
 # LiveBridge — o'rnatish va ishlatish qo'llanmasi
 
-LiveBridge siz o'zbekcha gapirganingizni inglizcha yoki ruscha qilib, sintez qilingan ovoz bilan qo'ng'iroqqa
-uzatadi, suhbatdoshning inglizcha/ruscha nutqini esa o'zbekcha subtitr va ovoz qilib sizga beradi. Suhbatdosh hech
-narsa o'rnatmaydi.
+LiveBridge siz o'z tilingizda gapirganingizni suhbatdosh tiliga o'girib, sintez qilingan ovoz bilan qo'ng'iroqqa
+uzatadi, suhbatdoshning nutqini esa sizning tilingizda subtitr va ovoz qilib beradi. Har ikki til 90 tildan
+tanlanadi (standart: o'zbekcha ↔ inglizcha). Suhbatdosh hech narsa o'rnatmaydi. Ilova **macOS** va **Windows**'da
+ishlaydi.
 
-> **Holat (2026-11-24):** haqiqiy ElevenLabs va Gemini bilan boshdan-oxir ishlaydi: gap tugagach tarjima ovozi
-> o'rtacha 1,35–1,41 soniyada chiqadi (sun'iy nutq bilan o'lchangan). BlackHole o'rnatilgan va tekshirilgan (unga faqat
-> tarjima ovozi boradi). Hali qilinmagan: macOS ruxsatlari berilmagan, Zoom / Meet / Upwork'da haqiqiy qo'ng'iroq
-> bilan SINALMAGAN.
+> **Holat (2026-11-26):** haqiqiy ElevenLabs va Gemini bilan boshdan-oxir ishlaydi, muallif Google Meet
+> qo'ng'iroqlarida ishlatadi; Windows ilovasi haqiqiy kompyuterda ishlatib ko'rilgan. Gap tugagach tarjima ovozi
+> o'rtacha 1,35–1,41 soniyada eshitiladi (sun'iy nutq bilan o'lchangan); gateway provayderlarga yaqin serverda
+> turganda ~0,8 soniya. Zoom va Upwork qo'ng'iroqlarida hali sinalmagan.
 > Batafsil: `IMPLEMENTATION_STATUS.md`, o'lchovlar: `docs/benchmark.md`.
 
-## 0. Windows'da (sinov bosqichida)
+## 0. Windows'da
 
-Windows versiyasi yig'iladi va uchala rejim yozilgan, lekin haqiqiy kompyuterda **hali sinalmagan**.
+Windows 10 yoki 11 (64-bit) kerak. Uchala rejim ham ishlaydi.
 
-1. **O'rnatish:** GitHub Actions'dagi oxirgi «Windows» yig'ilishidan `JK-LiveBridge-windows-setup` ni yuklab,
-   `JK-LiveBridge-…-windows-setup.exe` ni ishga tushiring (administrator huquqi kerak emas). Windows «noma'lum
-   nashriyotchi» desa: **More info → Run anyway**. Ilova Start menyuda **JK - LiveBridge** nomi bilan chiqadi.
+1. **O'rnatish:** [Releases sahifasidan](https://github.com/JaysonKhan/livebridge/releases/latest)
+   `JK-LiveBridge-<versiya>-windows-setup.exe` ni yuklab, ishga tushiring (administrator huquqi kerak emas).
+   O'rnatuvchi imzolanmagan, shuning uchun Windows «noma'lum nashriyotchi» deydi: **More info → Run anyway**. Ilova
+   Start menyuda **JK - LiveBridge** nomi bilan chiqadi.
 2. **Virtual mikrofon (faqat ikki tomonlama rejim uchun):** [VB-CABLE](https://vb-audio.com/Cable/) ni o'rnating va
    kompyuterni qayta yoqing. U ikki qurilma qo'shadi: ilova tarjimani **CABLE Input** ga chiqaradi, Zoom/Meet'da
    mikrofon sifatida **CABLE Output** ni tanlaysiz.
-3. **Gateway:** Windows ilovasi ham gateway'ga ulanadi. Mac'dagi gateway'dan foydalansangiz, uni tarmoq uchun oching
-   (`HOST=0.0.0.0 npm run gateway`), ilovaga `http://<Mac manzili>:8201` va o'sha tokenni kiriting.
+3. **Gateway:** Windows ilovasi ham gateway'ga ulanadi. Serverdagi gateway bo'lsa, uning `https://` manzilini va
+   tokenni kiriting. Mac'dagi gateway'dan foydalansangiz, uni tarmoq uchun oching (`HOST=0.0.0.0 npm run gateway`),
+   ilovaga `http://<Mac manzili>:8201` va o'sha tokenni kiriting.
 4. **Mikrofon ruxsati:** Settings → Privacy & security → Microphone → «Let desktop apps access your microphone» yoqilgan
    bo'lsin.
 5. **Suhbatdosh ovozini ushlash** (kiruvchi va ikki tomonlama rejimlar) **Windows 11** yoki Windows 10'ning yangi
    build'ini talab qiladi; eski Windows'da ilova buni xato bilan aytadi.
 
-Qolgan qadamlar macOS bilan bir xil (2-bo'limdan).
+Qolgan qadamlar macOS bilan bir xil (2-bo'limdan); uchrashuv ilovasida mikrofon sifatida **BlackHole 2ch** o'rniga
+**CABLE Output** ni tanlaysiz.
 
 ## 1. Bir martalik tayyorgarlik
 
@@ -66,7 +70,8 @@ inglizcha/ruscha, `ELEVENLABS_INCOMING_VOICE_ID` — kiruvchi o'zbekcha) standar
 `ehTFHBkERkWR22A3sR8M`: bu loyiha muallifining o'z ovozi («JaysonKhan - Natural Uzbek Voice»), uni muallifning o'zi
 ElevenLabs Voice Library'da ochiq qilgan. Kutubxona ovozlari uchun pullik ElevenLabs tarifi kerak; hisobingiz bu ID'ni
 rad etsa, ovozni Voice Library'dan «My Voices»ga qo'shing va u yerda ko'rsatilgan ID'ni yozing. O'z klon ovozingizni
-ishlatmoqchi bo'lsangiz, shu ikki qatorga uning ID'sini qo'ying. Suhbatdoshning ovozi hech qachon klonlanmaydi.
+ishlatmoqchi bo'lsangiz, shu ikki qatorga uning ID'sini qo'ying yoki ovozni ilovaning o'zida tanlang (2-bo'lim,
+«Ovozlar»). Suhbatdoshning ovozi hech qachon klonlanmaydi.
 Kalitsiz sinab ko'rish: `.env` da `PROVIDER_MODE=fake` (soxta matn va signal ovozi — tarjima emas).
 
 Serverga joylash: `docs/deployment.md`.
@@ -100,21 +105,27 @@ imzolangan — qayta build qilinganda macOS ruxsatlarni yana so'rashi mumkin (bu
      saralanadi. Ikki til bir xil bo'lsa sessiya boshlanmaydi. O'zbek ↔ ingliz/rusdan boshqa juftliklar
      o'lchanmagan — sifatini o'zingiz sinab ko'ring.
    - **Mode** — `Captions only` (faqat subtitr), `Incoming audio` (subtitr + o'zbekcha ovoz naushnikda),
-     `Bidirectional speech` (ikki tomonlama ovoz; BlackHole kerak).
+     `Bidirectional speech` (ikki tomonlama ovoz; virtual mikrofon kerak — macOS'da BlackHole, Windows'da VB-CABLE).
    - **Microphone** — haqiqiy mikrofoningiz. **Headphones** — naushnigingiz.
    - **Meeting source** — Zoom yoki brauzer jarayonini belgilang (avval qo'ng'iroqni oching, so'ng **Refresh**).
      Brauzerda bo'lsa: alohida brauzer oynasi ishlating va boshqa ovozli tablarni yoping — ilova bitta tabni emas,
      butun brauzer jarayonining ovozini oladi.
    - **Gateway URL** va **Access token**.
+   - **Ovozlar** — ikki qator: «Mening ovozim (chiquvchi)» suhbatdosh eshitadigan tarjimangiz ovozi, «Suhbatdosh ovozi
+     (kiruvchi)» siz eshitadigan ovoz. **O'zgartirish** gateway'dagi ElevenLabs hisobining ovozlarini ochadi: nomini
+     qidiring, jins, yosh, aksent, til va qo'llanish bo'yicha saralang, ▶ bilan namunani eshiting, keyin ovozni
+     bosing. **Standart** — gateway'da sozlangan ovozga qaytish. Tanlov darhol saqlanadi. Ro'yxat uchun token kerak,
+     gateway'ning ElevenLabs kalitida esa *voices read* ruxsati bo'lishi kerak; aks holda oyna ro'yxat mavjud emasligini
+     aytadi va sessiya sozlangan ovozlar bilan ishlayveradi.
 3. **Device test** bo'limida: gapirganingizda mikrofon ko'rsatkichi qimirlashi, suhbatdosh gapirganda manba
    ko'rsatkichi qimirlashi, «Test headphones» signali naushnikda eshitilishi kerak.
 4. Uchrashuv ilovasida audio sozlamalari:
 
 | Platforma | Microphone | Speaker |
 |---|---|---|
-| Zoom Desktop — Settings → Audio | **BlackHole 2ch** | naushnigingiz |
-| Zoom Web / Google Meet — brauzerdagi audio sozlamalari | **BlackHole 2ch** | naushnigingiz |
-| Upwork — qo'ng'iroqni Upwork Messages'dan boshlang, so'ng yuqoridagi Zoom/brauzer sozlamasi | **BlackHole 2ch** | naushnigingiz |
+| Zoom Desktop — Settings → Audio | **BlackHole 2ch** (Windows'da **CABLE Output**) | naushnigingiz |
+| Zoom Web / Google Meet — brauzerdagi audio sozlamalari | **BlackHole 2ch** (Windows'da **CABLE Output**) | naushnigingiz |
+| Upwork — qo'ng'iroqni Upwork Messages'dan boshlang, so'ng yuqoridagi Zoom/brauzer sozlamasi | **BlackHole 2ch** (Windows'da **CABLE Output**) | naushnigingiz |
 
    Faqat subtitr rejimida uchrashuv ilovasidagi mikrofonni o'zgartirmang.
 5. **Start session** bosing. Ochilgan oynadagi jumlani suhbatdoshga ayting yoki chatga yozing va roziligini oling:

@@ -180,9 +180,9 @@ translation request, and warm sockets send 100 ms of keep-alive silence every 8 
 
 ## Not measured
 
-- The owner's server (region, RTT to providers): nothing is deployed. The Mac ↔ provider path here includes a
-  residential network with visible instability; a gateway in a data centre should be steadier, but that is a guess
-  until `npm run bench` is run there.
+- The owner's server with the full benchmark: only six turns were measured through it (section "Hosted vs local
+  gateway"). The Mac ↔ provider path here includes a residential network with visible instability; a gateway in a
+  data centre should be steadier, but that is a guess until `npm run bench` is run there.
 - Real human speech (accent, dialect, speed, code-switching), real meeting-app audio, overlapping speakers.
 - The incoming direction on hardware (tap permission), a meeting app reading the BlackHole microphone, any real call.
 - `vad` / `turn_prediction` end-to-end latency (only the commit delay above).

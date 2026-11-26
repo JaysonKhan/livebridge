@@ -2,13 +2,14 @@
 
 # LiveBridge AI
 
-**A real-time speech interpreter for calls on macOS.** You speak your language; the other person hears theirs, a
+**A real-time speech interpreter for calls on macOS and Windows.** You speak your language; the other person hears theirs, a
 moment later, in a synthesized voice — and their reply comes back to you as captions and speech in your language.
 It works with Zoom, Google Meet and any other meeting app, and the other participant installs nothing.
 
 [![Download](https://img.shields.io/github/v/release/JaysonKhan/livebridge?label=download)](https://github.com/JaysonKhan/livebridge/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Platform: macOS 14.2+](https://img.shields.io/badge/platform-macOS%2014.2%2B-black?logo=apple)
+![Platform: Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows)
 ![Languages: 90](https://img.shields.io/badge/languages-90-blue)
 [![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/JaysonKhan)
 
@@ -49,27 +50,32 @@ It works with Zoom, Google Meet and any other meeting app, and the other partici
   to Zoom or Meet it is just a microphone.
 - **Honest by design.** The app will not start a session until you confirm the other participants were told an AI
   interpreter is in use. No audio is recorded, and nothing is stored unless you export it.
+- **macOS and Windows.** The same app on both, with each system's own look: a DMG for the Mac, an installer for
+  Windows 10 and 11.
+- **Choose the voices.** Pick the voice your translated speech is spoken in, and the voice of the other person —
+  search, filter and listen to samples first.
 - **Interface in four languages:** Uzbek, Russian, Turkish and English.
 - **Extras:** export the conversation as Markdown, rate individual translations, and a local numbers-only log of
   speed and errors.
 
 ## How it works
 
-LiveBridge has three parts: a **desktop app** (Flutter) for controls and captions, an **audio engine** (Swift) that
-captures and plays sound on the Mac, and a **gateway** (Node.js) that talks to the AI providers. The API keys live
+LiveBridge has three parts: a **desktop app** (Flutter) for controls and captions, a native **audio engine** that
+captures and plays sound (Swift on macOS, C++ on Windows), and a **gateway** (Node.js) that talks to the AI
+providers. The API keys live
 only in the gateway — never in the app.
 
 ```mermaid
 flowchart TB
-    subgraph mac["Your Mac"]
+    subgraph mac["Your computer"]
         mic["Microphone"]
         meeting["Meeting app audio"]
-        engine["Audio engine (Swift)"]
+        engine["Audio engine (Swift on macOS, C++ on Windows)"]
         app["Desktop app: captions and controls"]
         phones["Your headphones"]
-        virtual["BlackHole 2ch virtual microphone"]
+        virtual["Virtual microphone (BlackHole on macOS, VB-CABLE on Windows)"]
         mic --> engine
-        meeting -- process tap --> engine
+        meeting -- per-app capture --> engine
         engine --> app
         engine -- their speech, translated --> phones
         engine -- your speech, translated --> virtual
@@ -111,8 +117,9 @@ sequenceDiagram
     Engine->>Them: plays into the virtual microphone
 ```
 
-1. **Capture.** The engine reads your microphone straight from Core Audio and resamples it to 16 kHz mono. For the
-   other direction it taps the audio of the meeting app you selected — only that app, never the whole system.
+1. **Capture.** The engine reads your microphone straight from the system (Core Audio on macOS, WASAPI on Windows)
+   and resamples it to 16 kHz mono. For the other direction it captures the audio of the meeting app you selected —
+   only that app, never the whole system.
 2. **Transport.** Audio travels to the gateway over one WebSocket as small binary frames, each tagged with its
    direction, a sequence number and a turn id. Control messages are JSON.
 3. **Speech to text.** The gateway streams the audio to ElevenLabs Scribe v3 Live. Partial transcripts become live
@@ -121,8 +128,8 @@ sequenceDiagram
    for names and terminology. Translating whole turns protects negation and meaning. The model's answer is checked
    before anything is spoken: empty, runaway or structured output is rejected and never read aloud.
 5. **Text to speech.** The translation is spoken by ElevenLabs Eleven v4 Turbo and streamed back as 24 kHz audio.
-6. **Playback.** Your translated speech is written to the **BlackHole 2ch** virtual microphone, which the meeting
-   app uses as its microphone. The other person's translated speech is played in your headphones.
+6. **Playback.** Your translated speech is written to the virtual microphone — **BlackHole 2ch** on macOS,
+   **VB-CABLE** on Windows — which the meeting app uses as its microphone. The other person's translated speech is played in your headphones.
 
 The two directions are completely separate pipelines that share nothing but the connection, so one being busy never
 delays the other.
@@ -135,6 +142,7 @@ delays the other.
 | Gateway benchmark, first translated audio (120 turns) | p50 **1.33 s**, p95 2.49 s |
 | Translation alone | about 0.5–0.65 s |
 | Speech synthesis, first audio | about 0.2–0.3 s |
+| End of speech → first translated audio at the computer, gateway on a server next to the providers (6 turns) | median **0.81 s** (1.03 s with the gateway on the same computer) |
 
 Measured with synthetic speech for Uzbek ↔ English and Russian (`docs/benchmark.md`). Other language pairs work but
 have not been measured.
@@ -147,7 +155,7 @@ have not been measured.
 |---|:---:|:---:|:---:|
 | Captions only | ✅ | — | — |
 | Incoming audio | ✅ | ✅ | — |
-| Bidirectional speech | ✅ | ✅ | ✅ (needs BlackHole) |
+| Bidirectional speech | ✅ | ✅ | ✅ (needs a virtual microphone) |
 
 **Turn mode** — when your speech is sent:
 
@@ -196,16 +204,24 @@ without it the picker says the list is not available and sessions keep the confi
 | | |
 |---|---|
 | **Mac** | macOS 14.2 or newer (developed on Apple Silicon) |
-| **Build tools** | Xcode with Swift, Flutter (Dart 3.13+), Node.js 22.18+ |
+| **Windows PC** | Windows 10 or 11, 64-bit. Hearing the meeting app (*Incoming audio*, *Bidirectional speech*) needs Windows 11 or Windows 10 build 20348 or newer |
+| **Build tools** | Flutter (Dart 3.13+) and Node.js 22.18+; Xcode with Swift for macOS, Visual Studio with C++ for Windows (the Windows app is also built by this repository's GitHub workflow) |
 | **API keys** | ElevenLabs (speech to text + text to speech) and Google Gemini |
-| **Virtual microphone** | [BlackHole 2ch](https://existential.audio/blackhole/) — only for *Bidirectional speech* |
+| **Virtual microphone** | Only for *Bidirectional speech*: [BlackHole 2ch](https://existential.audio/blackhole/) on macOS, [VB-CABLE](https://vb-audio.com/Cable/) on Windows |
 | **Headphones** | Strongly recommended: speakers feed the translated voice back into the microphone |
 
 ## Quick start
 
-**Download:** the latest DMG is on the [Releases page](https://github.com/JaysonKhan/livebridge/releases/latest).
-It contains the app only — you still need a gateway (steps 1–2 below) — and it is not notarised, so the first
-launch needs **System Settings → Privacy & Security → Open Anyway**. Or build everything from source:
+**Download:** the [Releases page](https://github.com/JaysonKhan/livebridge/releases/latest) has the DMG for macOS
+and the installer for Windows. Both contain the app only — you still need a gateway (steps 1–2 below).
+
+- **macOS:** open the DMG and drag **JK - LiveBridge** to Applications. It is not notarised, so the first launch
+  needs **System Settings → Privacy & Security → Open Anyway**.
+- **Windows:** run `JK-LiveBridge-<version>-windows-setup.exe`; it installs for your user, no administrator rights
+  needed. It is not code-signed, so SmartScreen asks first: **More info → Run anyway**. The app is in the Start menu
+  as **JK - LiveBridge**.
+
+Or build everything from source:
 
 ### 1. Try it without any keys
 
@@ -239,9 +255,12 @@ npm run gateway
 ```
 
 Then start a session in the app as above. On first launch macOS asks for two permissions — allow both:
-**Microphone**, and **System Audio Recording** (used only for the meeting app you select).
+**Microphone**, and **System Audio Recording** (used only for the meeting app you select). On Windows, check that
+**Settings → Privacy & security → Microphone → Let desktop apps access your microphone** is on.
 
-### 3. Package it as a DMG
+### 3. Package it
+
+**macOS — a DMG:**
 
 ```bash
 ./scripts/make-dmg.sh    # builds the app and writes dist/JK-LiveBridge-<version>.dmg
@@ -251,10 +270,17 @@ Open the DMG and drag **JK - LiveBridge** to Applications. The app is ad-hoc sig
 another Mac the first launch is blocked: open **System Settings → Privacy & Security** and press **Open Anyway**.
 The DMG contains the app only — the gateway still has to run (step 2).
 
+**Windows — an installer:** every push to `main` that touches the app runs the *Windows* GitHub workflow, which
+builds the app, runs the engine core's tests and attaches `JK-LiveBridge-<version>-windows-setup.exe` to the run
+(artifact `JK-LiveBridge-windows-setup`). To build it yourself on Windows: `flutter build windows --release` in
+`apps/desktop`, then compile `apps/desktop/windows/installer.iss` with Inno Setup 6 (`LB_VERSION` set to the version).
+
 ## Using it in a call
 
-1. Install the virtual microphone once: `brew install blackhole-2ch`, then restart the Mac.
-2. In the meeting app set **Microphone → BlackHole 2ch** and **Speaker → your headphones**.
+1. Install the virtual microphone once and restart the computer: on macOS `brew install blackhole-2ch`, on Windows
+   [VB-CABLE](https://vb-audio.com/Cable/).
+2. In the meeting app set **Speaker → your headphones** and **Microphone → BlackHole 2ch** (macOS) or
+   **CABLE Output** (Windows; LiveBridge plays your translation into **CABLE Input**).
 
    | App | Where |
    |---|---|
@@ -274,7 +300,7 @@ clear message. The settings you are most likely to touch:
 
 | Variable | Meaning |
 |---|---|
-| `GATEWAY_ACCESS_TOKEN` | Client credential (32+ characters). The app keeps it in the macOS Keychain. |
+| `GATEWAY_ACCESS_TOKEN` | Client credential (32+ characters). The app keeps it in the macOS Keychain or the Windows Credential Manager. |
 | `ELEVENLABS_API_KEY`, `GEMINI_API_KEY` | Provider keys. They never leave the gateway. |
 | `ELEVENLABS_OWNER_VOICE_ID` | Voice of your translated speech when none is chosen in the app. |
 | `ELEVENLABS_INCOMING_VOICE_ID` | Voice of the other participant's translated speech when none is chosen in the app. |
@@ -287,7 +313,7 @@ See [`.env.example`](.env.example) for the complete list with comments.
 
 ## Privacy
 
-- **Audio** leaves the Mac only during a session you started, goes to your own gateway and from there to the
+- **Audio** leaves your computer only during a session you started, goes to your own gateway and from there to the
   providers. LiveBridge does not store it.
 - **Captions** are kept in memory and disappear when the session ends. **Export** writes a Markdown file only when
   you ask for it.
@@ -303,7 +329,9 @@ Details: [`docs/privacy.md`](docs/privacy.md) and [`docs/telemetry-api.md`](docs
 
 ```text
 apps/desktop/                          Flutter app: UI, state, localisation, tests
-apps/desktop/native/LiveBridgeAudio/   Swift audio engine (library + `lbaudio` command-line tool + tests)
+apps/desktop/native/LiveBridgeAudio/   Swift audio engine for macOS (library + `lbaudio` command-line tool + tests)
+apps/desktop/native/livebridge_core/   portable C++ engine core used by the Windows app (+ tests)
+apps/desktop/windows/                  Windows runner: WASAPI audio, per-app capture, installer script
 apps/desktop/macos/                    Xcode runner: links the engine, bridges it to Flutter
 services/gateway/                      Node.js gateway: sessions, pipelines, provider adapters, probe, benchmark
 packages/protocol/                     Wire protocol: binary audio frame, JSON messages, language table
@@ -344,11 +372,11 @@ and `npm run bench` are the tools that exercise the real providers.
   has measured them.
 - **Two people in one room will hear a mess.** Both microphones pick up both voices. The crosstalk filters catch
   most of it by language, but they cannot tell who is speaking — test from separate rooms, with headphones.
-- **No notarised download.** The DMG is ad-hoc signed, so macOS asks for confirmation on first launch, and it
-  holds the app only: the gateway runs separately, on your own machine or server, with your own API keys.
-- **macOS today; Windows is in testing.** All three modes are implemented for Windows (VB-CABLE as the virtual
-  microphone, per-app capture on Windows 11) and the installer builds, but no session has run on a real Windows PC
-  yet (`IMPLEMENTATION_STATUS.md`).
+- **No signed downloads.** The DMG is ad-hoc signed and not notarised, the Windows installer is not code-signed, so
+  macOS and SmartScreen ask for confirmation on first launch. Both hold the app only: the gateway runs separately, on
+  your own machine or server, with your own API keys.
+- **Windows:** hearing the meeting app needs Windows 11 or Windows 10 build 20348 or newer; on older builds the app
+  says so, and *Captions only* with your own microphone still works.
 - **Follow each platform's rules and the law.** Tell people an AI interpreter is in use. Recording and consent laws
   differ by country.
 
@@ -360,7 +388,8 @@ what does not, through the feedback form inside the app.
 
 ## License
 
-[MIT](LICENSE). BlackHole (GPL-3.0) is installed separately and is not part of this repository.
+[MIT](LICENSE). BlackHole (GPL-3.0) and VB-CABLE (donationware) are installed separately and are not part of this
+repository.
 
 ---
 

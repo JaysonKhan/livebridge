@@ -39,10 +39,10 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | Key | Type | Meaning |
 |---|---|---|
 | `gatewayUrl` | String | e.g. `http://127.0.0.1:8201` or `https://bridge.example.com` |
-| `accessToken` | String | long-lived client token (from Keychain on the Dart side or typed in settings) |
+| `accessToken` | String | long-lived client token (kept by the host — Keychain on macOS, Credential Manager on Windows — or typed in settings) |
 | `micUid` | String | physical microphone |
 | `headphonesUid` | String | physical output for incoming Uzbek audio |
-| `virtualMicUid` | String? | BlackHole 2ch; `null` = no outgoing audio is possible |
+| `virtualMicUid` | String? | the virtual cable's playback side — BlackHole 2ch on macOS, CABLE Input (VB-CABLE) on Windows; `null` = no outgoing audio is possible |
 | `sourcePids` | List<int> | meeting app processes to tap; empty = incoming direction off |
 | `myLang` | String | the owner's language, default `uz` — a code from `packages/protocol/src/languages.ts` (90 languages) |
 | `targetLang` | String | the remote participant's language, default `en` — same table; must differ from `myLang` |

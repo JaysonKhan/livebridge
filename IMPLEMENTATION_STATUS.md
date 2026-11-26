@@ -1,6 +1,6 @@
 # LiveBridge AI — implementation status
 
-**Updated:** 2026-11-26 (voice choice in the app) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
+**Updated:** 2026-11-26 (voice choice, gateway deployed, Windows supported) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
 
 ## Where it stands
 
@@ -127,19 +127,20 @@ into any output.
 | systemd service behind nginx on port 8201 (Docker files provided too) | Matches the server's conventions |
 | Setup guide in Uzbek, UI in simple English | Spec allowed either |
 
-## Windows port (in progress, branch `windows-support`)
+## Windows (supported since 2026-11-26)
 
-Decided with the owner on 2026-11-25: staged (1. captions, 2. incoming audio, 3. bidirectional through VB-CABLE),
-built by GitHub Actions on `windows-latest` (the development Mac cannot build Windows code), tested by the owner on
-a real Windows PC after each stage.
+Built in stages with the owner from 2026-11-25 (1. captions, 2. incoming audio, 3. bidirectional through VB-CABLE),
+by GitHub Actions on `windows-latest` (the development Mac cannot build Windows code). The owner ran the Windows app
+on a real Windows PC and reported on 2026-11-26 that it works; from then on Windows is a supported platform. The
+installer is published with the releases from 1.1.0 on.
 
 | Piece | State |
 |---|---|
-| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, analytics log, the engine's session logic (twin of `Engine.swift`), resampler and multi-source mixer, telemetry uploader | **tested on both platforms**: 1 850 checks with clang on the Mac (also under address/UB and thread sanitizers) and the same five test programs built by MSVC and run on Windows in CI (the 46 checks added with the voice choice have not run there yet: branch `voices` is not pushed) |
-| Windows platform layer (`apps/desktop/windows/runner/`): engine thread, WASAPI microphone capture, render sinks for the headphones and the VB-CABLE virtual microphone, per-process loopback capture of the meeting app (mixed when several), process and device lists, test tone, meters, WinHTTP gateway socket, statistics upload and feedback, Save dialogs, settings (token in the Credential Manager) | **compiles on CI** with `/W4 /WX`, no warnings — and **has never been run**: no session has executed on a Windows PC yet |
-| Interface on Windows (VB-CABLE detection, Windows wording, privacy hint) | done; 8 widget tests force the Windows variant |
-| Installer (Inno Setup, per user, Start menu "JK - LiveBridge", Visual C++ runtime bundled) | builds in CI; not installed on a real PC yet |
-| Open questions only a real PC answers | which formats per-process loopback accepts (16 kHz mono is tried first, then 44.1/48 kHz stereo); whether builds 19041–20347 support it; event-driven render with format conversion; Russian/Turkish names of the Windows privacy setting |
+| `apps/desktop/native/livebridge_core` — portable C++17: frame codec, ring buffer, JSON, analytics log, the engine's session logic (twin of `Engine.swift`), resampler and multi-source mixer, telemetry uploader | **tested on both platforms**: 1 850 checks with clang on the Mac (also under address/UB and thread sanitizers) and the same five test programs built by MSVC and run on Windows in CI on every push to `main` |
+| Windows platform layer (`apps/desktop/windows/runner/`): engine thread, WASAPI microphone capture, render sinks for the headphones and the VB-CABLE virtual microphone, per-process loopback capture of the meeting app (mixed when several), process and device lists, test tone, meters, WinHTTP gateway socket, statistics upload and feedback, Save dialogs, settings (token in the Credential Manager) | compiles on CI with `/W4 /WX`, no warnings; **run on a real PC by the owner** (2026-11-26, his report: works) |
+| Interface on Windows (VB-CABLE detection, Windows wording, privacy hint, Fluent look) | done; widget tests force the Windows variant, and the overflow tests render every language in the Windows look |
+| Installer (Inno Setup, per user, Start menu "JK - LiveBridge", Visual C++ runtime bundled) | built by CI on every push to `main`; installed and run by the owner; attached to the GitHub release from 1.1.0 |
+| Known limits | per-app capture of the meeting needs Windows 11 or Windows 10 build 20348+ (older builds: the app says so; captions with your own microphone still work); the installer is not code-signed (SmartScreen asks once); which capture format the loopback client accepted on the owner's PC was not recorded |
 
 Facts taken from Microsoft's documentation for the audio layer (2026-11-25):
 

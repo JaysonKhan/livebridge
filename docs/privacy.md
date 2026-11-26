@@ -4,14 +4,14 @@
 
 | Data | Where it goes | Kept? |
 |---|---|---|
-| Your microphone audio | Leaves the Mac only while push-to-talk is held (or an automatic turn mode is on) during a session you started. Mac → your gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
-| Meeting app audio (the other participant) | Only the processes you selected, only during a session. Mac → gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
-| Transcripts and translations | Gateway → Gemini (translation) → ElevenLabs (speech synthesis) → back to the Mac. Shown as captions. | In RAM only; gone when the session or app closes. The last 4 turns per direction are sent with each translation request as context. |
-| Gateway access token | macOS login Keychain. | Until you change it. |
-| Device choices, language, mode, gateway URL, interface language, the chosen voices (id and name) | macOS UserDefaults. | Until changed. No content. |
+| Your microphone audio | Leaves your computer only while push-to-talk is held (or an automatic turn mode is on) during a session you started. Computer → your gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
+| Meeting app audio (the other participant) | Only the processes you selected, only during a session. Computer → gateway → ElevenLabs speech-to-text. | Not stored by LiveBridge. |
+| Transcripts and translations | Gateway → Gemini (translation) → ElevenLabs (speech synthesis) → back to the computer. Shown as captions. | In RAM only; gone when the session or app closes. The last 4 turns per direction are sent with each translation request as context. |
+| Gateway access token | macOS login Keychain; on Windows the Credential Manager. | Until you change it. |
+| Device choices, language, mode, gateway URL, interface language, the chosen voices (id and name) | macOS UserDefaults; on Windows `%APPDATA%\LiveBridge\settings.json`. | Until changed. No content. |
 | Voice list and samples | The list of your ElevenLabs account's voices: gateway → ElevenLabs → the app, each time a voice picker is opened and at no other time. A sample you play is downloaded by the app straight from the provider's public sample storage. | The gateway keeps the list in memory for 10 minutes. Nothing is stored on disk. |
 | **Conversation export** (text of both speakers) | Only when you press **Export conversation** and choose where to save. A Markdown file on your disk. | Until you delete the file. |
-| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on this Mac. Stays there unless you opt in to sharing (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
+| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on a Mac, `%APPDATA%\LiveBridge\analytics.jsonl` on Windows. Stays there unless you opt in to sharing (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
 | **Shared statistics** (opt-in, off by default) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |
 | **Feedback** | Only when you write and submit it: your message, optionally your e-mail and a 1–5 rating. | Until the developer deletes it. |
 
@@ -37,8 +37,8 @@ fake providers are excluded from the figures.
 
 Off by default. If you switch on **Share anonymous statistics** the app uploads those same numbers-only records to
 the developer's collector so latency and error rates can be compared across installs. What travels: the records
-above, the app version, the macOS version, the interface language and a random install ID created at that moment
-(not derived from your hardware, account or network). What never travels: anything that was said, translations,
+above, the app version, the operating system's version (macOS or Windows), the interface language and a random
+install ID created at that moment (not derived from your hardware, account or network). What never travels: anything that was said, translations,
 audio, device names, the gateway address, keys. The collector does not store IP addresses with the data and
 publishes aggregates only (`https://jaysonkhan.com/services/livebridge/`). Like any website, the server keeps an
 ordinary access log in which a request's address appears; it is not linked to the records. Switching the option off
