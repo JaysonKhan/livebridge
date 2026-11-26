@@ -34,6 +34,8 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+        # The gateway's per-address request limit reads this. Overwrite it with the caller's address (never pass on
+        # what the client sent), or one caller could spend another's budget.
         proxy_set_header X-Forwarded-For $remote_addr;
         # Calls are long-lived and audio must not be buffered.
         proxy_read_timeout 3600s;

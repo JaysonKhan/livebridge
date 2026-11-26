@@ -50,6 +50,19 @@ function bearer(req: IncomingMessage): string {
   return header.startsWith("Bearer ") ? header.slice(7) : "";
 }
 
+/**
+ * Who is asking, for the request limit. Behind the reverse proxy every request arrives from loopback and the proxy
+ * names the caller in X-Forwarded-For; its last entry is the one the proxy itself wrote (the sample vhost overwrites
+ * the header, a proxy that appends adds its entry at the end). The header is believed only from loopback.
+ */
+function callerAddress(req: IncomingMessage): string {
+  const peer = req.socket.remoteAddress ?? "";
+  const forwarded = req.headers["x-forwarded-for"];
+  const fromProxy = peer === "127.0.0.1" || peer === "::1" || peer === "::ffff:127.0.0.1";
+  const last = typeof forwarded === "string" ? forwarded.split(",").at(-1)!.trim() : "";
+  return fromProxy && last ? last : peer;
+}
+
 function safeEqual(a: string, b: string) {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -114,8 +127,7 @@ export function createGateway({
       return json(res, 200, { ok: true });
     if (req.method === "POST" && path === "/v1/sessions") {
       req.resume();
-      const ip = req.socket.remoteAddress ?? "";
-      if (rateLimited(ip)) return json(res, 429, { error: "rate_limited" });
+      if (rateLimited(callerAddress(req))) return json(res, 429, { error: "rate_limited" });
       if (!safeEqual(bearer(req), config.GATEWAY_ACCESS_TOKEN))
         return json(res, 401, { error: "unauthorized" });
       prune();
@@ -133,8 +145,7 @@ export function createGateway({
       });
     }
     if (req.method === "GET" && path === "/v1/voices") {
-      const ip = req.socket.remoteAddress ?? "";
-      if (rateLimited(ip)) return json(res, 429, { error: "rate_limited" });
+      if (rateLimited(callerAddress(req))) return json(res, 429, { error: "rate_limited" });
       if (!safeEqual(bearer(req), config.GATEWAY_ACCESS_TOKEN))
         return json(res, 401, { error: "unauthorized" });
       return void listVoices().then(

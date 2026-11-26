@@ -117,6 +117,33 @@ test("GET /v1/voices serves the stale list when the provider fails, 502 when it 
   assert.ok(logLines.some((l) => l.includes('"code":"voices_unavailable"')));
 });
 
+/** A voice-list request as the reverse proxy forwards it: from loopback, the caller's address in X-Forwarded-For. */
+const viaProxy = (base: string, caller?: string) =>
+  fetch(`${base}/v1/voices`, {
+    headers: {
+      authorization: `Bearer ${ACCESS_TOKEN}`,
+      ...(caller ? { "x-forwarded-for": caller } : {}),
+    },
+  }).then((r) => r.status);
+
+test("behind the reverse proxy the request limit is per caller, not one bucket for everyone", async () => {
+  const { base } = await start();
+  for (let i = 0; i < 20; i++) assert.equal(await viaProxy(base, "203.0.113.5"), 200);
+  assert.equal(await viaProxy(base, "203.0.113.5"), 429);
+  // Someone else behind the same proxy is not locked out by the first caller.
+  assert.equal(await viaProxy(base, "203.0.113.9"), 200);
+  // When a proxy appends instead of overwriting, the last entry is the one it added; the rest came from the client.
+  assert.equal(await viaProxy(base, "203.0.113.5, 198.51.100.7"), 200);
+});
+
+test("without a forwarding proxy the request limit is per connecting address", async () => {
+  const { base } = await start();
+  for (let i = 0; i < 20; i++) assert.equal(await viaProxy(base), 200);
+  assert.equal(await viaProxy(base), 429);
+  // The limit covers session creation too: one budget per caller for both routes.
+  assert.equal((await issueSession(base)).status, 429);
+});
+
 test("realtime socket rejects missing, unknown and reused session tokens", async () => {
   const { base } = await start({ env: { MAX_SESSIONS: "2" } });
   await assert.rejects(TestClient.open(base, ""), /401/);
