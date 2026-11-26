@@ -1,5 +1,10 @@
 // Test harness: a real gateway on an ephemeral port plus a protocol-speaking client.
 // Everything here uses FAKE providers or local MOCK provider servers. Nothing in tests/integration touches a real API.
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { createServer, type Server, type ServerResponse } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import WebSocket from "ws";
 import {
   decodeFrame,
@@ -277,3 +282,114 @@ export function speech(ms: number): Buffer {
 export const silence = (ms: number) => Buffer.alloc(ms * 32);
 export const sleep = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+// ---- a fake of the owner's site: the same checks the real internal API makes, over a unix socket ----
+
+/** What a fake-site handler answers: an object is sent as JSON, a string as raw text. */
+export type FakeSiteReply = { status: number; body: unknown };
+/** Returned by a handler to keep the request open without answering. */
+export const NEVER_ANSWER = Symbol("never-answer");
+export type FakeSiteRecord = {
+  path: string;
+  /** The parsed JSON body, or undefined when it was not JSON. */
+  body: any;
+  rawBody: string;
+  headers: Record<string, string | string[] | undefined>;
+};
+
+export async function startFakeSite(options: {
+  secret: string;
+  handle: (path: string, body: any) => FakeSiteReply | typeof NEVER_ANSWER;
+  /** The Host the site expects. */
+  host?: string;
+  /** Seconds of clock difference the site accepts. */
+  skewSeconds?: number;
+}) {
+  const host = options.host ?? "jaysonkhan.com";
+  const skew = options.skewSeconds ?? 60;
+  // Short on purpose: unix socket paths are limited to ~104 bytes on macOS.
+  const dir = mkdtempSync(join(tmpdir(), "lbs-"));
+  const socketPath = join(dir, "s");
+  /** Every request that passed verification. */
+  const requests: FakeSiteRecord[] = [];
+  /** One line per request that failed verification (answered 404, like the real site). */
+  const failures: string[] = [];
+  const hanging = new Set<ServerResponse>();
+
+  function verify(
+    req: import("node:http").IncomingMessage,
+    raw: string,
+  ): string | null {
+    if (req.method !== "POST") return "method";
+    if (
+      req.url !== "/internal/livebridge/v1/authorize/" &&
+      req.url !== "/internal/livebridge/v1/usage/"
+    )
+      return "path";
+    if (req.headers.host !== host) return "host";
+    if (req.headers["x-forwarded-proto"] !== "https") return "x-forwarded-proto";
+    if (req.headers["content-type"] !== "application/json") return "content-type";
+    if (req.headers["x-real-ip"] !== undefined) return "x-real-ip present";
+    if (req.headers["x-forwarded-for"] !== undefined) return "x-forwarded-for present";
+    const timestamp = String(req.headers["x-livebridge-timestamp"] ?? "");
+    if (!/^\d+$/.test(timestamp)) return "timestamp format";
+    if (Math.abs(Date.now() / 1000 - Number(timestamp)) > skew) return "timestamp stale";
+    const expected = createHmac("sha256", options.secret)
+      .update(`${timestamp}.${raw}`)
+      .digest("hex");
+    const given = String(req.headers["x-livebridge-signature"] ?? "");
+    if (
+      given.length !== expected.length ||
+      !timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+    )
+      return "signature";
+    return null;
+  }
+
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const rawBody = Buffer.concat(chunks).toString("utf8");
+      const problem = verify(req, rawBody);
+      if (problem) {
+        failures.push(`${req.method} ${req.url}: ${problem}`);
+        res.writeHead(404, { "content-type": "text/html" });
+        res.end("<html><body>Not Found</body></html>");
+        return;
+      }
+      let body: any;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        body = undefined;
+      }
+      requests.push({ path: req.url!, body, rawBody, headers: req.headers });
+      const reply = options.handle(req.url!, body);
+      if (reply === NEVER_ANSWER) {
+        hanging.add(res);
+        res.on("close", () => hanging.delete(res));
+        return;
+      }
+      const isText = typeof reply.body === "string";
+      res.writeHead(reply.status, {
+        "content-type": isText ? "text/html" : "application/json",
+      });
+      res.end(isText ? (reply.body as string) : JSON.stringify(reply.body));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(socketPath, resolve));
+
+  return {
+    socketPath,
+    host,
+    requests,
+    failures,
+    async close() {
+      for (const res of hanging) res.destroy();
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      rmSync(dir, { recursive: true, force: true });
+    },
+  };
+}
