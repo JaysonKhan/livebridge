@@ -492,7 +492,7 @@ export class DirectionPipeline {
         const code = error instanceof ProviderError ? error.code : "unknown";
         log.warn("tts.failed", { direction, code });
         // Its own code, so the client can say what to do about it: choose another voice.
-        if (code === "voice_not_found")
+        if (code === "voice_not_found" || code === "voice_disabled")
           this.error(
             "voice_not_found",
             "the voice chosen for this direction is not available to the provider account; the translated caption is shown",

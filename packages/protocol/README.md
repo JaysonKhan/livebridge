@@ -95,6 +95,6 @@ Exact fields: the zod schema `clientMessage` and the `ServerMessage` type in `sr
 `synthesis_congested`, `translation_failed`, `translation_rejected`, `tts_failed`, `voice_not_found`,
 `provider_unavailable`. `fatal: true` means the gateway closes the socket after the message.
 
-`voice_not_found` is a `tts_failed` with a known cause: the provider account has no voice with the id the direction
-speaks with (the provider accepts the id when the session opens and refuses it when a turn is spoken). The caption
-and the translation of the turn are still sent.
+`voice_not_found` is a `tts_failed` with a known cause: the provider account has no usable voice with the id the
+direction speaks with — unknown to the account, or switched off by its owner (the provider accepts the id when the
+session opens and refuses it when a turn is spoken). The caption and the translation of the turn are still sent.

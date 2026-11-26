@@ -10,6 +10,7 @@ import type { CommitStrategy, Lang } from "../../../packages/protocol/src/index.
 import { loadConfig } from "../src/config.ts";
 import { ElevenLabsRealtimeSTT } from "../src/providers/elevenlabs-stt.ts";
 import { ElevenLabsDialogueTTS } from "../src/providers/elevenlabs-tts.ts";
+import { listElevenLabsVoices } from "../src/providers/elevenlabs-voices.ts";
 import { GeminiTranslator } from "../src/providers/gemini.ts";
 import { resampleTo16k } from "./bench.ts";
 
@@ -260,6 +261,8 @@ interface ListedVoice {
   preview_url?: string | null;
 }
 const listed: ListedVoice[] = [];
+/** Ids the gateway's own adapter offers: the list without the voices it leaves out. */
+let offered = new Set<string>();
 let listFailure: unknown;
 await check("voices.list", async () => {
   try {
@@ -276,7 +279,16 @@ await check("voices.list", async () => {
     if (!listed.some((v) => v.voice_id && v.name)) throw new Error("no voice with voice_id and name");
     const perCategory: Record<string, number> = {};
     for (const v of listed) perCategory[v.category ?? "unknown"] = (perCategory[v.category ?? "unknown"] ?? 0) + 1;
-    return { voices: listed.length, pages, perCategory };
+    offered = new Set(
+      (
+        await listElevenLabsVoices({
+          apiKey: config.ELEVENLABS_API_KEY,
+          baseUrl: config.ELEVENLABS_BASE_URL,
+          excludedCategories: config.voicesExcludedCategories,
+        })
+      ).map((v) => v.id),
+    );
+    return { voices: listed.length, pages, perCategory, offeredByGateway: offered.size };
   } catch (error) {
     listFailure = error;
     throw error;
@@ -299,10 +311,11 @@ if (listFailure) {
     throw listFailure;
   });
 } else {
-  // Every listed voice must work with the realtime model in use; a category that does not is left out of the list.
-  for (const category of new Set(listed.map((v) => v.category ?? "unknown"))) {
+  // Every voice the gateway offers must work with the realtime model in use.
+  const usable = listed.filter((v) => offered.has(v.voice_id));
+  for (const category of new Set(usable.map((v) => v.category ?? "unknown"))) {
     await check(`voices.realtime.${category}`, async () => {
-      const sample = listed.filter((v) => (v.category ?? "unknown") === category).slice(0, 3);
+      const sample = usable.filter((v) => (v.category ?? "unknown") === category).slice(0, 3);
       const failed: string[] = [];
       for (const v of sample) {
         try {

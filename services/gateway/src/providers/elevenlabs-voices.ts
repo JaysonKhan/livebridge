@@ -15,6 +15,9 @@ function toVoice(raw: Record<string, any>): Voice | null {
   const id = text(raw.voice_id);
   const name = text(raw.name);
   if (!id || !name) return null;
+  // A library voice whose owner has switched it off stays in the account's list, but synthesis refuses it
+  // (`voice_disabled`, seen live 2026-11-26). It is not offered.
+  if (raw.sharing?.status === "copied_disabled") return null;
   const labels: Record<string, unknown> = raw.labels ?? {};
   const previews: Record<string, string> = {};
   for (const entry of Array.isArray(raw.verified_languages) ? raw.verified_languages : []) {

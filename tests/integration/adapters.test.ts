@@ -599,6 +599,36 @@ test("voice list: excluded categories are left out", async () => {
   );
 });
 
+test("voice list: a library voice its owner has switched off is left out", async () => {
+  // Live finding (2026-11-26): the realtime model refuses exactly these with `voice_disabled`.
+  const voice = (name: string, sharing: unknown) => ({
+    voice_id: `mockVoice${name}000000000`.slice(0, 20),
+    name,
+    category: "professional",
+    sharing,
+  });
+  const mock = await eleven({
+    voicePages: [
+      [
+        voice("Copied", { status: "copied" }),
+        voice("SwitchedOff", { status: "copied_disabled" }),
+        voice("Shared", { status: "enabled" }),
+        voice("NotShared", { status: "disabled" }),
+        voice("Stock", null),
+      ],
+    ],
+  });
+  const voices = await listElevenLabsVoices({
+    apiKey: MOCK_API_KEY,
+    baseUrl: mock.base,
+    excludedCategories: [],
+  });
+  assert.deepEqual(
+    voices.map((v) => v.name),
+    ["Copied", "Shared", "NotShared", "Stock"],
+  );
+});
+
 test("voice list: a refusal is voices_unavailable", async () => {
   const mock = await eleven({ voicePages: VOICE_PAGES });
   const unavailable = (e: unknown) =>
@@ -782,33 +812,34 @@ test("a voice chosen in session.configure is the one registered with the provide
   );
 });
 
-test("end to end (mock servers): a voice the account does not have is reported as voice_not_found, the caption is kept", async () => {
-  // The live service accepts any voice id when the socket opens and refuses it when a turn is spoken.
-  const { client } = await realStack(
-    { transcripts: ["Salom"], ttsError: "voice_not_found" },
-    { "gemini-3.5-flash-lite": { pieces: ["Hello"] } },
-  );
-  const ready = await client.configure({
-    voices: { out: "voiceNotInAccount01" },
+for (const refusal of ["voice_not_found", "voice_disabled"])
+    test(`end to end (mock servers): a voice the account cannot use (${refusal}) is reported as voice_not_found, the caption is kept`, async () => {
+    // The live service accepts any voice id when the socket opens and refuses it when a turn is spoken.
+    const { client } = await realStack(
+      { transcripts: ["Salom"], ttsError: refusal },
+      { "gemini-3.5-flash-lite": { pieces: ["Hello"] } },
+    );
+    const ready = await client.configure({
+      voices: { out: "voiceNotInAccount01" },
+    });
+    assert.equal(ready.directions.out.ready, true);
+    client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+    client.sendAudio("out", 1, speech(500));
+    client.send({ v: 1, type: "turn.commit", direction: "out" });
+    await client.message("metrics");
+    const errors = client.messages.filter(
+      (m): m is Extract<ServerMessage, { type: "error" }> => m.type === "error",
+    );
+    assert.deepEqual(
+      errors.map((e) => [e.code, e.direction, e.turn_id, e.fatal]),
+      [["voice_not_found", "out", 1, false]],
+    );
+    assert.equal((await client.message("translation.final")).text, "Hello");
+    assert.equal(
+      client.frames.reduce((n, f) => n + f.payload.byteLength, 0),
+      0,
+    );
   });
-  assert.equal(ready.directions.out.ready, true);
-  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
-  client.sendAudio("out", 1, speech(500));
-  client.send({ v: 1, type: "turn.commit", direction: "out" });
-  await client.message("metrics");
-  const errors = client.messages.filter(
-    (m): m is Extract<ServerMessage, { type: "error" }> => m.type === "error",
-  );
-  assert.deepEqual(
-    errors.map((e) => [e.code, e.direction, e.turn_id, e.fatal]),
-    [["voice_not_found", "out", 1, false]],
-  );
-  assert.equal((await client.message("translation.final")).text, "Hello");
-  assert.equal(
-    client.frames.reduce((n, f) => n + f.payload.byteLength, 0),
-    0,
-  );
-});
 
 test("end to end (mock servers): any other synthesis refusal stays tts_failed", async () => {
   const { client } = await realStack(
