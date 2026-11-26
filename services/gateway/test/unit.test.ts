@@ -69,6 +69,66 @@ test("config: refuses a short access token, content storage and non-PCM output",
   );
 });
 
+test("config: an empty access token turns token mode off, a short one is refused", () => {
+  assert.equal(loadConfig({ ...real, GATEWAY_ACCESS_TOKEN: "" }).GATEWAY_ACCESS_TOKEN, "");
+  assert.equal(loadConfig({ ...real, GATEWAY_ACCESS_TOKEN: undefined }).GATEWAY_ACCESS_TOKEN, "");
+  assert.throws(() => loadConfig({ ...real, GATEWAY_ACCESS_TOKEN: "x".repeat(10) }), /GATEWAY_ACCESS_TOKEN/);
+});
+
+test("config: a short gateway secret is refused without echoing it", () => {
+  const secret = "s3cret-too-short";
+  assert.throws(
+    () => loadConfig({ ...real, LIVEBRIDGE_GATEWAY_SECRET: secret }),
+    (err: Error) => /LIVEBRIDGE_GATEWAY_SECRET/.test(err.message) && !err.message.includes(secret),
+  );
+  assert.equal(loadConfig(real).LIVEBRIDGE_GATEWAY_SECRET, "");
+});
+
+test("config: accounts are enabled only when both the site socket and the secret are set", () => {
+  const secret = "y".repeat(40);
+  const socket = "/path/to/site.sock";
+  assert.equal(loadConfig(real).accountsEnabled, false);
+  assert.equal(loadConfig({ ...real, SITE_SOCKET_PATH: socket }).accountsEnabled, false);
+  assert.equal(loadConfig({ ...real, LIVEBRIDGE_GATEWAY_SECRET: secret }).accountsEnabled, false);
+  const on = loadConfig({ ...real, SITE_SOCKET_PATH: socket, LIVEBRIDGE_GATEWAY_SECRET: secret });
+  assert.equal(on.accountsEnabled, true);
+  assert.equal(on.SITE_HOST, "jaysonkhan.com");
+  assert.equal(loadConfig(real).SITE_SOCKET_PATH, "");
+});
+
+test("config: account voices are a trimmed list, empty by default", () => {
+  assert.deepEqual(loadConfig(real).accountVoiceIds, []);
+  assert.deepEqual(loadConfig({ ...real, ACCOUNT_VOICE_IDS: "a, b ," }).accountVoiceIds, ["a", "b"]);
+});
+
+test("config: session caps default to MAX_SESSIONS; idle and report settings have defaults and bounds", () => {
+  const d = loadConfig({ ...real, MAX_SESSIONS: "4" });
+  assert.equal(d.MAX_ACCOUNT_SESSIONS, 4);
+  assert.equal(d.MAX_KEYS_SESSIONS, 4);
+  const blank = loadConfig({ ...real, MAX_SESSIONS: "4", MAX_ACCOUNT_SESSIONS: "", MAX_KEYS_SESSIONS: "" });
+  assert.equal(blank.MAX_ACCOUNT_SESSIONS, 4);
+  assert.equal(blank.MAX_KEYS_SESSIONS, 4);
+  assert.equal(d.PAID_RESERVED_SESSIONS, 0);
+  assert.equal(d.IDLE_TIMEOUT_MINUTES, 10);
+  assert.equal(d.USAGE_REPORT_SECONDS, 10);
+  const o = loadConfig({
+    ...real,
+    MAX_SESSIONS: "4",
+    MAX_ACCOUNT_SESSIONS: "6",
+    MAX_KEYS_SESSIONS: "2",
+    PAID_RESERVED_SESSIONS: "1",
+    IDLE_TIMEOUT_MINUTES: "0",
+    USAGE_REPORT_SECONDS: "2",
+  });
+  assert.equal(o.MAX_ACCOUNT_SESSIONS, 6);
+  assert.equal(o.MAX_KEYS_SESSIONS, 2);
+  assert.equal(o.PAID_RESERVED_SESSIONS, 1);
+  assert.equal(o.IDLE_TIMEOUT_MINUTES, 0);
+  assert.throws(() => loadConfig({ ...real, USAGE_REPORT_SECONDS: "1" }), /USAGE_REPORT_SECONDS/);
+  assert.throws(() => loadConfig({ ...real, PAID_RESERVED_SESSIONS: "-1" }), /PAID_RESERVED_SESSIONS/);
+  assert.throws(() => loadConfig({ ...real, IDLE_TIMEOUT_MINUTES: "-1" }), /IDLE_TIMEOUT_MINUTES/);
+});
+
 test("config: validation errors name the variable but never echo a value", () => {
   try {
     loadConfig({

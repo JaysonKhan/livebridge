@@ -12,14 +12,37 @@ const csv = (s: string) =>
  */
 export const DEFAULT_VOICE_ID = "ehTFHBkERkWR22A3sR8M";
 
+/** Empty = the feature is off; anything else must be long enough to be a real secret. */
+const optionalSecret = z
+  .string()
+  .default("")
+  .refine((v) => v === "" || v.length >= 32, "must be empty or at least 32 characters");
+
+/** An empty value (as in .env.example) means "not set". */
+const optionalCap = z.preprocess(
+  (v) => (v === "" ? undefined : v),
+  z.coerce.number().int().min(1).optional(),
+);
+
 const schema = z
   .object({
     HOST: z.string().default("127.0.0.1"),
     PORT: z.coerce.number().int().min(0).max(65535).default(8201),
     /** `fake` = deterministic in-process providers (test tones, placeholder text). Never a real translation. */
     PROVIDER_MODE: z.enum(["real", "fake"]).default("real"),
-    /** Long-lived client credential for POST /v1/sessions. Lives in the macOS Keychain on the client. */
-    GATEWAY_ACCESS_TOKEN: z.string().min(32, "must be at least 32 characters"),
+    /**
+     * Long-lived client credential for POST /v1/sessions (token mode). Lives in the macOS Keychain on the client.
+     * Empty switches token mode off.
+     */
+    GATEWAY_ACCESS_TOKEN: optionalSecret,
+    /** Unix socket of the site that holds accounts and balances. Empty = accounts off. */
+    SITE_SOCKET_PATH: z.string().default(""),
+    /** Host header sent on the site socket. */
+    SITE_HOST: z.string().default("jaysonkhan.com"),
+    /** Shared secret that authenticates this gateway to the site. Empty = accounts off. */
+    LIVEBRIDGE_GATEWAY_SECRET: optionalSecret,
+    /** Comma-separated voice ids an account session may use (GET /v1/voices lists only these). */
+    ACCOUNT_VOICE_IDS: z.string().default(""),
 
     ELEVENLABS_API_KEY: z.string().default(""),
     /** Voice of your outgoing English / Russian speech. */
@@ -68,6 +91,15 @@ const schema = z
     TRANSLATION_HEDGE_AFTER_MS: z.coerce.number().int().min(0).default(1200),
 
     MAX_SESSIONS: z.coerce.number().int().min(1).default(1),
+    /** Per-mode caps; unset = MAX_SESSIONS. */
+    MAX_ACCOUNT_SESSIONS: optionalCap,
+    MAX_KEYS_SESSIONS: optionalCap,
+    /** Slots of the total that only account sessions may take. */
+    PAID_RESERVED_SESSIONS: z.coerce.number().int().min(0).default(0),
+    /** No speech on either lane for this long ends the session. 0 disables. */
+    IDLE_TIMEOUT_MINUTES: z.coerce.number().int().min(0).default(10),
+    /** How often an account session reports usage to the site. */
+    USAGE_REPORT_SECONDS: z.coerce.number().int().min(2).default(10),
     MAX_SESSION_MINUTES: z.coerce.number().int().min(1).default(120),
     /** Content persistence is not implemented; anything but `false` is refused so nobody assumes it works. */
     STORE_CONTENT: z.literal("false").default("false"),
@@ -92,6 +124,10 @@ const schema = z
 export type Env = z.infer<typeof schema>;
 
 export interface Config extends Env {
+  MAX_ACCOUNT_SESSIONS: number;
+  MAX_KEYS_SESSIONS: number;
+  accountsEnabled: boolean;
+  accountVoiceIds: string[];
   allowedTranslationModels: string[];
   voicesExcludedCategories: string[];
   synthSampleRate: number;
@@ -112,6 +148,10 @@ export function loadConfig(
   const allowed = csv(env.TRANSLATION_ALLOWED_MODELS);
   return {
     ...env,
+    MAX_ACCOUNT_SESSIONS: env.MAX_ACCOUNT_SESSIONS ?? env.MAX_SESSIONS,
+    MAX_KEYS_SESSIONS: env.MAX_KEYS_SESSIONS ?? env.MAX_SESSIONS,
+    accountsEnabled: Boolean(env.SITE_SOCKET_PATH && env.LIVEBRIDGE_GATEWAY_SECRET),
+    accountVoiceIds: csv(env.ACCOUNT_VOICE_IDS),
     allowedTranslationModels: allowed.length
       ? allowed
       : [env.TRANSLATION_MODEL, env.TRANSLATION_FALLBACK_MODEL].filter(Boolean),
