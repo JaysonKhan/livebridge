@@ -360,7 +360,12 @@ class TokenKeeper {
   String? _refreshToken;
   String? _accessToken;
   DateTime? _expiresAt;
+
+  /// A pair that arrived from a refresh but could not be saved yet. It is the only valid refresh token, so it stays in
+  /// memory and the next call saves it again before returning anything.
+  TokenPair? _unsaved;
   Future<String>? _inFlight;
+  Object? _ticket;
   int _epoch = 0;
 
   /// When the access token in memory stops being valid; null when there is none.
@@ -368,7 +373,7 @@ class TokenKeeper {
 
   /// Takes a pair obtained elsewhere (the device grant). Its refresh token is saved by the caller.
   void adopt(TokenPair pair) {
-    _epoch++;
+    _reset();
     _refreshToken = pair.refreshToken;
     _accessToken = pair.accessToken;
     _expiresAt = pair.expiresAt;
@@ -376,40 +381,68 @@ class TokenKeeper {
 
   /// Forgets everything (signed out).
   void clear() {
-    _epoch++;
+    _reset();
     _refreshToken = null;
     _accessToken = null;
     _expiresAt = null;
   }
 
+  // Whatever is in flight belongs to the session that is gone: its answer is dropped and nobody joins it.
+  void _reset() {
+    _epoch++;
+    _inFlight = null;
+    _ticket = null;
+    _unsaved = null;
+  }
+
   /// A token valid for at least [minRemaining], refreshed if needed; [force] refreshes even a fresh one (after a
-  /// `401 invalid_token`). Throws [AccountSignedOut] when there is no refresh token or the site refused it.
+  /// `401 invalid_token`). Throws [AccountSignedOut] when there is no refresh token or the site refused it. A pair
+  /// that could not be saved earlier is saved first; if that fails again the error is rethrown.
   Future<String> accessToken({Duration minRemaining = const Duration(seconds: 60), bool force = false}) {
     final inFlight = _inFlight;
     if (inFlight != null) return inFlight;
-    final access = _accessToken;
-    final expires = _expiresAt;
-    if (!force && access != null && expires != null && expires.difference(_now()) > minRemaining) {
-      return Future.value(access);
+    if (_unsaved == null) {
+      final access = _accessToken;
+      final expires = _expiresAt;
+      if (!force && access != null && expires != null && expires.difference(_now()) > minRemaining) {
+        return Future.value(access);
+      }
+      if (_refreshToken == null) return Future.error(const AccountSignedOut());
     }
-    final refresh = _refreshToken;
-    if (refresh == null) return Future.error(const AccountSignedOut());
-    return _inFlight = _refresh(refresh);
+    final ticket = Object();
+    final future = _work(_epoch, ticket, force, minRemaining);
+    _ticket = ticket;
+    return _inFlight = future;
   }
 
-  Future<String> _refresh(String refreshToken) async {
-    final epoch = _epoch;
+  Future<String> _work(int epoch, Object ticket, bool force, Duration minRemaining) async {
     try {
+      final pending = _unsaved;
+      if (pending != null) {
+        await onRefreshed(pending);
+        if (epoch != _epoch) throw const AccountSignedOut();
+        if (identical(_unsaved, pending)) _unsaved = null;
+        final expires = _expiresAt;
+        if (!force && expires != null && expires.difference(_now()) > minRemaining) return _accessToken!;
+      }
+      final refreshToken = _refreshToken;
+      if (refreshToken == null) throw const AccountSignedOut();
       final pair = await client.refresh(refreshToken);
       // Signed out or re-signed in while the request was out: its answer belongs to a session that is gone.
       if (epoch != _epoch) throw const AccountSignedOut();
       _refreshToken = pair.refreshToken;
       _accessToken = pair.accessToken;
       _expiresAt = pair.expiresAt;
+      _unsaved = pair;
       await onRefreshed(pair);
+      if (epoch == _epoch && identical(_unsaved, pair)) _unsaved = null;
       return pair.accessToken;
     } finally {
-      _inFlight = null;
+      // Only the refresh that is still current clears the slot; a stale one must not wipe a newer one.
+      if (identical(_ticket, ticket)) {
+        _inFlight = null;
+        _ticket = null;
+      }
     }
   }
 }

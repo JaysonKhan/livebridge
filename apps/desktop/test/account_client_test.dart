@@ -20,14 +20,14 @@ class _FakeClient implements AccountClient {
   _FakeClient(this.now);
   final DateTime Function() now;
   final List<String> refreshed = [];
-  Completer<TokenPair>? gate;
+  final List<Completer<TokenPair>> gates = [];
   Object? failure;
   int serial = 0;
 
   @override
   Future<TokenPair> refresh(String refreshToken) async {
     refreshed.add(refreshToken);
-    if (gate != null) return gate!.future;
+    if (gates.isNotEmpty) return gates.removeAt(0).future;
     if (failure != null) throw failure!;
     serial++;
     return TokenPair(
@@ -328,12 +328,13 @@ void main() {
 
     test('concurrent callers share one refresh and one token', () async {
       final k = keeper();
-      fake.gate = Completer<TokenPair>();
+      final gate = Completer<TokenPair>();
+      fake.gates.add(gate);
       final a = k.accessToken();
       final b = k.accessToken(force: true);
       final c = k.accessToken(minRemaining: const Duration(minutes: 3));
       await Future<void>.delayed(Duration.zero);
-      fake.gate!.complete(fresh().copyWithExpiry(clock.add(const Duration(minutes: 15))).renamed('shared', 'refS'));
+      gate.complete(fresh().copyWithExpiry(clock.add(const Duration(minutes: 15))).renamed('shared', 'refS'));
       expect(await Future.wait([a, b, c]), ['shared', 'shared', 'shared']);
       expect(fake.refreshed, hasLength(1));
       expect(saved, hasLength(1));
@@ -365,6 +366,90 @@ void main() {
       clock = clock.add(const Duration(minutes: 20));
       expect(await k.accessToken(), 'acc2');
       expect(fake.refreshed, ['ref0', 'ref1']);
+    });
+
+    test('a failed save is retried by the next call, which returns the same token without a new refresh', () async {
+      final k = keeper();
+      var saves = 0;
+      final failing = Completer<void>();
+      onSave = (_) {
+        saves++;
+        return failing.future;
+      };
+      final a = k.accessToken();
+      final b = k.accessToken();
+      final ea = expectLater(a, throwsA(isA<FileSystemException>()));
+      final eb = expectLater(b, throwsA(isA<FileSystemException>()));
+      await Future<void>.delayed(Duration.zero);
+      failing.completeError(const FileSystemException('keychain'));
+      await Future.wait([ea, eb]);
+      expect(saves, 1);
+      expect(fake.refreshed, hasLength(1));
+      // still failing: rethrown again, still unsaved
+      onSave = (_) async => throw const FileSystemException('keychain');
+      await expectLater(k.accessToken(), throwsA(isA<FileSystemException>()));
+      onSave = null;
+      expect(await k.accessToken(), 'acc1');
+      expect(saved.map((p) => p.refreshToken), ['ref1', 'ref1', 'ref1']);
+      expect(fake.refreshed, hasLength(1));
+      // saved now: no more saving
+      expect(await k.accessToken(), 'acc1');
+      expect(saved, hasLength(3));
+    });
+
+    test('clear() during a refresh drops its answer: nothing stored, nothing saved', () async {
+      final k = keeper(pair: fresh().copyWithExpiry(clock));
+      final g = Completer<TokenPair>();
+      fake.gates.add(g);
+      final f = k.accessToken();
+      final e = expectLater(f, throwsA(isA<AccountSignedOut>()));
+      await Future<void>.delayed(Duration.zero);
+      k.clear();
+      g.complete(fresh().renamed('late', 'refLate'));
+      await e;
+      expect(saved, isEmpty);
+      expect(k.expiresAt, isNull);
+      await expectLater(k.accessToken(), throwsA(isA<AccountSignedOut>()));
+      expect(fake.refreshed, ['ref0']);
+    });
+
+    test('adopt() during a stale refresh: the next call gets the adopted token, the stale answer is dropped', () async {
+      final k = keeper();
+      final g = Completer<TokenPair>();
+      fake.gates.add(g);
+      final stale = k.accessToken();
+      final e = expectLater(stale, throwsA(isA<AccountSignedOut>()));
+      await Future<void>.delayed(Duration.zero);
+      k.adopt(
+        TokenPair(accessToken: 'granted', refreshToken: 'refG', expiresAt: clock.add(const Duration(minutes: 15))),
+      );
+      expect(await k.accessToken(), 'granted');
+      g.complete(fresh().renamed('late', 'refLate'));
+      await e;
+      expect(saved, isEmpty);
+      expect(await k.accessToken(), 'granted');
+      expect(fake.refreshed, ['ref0']);
+    });
+
+    test('a stale refresh finishing after a newer one started does not clear the newer one', () async {
+      final k = keeper();
+      final g1 = Completer<TokenPair>();
+      final g2 = Completer<TokenPair>();
+      fake.gates.addAll([g1, g2]);
+      final stale = k.accessToken();
+      final e = expectLater(stale, throwsA(isA<AccountSignedOut>()));
+      await Future<void>.delayed(Duration.zero);
+      k.adopt(TokenPair(accessToken: 'old', refreshToken: 'refG', expiresAt: clock)); // already due
+      final newer = k.accessToken();
+      await Future<void>.delayed(Duration.zero);
+      expect(fake.refreshed, ['ref0', 'refG']);
+      g1.complete(fresh().renamed('late', 'refLate'));
+      await e;
+      final joined = k.accessToken(); // must join the newer refresh, not start a third
+      expect(fake.refreshed, hasLength(2));
+      g2.complete(fresh().renamed('newest', 'refN'));
+      expect(await Future.wait([newer, joined]), ['newest', 'newest']);
+      expect(saved.single.refreshToken, 'refN');
     });
 
     test('no refresh token: signed out without a request', () async {
