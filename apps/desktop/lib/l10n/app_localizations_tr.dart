@@ -971,13 +971,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get onboardingSubtitle => 'Giriş yapın ve 5 dakikayı ücretsiz deneyin';
 
   @override
-  String get signInWithGoogle => 'Google ile oturum aç';
+  String get signInWithGoogle => 'Google ile oturum açın';
 
   @override
   String get onboardingOwnKeys => 'Kendi API anahtarlarım var';
-
-  @override
-  String get onboardingOwnKeysHint => 'Kendi ElevenLabs ve Gemini anahtarlarınızı kullanın. Burada ücret alınmaz.';
 
   @override
   String get elevenlabsKey => 'ElevenLabs API anahtarı';

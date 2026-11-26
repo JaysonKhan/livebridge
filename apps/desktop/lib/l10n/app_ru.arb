@@ -288,7 +288,6 @@
   "onboardingSubtitle": "Войдите и попробуйте 5 минут бесплатно",
   "signInWithGoogle": "Войти через Google",
   "onboardingOwnKeys": "У меня есть свои API-ключи",
-  "onboardingOwnKeysHint": "Используйте свои ключи ElevenLabs и Gemini. Здесь ничего не списывается.",
   "elevenlabsKey": "API-ключ ElevenLabs",
   "geminiKey": "API-ключ Gemini",
   "saveAndContinue": "Сохранить и продолжить",

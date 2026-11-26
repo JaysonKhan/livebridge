@@ -973,9 +973,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingOwnKeys => 'I have my own API keys';
 
   @override
-  String get onboardingOwnKeysHint => 'Use your own ElevenLabs and Gemini keys. Nothing is billed here.';
-
-  @override
   String get elevenlabsKey => 'ElevenLabs API key';
 
   @override

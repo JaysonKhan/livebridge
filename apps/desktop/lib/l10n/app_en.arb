@@ -589,7 +589,6 @@
   "onboardingSubtitle": "Sign in and try 5 minutes for free",
   "signInWithGoogle": "Sign in with Google",
   "onboardingOwnKeys": "I have my own API keys",
-  "onboardingOwnKeysHint": "Use your own ElevenLabs and Gemini keys. Nothing is billed here.",
   "elevenlabsKey": "ElevenLabs API key",
   "geminiKey": "Gemini API key",
   "saveAndContinue": "Save and continue",

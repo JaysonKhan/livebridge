@@ -217,8 +217,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       title: l.onboardingOwnKeys,
       childrenPadding: EdgeInsets.fromLTRB(t.cardPadding, 0, t.cardPadding, t.cardPadding),
       children: [
-        Text(l.onboardingOwnKeysHint, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: t.textSecondary)),
-        const SizedBox(height: 12),
         _SecretField(key: const Key('elevenlabs-key'), label: l.elevenlabsKey, controller: _elevenlabs),
         const SizedBox(height: 12),
         _SecretField(key: const Key('gemini-key'), label: l.geminiKey, controller: _gemini),

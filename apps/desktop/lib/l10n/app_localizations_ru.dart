@@ -976,9 +976,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get onboardingOwnKeys => 'У меня есть свои API-ключи';
 
   @override
-  String get onboardingOwnKeysHint => 'Используйте свои ключи ElevenLabs и Gemini. Здесь ничего не списывается.';
-
-  @override
   String get elevenlabsKey => 'API-ключ ElevenLabs';
 
   @override

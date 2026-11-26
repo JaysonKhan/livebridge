@@ -977,10 +977,6 @@ class AppLocalizationsUz extends AppLocalizations {
   String get onboardingOwnKeys => 'Menda o\'z API kalitlarim bor';
 
   @override
-  String get onboardingOwnKeysHint =>
-      'O\'zingizning ElevenLabs va Gemini kalitlaringizdan foydalaning. Bu yerda hech narsa hisoblanmaydi.';
-
-  @override
   String get elevenlabsKey => 'ElevenLabs API kaliti';
 
   @override

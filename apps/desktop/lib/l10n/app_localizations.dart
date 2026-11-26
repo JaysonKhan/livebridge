@@ -1822,12 +1822,6 @@ abstract class AppLocalizations {
   /// **'I have my own API keys'**
   String get onboardingOwnKeys;
 
-  /// No description provided for @onboardingOwnKeysHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Use your own ElevenLabs and Gemini keys. Nothing is billed here.'**
-  String get onboardingOwnKeysHint;
-
   /// No description provided for @elevenlabsKey.
   ///
   /// In en, this message translates to:

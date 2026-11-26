@@ -288,7 +288,6 @@
   "onboardingSubtitle": "Kiring va 5 daqiqani bepul sinab ko'ring",
   "signInWithGoogle": "Google bilan kirish",
   "onboardingOwnKeys": "Menda o'z API kalitlarim bor",
-  "onboardingOwnKeysHint": "O'zingizning ElevenLabs va Gemini kalitlaringizdan foydalaning. Bu yerda hech narsa hisoblanmaydi.",
   "elevenlabsKey": "ElevenLabs API kaliti",
   "geminiKey": "Gemini API kaliti",
   "saveAndContinue": "Saqlash va davom etish",
