@@ -95,14 +95,15 @@ request gets `503 accounts_unavailable`. The `gateway.listening` log line says `
 ### Sizing `MAX_SESSIONS`
 
 A voiced session holds two realtime speech-to-text connections (one per direction) and two speech synthesis
-connections, and the plan's realtime speech-to-text concurrency is the tighter of the two limits. So:
+connections. The ElevenLabs plan limits each kind on its own, so size by whichever is tighter, and check both limits
+for the plan in use:
 
 ```
-MAX_SESSIONS = (realtime speech-to-text concurrency of the ElevenLabs plan) / 2 − 1      rounded down
+MAX_SESSIONS = min(realtime speech-to-text concurrency / 2, speech synthesis concurrency / 2) − 1      rounded down
 ```
 
-The 1 is a margin for a reconnect or a benchmark run. A plan that allows 10 concurrent realtime transcriptions gives
-`MAX_SESSIONS=4`. Keep `MAX_ACCOUNT_SESSIONS` and `MAX_KEYS_SESSIONS` at or below it.
+The 1 is a margin for a reconnect or a benchmark run. A plan that allows 10 concurrent realtime transcriptions and 10
+concurrent syntheses gives `MAX_SESSIONS=4`. Keep `MAX_ACCOUNT_SESSIONS` and `MAX_KEYS_SESSIONS` at or below it.
 
 ### Adding them on the server
 
@@ -124,14 +125,15 @@ The server's `.env` is edited by hand, on the server: it is not in git and `depl
    USAGE_REPORT_SECONDS=10
    ```
 
-2. Copy the shared secret from the site's `.env` without printing it. The first command removes an old line, the last
-   prints only a count, which must be `1`:
+2. Copy the shared secret from the site's `.env` without printing it. The first command removes an old line; the
+   second appends the site's line after an empty one, so it cannot join a last line that has no newline (an empty
+   line is harmless); the last prints only a count, which must be `1`:
 
    ```bash
    ssh <server>
    cd /var/www/livebridge
    sed -i '/^LIVEBRIDGE_GATEWAY_SECRET=/d' .env
-   grep '^LIVEBRIDGE_GATEWAY_SECRET=' <site directory>/.env >> .env
+   { echo; grep -m1 '^LIVEBRIDGE_GATEWAY_SECRET=' <site directory>/.env; } >> .env
    grep -c '^LIVEBRIDGE_GATEWAY_SECRET=.\{32,\}' .env
    ```
 
@@ -149,7 +151,8 @@ The server's `.env` is edited by hand, on the server: it is not in git and `depl
    ```
 
 The socket must not live under `/tmp` or `/home` (the unit's `PrivateTmp` and `ProtectHome` hide both from the
-gateway), and the gateway's user needs write permission on the socket file.
+gateway). The gateway's user needs search (`x`) permission on every directory above the socket and write permission
+on the socket itself.
 
 ### Log events worth watching
 

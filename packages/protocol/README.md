@@ -9,9 +9,40 @@ the same byte-exact fixtures in `fixtures/frames.json` (regenerate with `npm run
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /healthz` | none | `{"ok":true}` |
-| `POST /v1/sessions` | `Authorization: Bearer <GATEWAY_ACCESS_TOKEN>` | → `201 {session_id, token, expires_in: 60, ws_path}`. `401` bad token, `429` session limit or rate limit (20/min per address). |
-| `GET /v1/voices` | `Authorization: Bearer <GATEWAY_ACCESS_TOKEN>` | → `200 {voices: [{id, name, gender?, age?, accent?, language?, use_case?, description?, category?, preview_url?, previews?}]}`: the voices `session.configure` may name, cached for 10 minutes. `previews` maps a language code to a sample address. `401` bad token, `429` rate limit (shared with `POST /v1/sessions`), `502 {"error":"voices_unavailable"}` when the provider refuses and nothing is cached. |
+| `POST /v1/sessions` | by mode, see [Starting a session](#starting-a-session) | → `201 {session_id, token, expires_in: 60, ws_path}`, plus `account` in account mode. |
+| `GET /v1/voices` | one of three, see [Voices](#voices) | → `200 {voices: [{id, name, gender?, age?, accent?, language?, use_case?, description?, category?, preview_url?, previews?}]}`: the voices `session.configure` may name, cached for 10 minutes. `previews` maps a language code to a sample address. |
 | `WSS /v1/realtime` | `Authorization: Bearer <session token>` | One socket per call, both directions multiplexed. The token is single-use and expires after 60 s. |
+
+`POST /v1/sessions` and `GET /v1/voices` refuse with a JSON body `{"error": "<code>"}`.
+
+### Starting a session
+
+`POST /v1/sessions` takes an optional JSON body (at most 4 KB) whose `mode` says how the caller is authorized
+(`sessionRequest` in `src/messages.ts`). No body at all is token mode, answered byte for byte as before.
+
+| Mode | Request | Success | Failures |
+|---|---|---|---|
+| token | no body, or `{"mode":"token"}`; `Authorization: Bearer <GATEWAY_ACCESS_TOKEN>` | `201 {session_id, token, expires_in, ws_path}` | `401 unauthorized` (also when the gateway has no static token) |
+| account | `{"mode":"account"}`; `Authorization: Bearer lba_…` (the access token from the owner's site) | the same `201` plus `"account": {"balance_units": N}` | `401 invalid_token` (refresh the token, retry once); `402 balance_empty`; `503 billing_unavailable` (the site is unreachable); `503 accounts_unavailable` (accounts are not configured) |
+| keys | `{"mode":"keys","elevenlabs_api_key":"…","gemini_api_key":"…"}`, no `Authorization` | the same `201` as token | `400 bad_request` (a key is missing or malformed) |
+
+All modes: `429 rate_limited` (20 requests a minute per caller, shared with `GET /v1/voices`) and
+`429 session_limit` (a cap is full; a gateway with own keys switched off answers every keys request this way). A body
+over 4 KB or that is not JSON → `400 bad_request`. When an account already has a live session, admitting a new one
+closes the old one with the fatal error `session_replaced`.
+
+### Voices
+
+`GET /v1/voices` is authorized by one of:
+
+- `Authorization: Bearer <GATEWAY_ACCESS_TOKEN>` — the gateway's own voice list.
+- `Authorization: Bearer lba_…` — an account: only the voices an account session may choose (the approved list).
+- `X-ElevenLabs-Api-Key: <key>` — own keys: that ElevenLabs account's voices, cached per key.
+
+Errors: `401 unauthorized` (no or wrong static token, or a key sent to a gateway with own keys switched off),
+`401 invalid_token` (the site refused the account token), `401 invalid_key` (the provider refused the key, or it is
+malformed), `429 rate_limited`, `502 voices_unavailable` (the provider failed — for example a key without the voices
+read permission — and nothing is cached; for an account also when the site cannot be reached).
 
 ## Binary audio frame
 
@@ -50,7 +81,11 @@ with. An id must match `VOICE_ID_PATTERN` (`^[A-Za-z0-9]{10,40}$`), otherwise th
 `bad_message`. An omitted direction, or no `voices` at all, uses the voice the gateway is configured with.
 
 Gateway → client: `session.ready`, `caption.partial`, `caption.final`, `translation.delta`, `translation.final`,
-`turn.skipped`, `metrics`, `error`, `pong`.
+`turn.skipped`, `metrics`, `error`, `account.balance`, `pong`.
+
+`account.balance` (`balance_units`) is sent in account mode only: right after the first `session.ready` and after
+every usage report the site accepted. The units are the site's; a balance of 0 is followed by the fatal error
+`balance_exhausted`.
 
 `turn.skipped` (`direction`, `turn_id`, `generation`, `reason`) follows a `caption.final` that is neither translated
 nor spoken: `same_language` when the speech was already in the target language (the other side of the call reaching
@@ -93,7 +128,15 @@ Exact fields: the zod schema `clientMessage` and the `ServerMessage` type in `sr
 
 `bad_message`, `bad_frame`, `bad_state`, `unauthorized`, `session_limit`, `session_expired`, `capture_overflow`,
 `synthesis_congested`, `translation_failed`, `translation_rejected`, `tts_failed`, `voice_not_found`,
-`provider_unavailable`. `fatal: true` means the gateway closes the socket after the message.
+`provider_unavailable`, `balance_exhausted`, `billing_unavailable`, `idle_timeout`, `session_replaced`.
+`fatal: true` means the gateway closes the socket after the message.
+
+Always fatal:
+
+- `balance_exhausted` — the account's balance reached 0 (account mode).
+- `billing_unavailable` — three usage reports in a row failed, so the session cannot be billed (account mode).
+- `idle_timeout` — no speech in either direction for the gateway's idle time (10 minutes by default).
+- `session_replaced` — the same account started a newer session.
 
 `voice_not_found` is a `tts_failed` with a known cause: the provider account has no usable voice with the id the
 direction speaks with — unknown to the account, or switched off by its owner (the provider accepts the id when the

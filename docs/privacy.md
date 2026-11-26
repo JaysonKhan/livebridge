@@ -62,8 +62,8 @@ same gateway code, with the same rules:
   app through the gateway to the providers and back, in memory only, as described above. The gateway writes no
   content to disk and its logs hold no content.
 - **Account usage is counted, never content.** For an account session the gateway asks the developer's site once, at
-  the start, who the account is and whether it has a balance. While the session runs it reports, every 10 seconds and
-  once at the end, how many milliseconds of audio were sent to speech-to-text in each direction and how many
+  the start, who the account is and whether it has a balance. While the session runs it reports, every 10 seconds by
+  default and once at the end, how many milliseconds of audio were sent to speech-to-text in each direction and how many
   characters were sent to speech synthesis, with the account and session ids. The site turns these counts into the
   entries in your account history. No audio, transcript or translation is part of a report. The gateway does not keep
   the account's access token after that first check.
