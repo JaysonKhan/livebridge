@@ -4,8 +4,16 @@ import Foundation
 public struct EngineConfig: Sendable {
     public enum Mode: String, Sendable { case captions, incoming, bidirectional }
 
+    /// How the session is paid for: `token` = the user's own gateway with its static token, `account` = a signed-in
+    /// account's short-lived access token, `keys` = the user's own provider keys.
+    public enum Connection: String, Sendable { case token, account, keys }
+
     public var gatewayURL: URL
+    public var connection: Connection
+    /// The static gateway token (`token`) or the account access token (`account`); unused in `keys` mode.
     public var accessToken: String
+    public var elevenlabsApiKey: String?
+    public var geminiApiKey: String?
     public var micUid: String
     public var headphonesUid: String
     public var virtualMicUid: String?
@@ -32,7 +40,11 @@ public struct EngineConfig: Sendable {
 
     public init?(dictionary: [String: Any]) {
         guard let url = (dictionary["gatewayUrl"] as? String).flatMap(URL.init(string:)), url.scheme?.hasPrefix("http") == true,
-            let token = dictionary["accessToken"] as? String, !token.isEmpty,
+            case let rawConnection = dictionary["connection"] ?? "token", let connection = (rawConnection as? String).flatMap(Connection.init(rawValue:)),
+            case let token = dictionary["accessToken"] as? String ?? "",
+            case let elevenlabs = (dictionary["elevenlabsApiKey"] as? String).flatMap({ $0.isEmpty ? nil : $0 }),
+            case let gemini = (dictionary["geminiApiKey"] as? String).flatMap({ $0.isEmpty ? nil : $0 }),
+            connection == .keys ? (elevenlabs != nil && gemini != nil) : !token.isEmpty,
             let mic = dictionary["micUid"] as? String,
             let headphones = dictionary["headphonesUid"] as? String,
             let target = dictionary["targetLang"] as? String, Self.isLanguageCode(target),
@@ -41,7 +53,10 @@ public struct EngineConfig: Sendable {
             let commit = dictionary["outCommit"] as? String, ["manual", "vad", "turn_prediction"].contains(commit)
         else { return nil }
         gatewayURL = url
+        self.connection = connection
         accessToken = token
+        elevenlabsApiKey = elevenlabs
+        geminiApiKey = gemini
         micUid = mic
         headphonesUid = headphones
         virtualMicUid = dictionary["virtualMicUid"] as? String
@@ -146,6 +161,10 @@ public final class Engine: @unchecked Sendable {
 
     public func start(_ config: EngineConfig) { queue.async { self.startSession(config) } }
     public func stop() { queue.async { self.stopSession(message: nil) } }
+    /// Replaces the account access token used by the next (re)connection of the running session.
+    public func updateAccessToken(_ token: String) {
+        queue.async { if !token.isEmpty { self.config?.accessToken = token } }
+    }
     public func pttDown() { queue.async { self.pushToTalk(down: true) } }
     public func pttUp() { queue.async { self.pushToTalk(down: false) } }
     public func setOutgoingMuted(_ muted: Bool) { queue.async { self.muteOutgoing(muted) } }
@@ -287,6 +306,15 @@ public final class Engine: @unchecked Sendable {
         connect()
     }
 
+    /// The request the next (re)connection will send, built from the config as it is now.
+    func nextSessionRequest() -> URLRequest? {
+        queue.sync { config.map { GatewayTransport.sessionRequest(baseURL: $0.gatewayURL, config: $0) } }
+    }
+
+    func receivedForTesting(_ message: [String: Any]) { queue.sync { received(message) } }
+
+    func installConfigForTesting(_ config: EngineConfig) { queue.sync { self.config = config } }
+
     private func connect() {
         guard let config else { return }
         let transport = GatewayTransport(queue: queue)
@@ -294,7 +322,7 @@ public final class Engine: @unchecked Sendable {
         transport.onFrame = { [weak self] in self?.receivedFrame($0) }
         transport.onClosed = { [weak self] reason in self?.connectionLost(reason) }
         self.transport = transport
-        transport.connect(baseURL: config.gatewayURL, accessToken: config.accessToken) { [weak self] result in
+        transport.connect(baseURL: config.gatewayURL, config: config) { [weak self] result in
             guard let self, self.transport === transport else { return }
             switch result {
             case .failure(let error):
@@ -583,6 +611,8 @@ public final class Engine: @unchecked Sendable {
             openHandsFreeCaptureIfNeeded()
             phase = inCaptureStarted || outCaptureOpen ? .active : .ready
             emitState()
+        case "account.balance":
+            if let units = message["balance_units"] as? Int { emit(["type": "balance", "balanceUnits": units]) }
         case "caption.partial", "caption.final", "translation.delta", "translation.final":
             guard let direction else { return }
             let kinds = ["caption.partial": "partial", "caption.final": "final", "translation.delta": "translationDelta", "translation.final": "translationFinal"]

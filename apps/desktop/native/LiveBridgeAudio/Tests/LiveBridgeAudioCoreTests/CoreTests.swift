@@ -292,6 +292,109 @@ final class EngineConfigTests: XCTestCase {
     }
 }
 
+final class ConnectionModeTests: XCTestCase {
+    private let base = URL(string: "https://bridge.example.com")!
+
+    private func map(_ extra: [String: Any]) -> [String: Any] {
+        var map: [String: Any] = [
+            "gatewayUrl": "https://bridge.example.com", "accessToken": "static-or-access", "micUid": "mic", "headphonesUid": "phones",
+            "sourcePids": [4242], "targetLang": "en", "mode": "bidirectional", "outCommit": "manual",
+        ]
+        map.merge(extra) { _, new in new }
+        return map
+    }
+
+    private func config(_ extra: [String: Any] = [:]) throws -> EngineConfig { try XCTUnwrap(EngineConfig(dictionary: map(extra))) }
+
+    private func body(_ request: URLRequest) throws -> [String: String]? {
+        try request.httpBody.map { try XCTUnwrap(JSONSerialization.jsonObject(with: $0) as? [String: String]) }
+    }
+
+    func testConfigParsesEachConnectionMode() throws {
+        XCTAssertEqual(try config().connection, .token)
+        XCTAssertEqual(try config(["connection": "token"]).connection, .token)
+        XCTAssertEqual(try config(["connection": "account"]).connection, .account)
+        let keys = try config(["connection": "keys", "accessToken": "", "elevenlabsApiKey": "el-key", "geminiApiKey": "gm-key"])
+        XCTAssertEqual(keys.connection, .keys)
+        XCTAssertEqual(keys.elevenlabsApiKey, "el-key")
+        XCTAssertEqual(keys.geminiApiKey, "gm-key")
+        // Keys mode needs no access token at all.
+        var noToken = map(["connection": "keys", "elevenlabsApiKey": "el-key", "geminiApiKey": "gm-key"])
+        noToken.removeValue(forKey: "accessToken")
+        XCTAssertNotNil(EngineConfig(dictionary: noToken))
+    }
+
+    func testConfigIsRefusedWhenACredentialIsMissingOrTheModeIsUnknown() {
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": "keys", "geminiApiKey": "gm-key"])))
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": "keys", "elevenlabsApiKey": "el-key"])))
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": "keys", "elevenlabsApiKey": "", "geminiApiKey": "gm-key"])))
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": "token", "accessToken": ""])))
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": "account", "accessToken": ""])))
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": "cloud"])))
+        XCTAssertNil(EngineConfig(dictionary: map(["connection": 3])))
+    }
+
+    func testTokenRequestIsExactlyTodaysRequest() throws {
+        let request = GatewayTransport.sessionRequest(baseURL: base, config: try config())
+        XCTAssertEqual(request.url?.absoluteString, "https://bridge.example.com/v1/sessions")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer static-or-access")
+        XCTAssertNil(request.httpBody)
+        XCTAssertNil(request.value(forHTTPHeaderField: "Content-Type"))
+    }
+
+    func testAccountRequestCarriesTheModeAndTheBearer() throws {
+        let request = GatewayTransport.sessionRequest(baseURL: base, config: try config(["connection": "account"]))
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer static-or-access")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(try body(request), ["mode": "account"])
+    }
+
+    func testKeysRequestCarriesTheKeysAndNoAuthorization() throws {
+        let request = GatewayTransport.sessionRequest(
+            baseURL: base, config: try config(["connection": "keys", "accessToken": "", "elevenlabsApiKey": "el-key", "geminiApiKey": "gm-key"]))
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(try body(request), ["mode": "keys", "elevenlabs_api_key": "el-key", "gemini_api_key": "gm-key"])
+    }
+
+    func testRefusalsPassTheGatewaysOwnCodeAndNeverEchoCredentials() {
+        func refusal(_ status: Int, _ json: String?) -> AudioEngineError {
+            GatewayTransport.refusal(status: status, body: json.map { Data($0.utf8) })
+        }
+        XCTAssertEqual(refusal(402, #"{"error":"balance_empty"}"#).code, "balance_empty")
+        for code in GatewayTransport.refusalCodes { XCTAssertEqual(refusal(400, "{\"error\":\"\(code)\"}").code, code) }
+        XCTAssertEqual(refusal(503, #"{"error":"something_new"}"#).code, "gateway_error")
+        XCTAssertEqual(refusal(503, "not json").code, "gateway_error")
+        XCTAssertEqual(refusal(500, nil).code, "gateway_error")
+        // Older gateways answer without a body.
+        XCTAssertEqual(refusal(401, nil).code, "unauthorized")
+        XCTAssertEqual(refusal(429, nil).code, "session_limit")
+        XCTAssertFalse(refusal(402, #"{"error":"balance_empty","detail":"secret-detail"}"#).message.contains("secret-detail"))
+    }
+
+    func testReconnectUsesTheTokenFromUpdateAccessToken() throws {
+        let engine = Engine()
+        engine.installConfigForTesting(try config(["connection": "account", "accessToken": "old-access"]))
+        XCTAssertEqual(engine.nextSessionRequest()?.value(forHTTPHeaderField: "Authorization"), "Bearer old-access")
+        engine.updateAccessToken("new-access")
+        XCTAssertEqual(engine.nextSessionRequest()?.value(forHTTPHeaderField: "Authorization"), "Bearer new-access")
+        engine.updateAccessToken("")
+        XCTAssertEqual(engine.nextSessionRequest()?.value(forHTTPHeaderField: "Authorization"), "Bearer new-access")
+    }
+
+    func testBalanceMessageBecomesABalanceEvent() {
+        let engine = Engine()
+        var events: [[String: Any]] = []
+        engine.onEvent = { events.append($0) }
+        engine.receivedForTesting(["v": 1, "type": "account.balance", "balance_units": 4200])
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events.first?["type"] as? String, "balance")
+        XCTAssertEqual(events.first?["balanceUnits"] as? Int, 4200)
+    }
+}
+
 final class ProcessListTests: XCTestCase {
     func testSystemServicesAreNotOfferedAsMeetingSourcesButBrowsersAndMeetingAppsAre() {
         for bundle in ["com.google.Chrome.helper", "us.zoom.xos", "org.mozilla.firefox", "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.FaceTime"] {

@@ -212,6 +212,10 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
     case "stop":
       engine.stop()
       result(nil)
+    case "updateAccessToken":
+      guard let token = arguments["accessToken"] as? String, !token.isEmpty else { return result(Self.badArguments) }
+      engine.updateAccessToken(token)
+      result(nil)
     case "pttDown":
       engine.pttDown()
       result(nil)
@@ -277,7 +281,8 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
   }
 }
 
-/// Last-used configuration and preferences. The gateway access token lives in the login Keychain; everything else
+/// Last-used configuration and preferences. The secrets (static gateway token, account refresh token, provider keys)
+/// live in the login Keychain, one item each; everything else
 /// (device UIDs, language, mode, URL, interface language, caption preferences) is in UserDefaults. No captions,
 /// audio or transcripts are ever stored here.
 private enum Settings {
@@ -286,12 +291,21 @@ private enum Settings {
   /// user's Keychain or preferences).
   static let ephemeral = ProcessInfo.processInfo.environment["LIVEBRIDGE_EPHEMERAL_SETTINGS"] != nil
   private static let defaultsKey = "livebridge.settings"
-  private static let tokenKey = "accessToken"
-  private static let keychainQuery: [String: Any] = [
-    kSecClass as String: kSecClassGenericPassword,
-    kSecAttrService as String: "com.jaysonkhan.livebridge",
-    kSecAttrAccount as String: "gateway-access-token",
+  /// Settings key -> Keychain account. These keys never reach UserDefaults.
+  private static let secretAccounts: [String: String] = [
+    "accessToken": "gateway-access-token",
+    "accountRefreshToken": "account-refresh-token",
+    "elevenlabsApiKey": "elevenlabs-api-key",
+    "geminiApiKey": "gemini-api-key",
   ]
+
+  private static func keychainQuery(account: String) -> [String: Any] {
+    [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "com.jaysonkhan.livebridge",
+      kSecAttrAccount as String: account,
+    ]
+  }
 
   /// Everything except the token — never touches the Keychain, so it is safe on any thread.
   static func preferences() -> [String: Any] {
@@ -301,30 +315,34 @@ private enum Settings {
   static func load() -> [String: Any] {
     if ephemeral { return [:] }
     var settings = preferences()
-    var query = keychainQuery
-    query[kSecReturnData as String] = true
-    var item: CFTypeRef?
-    if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data,
-      let token = String(data: data, encoding: .utf8)
-    {
-      settings[tokenKey] = token
+    for (key, account) in secretAccounts {
+      var query = keychainQuery(account: account)
+      query[kSecReturnData as String] = true
+      var item: CFTypeRef?
+      if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data,
+        let secret = String(data: data, encoding: .utf8)
+      {
+        settings[key] = secret
+      }
     }
     return settings
   }
 
-  /// Merges the given keys into what is stored; a null value removes a key.
+  /// Merges the given keys into what is stored; a null value removes a key (a secret's Keychain item included), and
+  /// a key that is absent is left alone.
   static func save(_ values: [String: Any]) {
     if ephemeral { return }
     var settings = preferences()
-    for (key, value) in values where key != tokenKey && key != "sourcePids" {
+    for (key, value) in values where secretAccounts[key] == nil && key != "sourcePids" {
       // Process ids are only meaningful while those processes run, so they are never stored.
       if value is NSNull { settings.removeValue(forKey: key) } else { settings[key] = value }
     }
-    if let token = values[tokenKey] as? String {
-      SecItemDelete(keychainQuery as CFDictionary)
-      if !token.isEmpty {
-        var item = keychainQuery
-        item[kSecValueData as String] = Data(token.utf8)
+    for (key, account) in secretAccounts {
+      guard let value = values[key], value is NSNull || value is String else { continue }
+      SecItemDelete(keychainQuery(account: account) as CFDictionary)
+      if let secret = value as? String, !secret.isEmpty {
+        var item = keychainQuery(account: account)
+        item[kSecValueData as String] = Data(secret.utf8)
         SecItemAdd(item as CFDictionary, nil)
       }
     }

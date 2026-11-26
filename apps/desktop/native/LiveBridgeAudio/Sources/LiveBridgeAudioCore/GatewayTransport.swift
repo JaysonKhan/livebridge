@@ -30,12 +30,49 @@ final class GatewayTransport: NSObject, URLSessionWebSocketDelegate, @unchecked 
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: delegateQueue)
     }
 
-    /// Exchanges the long-lived access token for a short-lived session token, then opens the realtime socket.
-    func connect(baseURL: URL, accessToken: String, completion: @escaping (Result<Void, AudioEngineError>) -> Void) {
+    /// The gateway's own refusal codes that the app tells the user about; anything else is a plain `gateway_error`.
+    static let refusalCodes: Set<String> = [
+        "unauthorized", "invalid_token", "balance_empty", "session_limit", "rate_limited", "billing_unavailable",
+        "accounts_unavailable", "bad_request",
+    ]
+
+    /// The session-creation request for a connection mode. Token: no body, today's request. Account: the short-lived
+    /// access token and `{"mode":"account"}`. Keys: the user's own provider keys in the body and no `Authorization`.
+    static func sessionRequest(baseURL: URL, config: EngineConfig) -> URLRequest {
         var request = URLRequest(url: baseURL.appendingPathComponent("v1/sessions"))
         request.httpMethod = "POST"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        session.dataTask(with: request) { [weak self] data, response, error in
+        switch config.connection {
+        case .token:
+            request.setValue("Bearer \(config.accessToken)", forHTTPHeaderField: "Authorization")
+        case .account:
+            request.setValue("Bearer \(config.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["mode": "account"])
+        case .keys:
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "mode": "keys", "elevenlabs_api_key": config.elevenlabsApiKey ?? "", "gemini_api_key": config.geminiApiKey ?? "",
+            ])
+        }
+        return request
+    }
+
+    /// The error for a refused session request. Only the gateway's known `error` codes are passed through, and the
+    /// message never repeats anything the request carried.
+    static func refusal(status: Int, body: Data?) -> AudioEngineError {
+        if let body, let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+            let code = object["error"] as? String, refusalCodes.contains(code)
+        {
+            return AudioEngineError(code, "the gateway refused the session (\(code))")
+        }
+        let legacy = [401: ("unauthorized", "the gateway rejected the access token"), 429: ("session_limit", "the gateway already has an active session")]
+        let (code, message) = legacy[status] ?? ("gateway_error", "gateway answered HTTP \(status)")
+        return AudioEngineError(code, message)
+    }
+
+    /// Exchanges the credentials for a short-lived session token, then opens the realtime socket.
+    func connect(baseURL: URL, config: EngineConfig, completion: @escaping (Result<Void, AudioEngineError>) -> Void) {
+        session.dataTask(with: Self.sessionRequest(baseURL: baseURL, config: config)) { [weak self] data, response, error in
             guard let self, !self.closedByUs else { return }
             guard let http = response as? HTTPURLResponse else {
                 return completion(.failure(AudioEngineError("gateway_unreachable", error?.localizedDescription ?? "no response from the gateway")))
@@ -44,9 +81,7 @@ final class GatewayTransport: NSObject, URLSessionWebSocketDelegate, @unchecked 
                 let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                 let token = body["token"] as? String
             else {
-                let reasons = [401: ("unauthorized", "the gateway rejected the access token"), 429: ("session_limit", "the gateway already has an active session")]
-                let (code, message) = reasons[http.statusCode] ?? ("gateway_error", "gateway answered HTTP \(http.statusCode)")
-                return completion(.failure(AudioEngineError(code, message)))
+                return completion(.failure(Self.refusal(status: http.statusCode, body: data)))
             }
             guard var components = URLComponents(url: baseURL.appendingPathComponent("v1/realtime"), resolvingAgainstBaseURL: false)
             else { return completion(.failure(AudioEngineError("gateway_error", "invalid gateway URL"))) }
