@@ -1154,7 +1154,7 @@ test("keys mode: the session's providers are built by providersFor from exactly 
   const gatewayOwn = countingFactory();
   const asked: { elevenlabs: string; gemini: string }[] = [];
   const { base } = await start({
-    env: { MAX_SESSIONS: "2" },
+    env: { MAX_SESSIONS: "2", MAX_KEYS_SESSIONS: "2" },
     factory: gatewayOwn.factory,
     providersFor: (keys) => {
       asked.push({ ...keys });
@@ -1181,6 +1181,7 @@ test("keys mode: the session's providers are built by providersFor from exactly 
 test("keys mode: a missing or malformed key is 400 bad_request", async () => {
   const asked: unknown[] = [];
   const { base } = await start({
+    env: { MAX_KEYS_SESSIONS: "1" },
     providersFor: (keys) => (asked.push(keys), createFakeProviders()),
   });
   for (const body of [
@@ -1306,6 +1307,7 @@ test("a WebSocket handshake that fails after taking the session token gives the 
 
 test("a failure while starting a session is 500 internal; the gateway keeps serving and holds no slot", async () => {
   const { base, logLines } = await start({
+    env: { MAX_KEYS_SESSIONS: "1" },
     providersFor: () => {
       throw new Error(`could not use ${ELEVENLABS_KEY}`);
     },
@@ -1321,7 +1323,7 @@ test("a failure while starting a session is 500 internal; the gateway keeps serv
 });
 
 test("an unused session token expires on its own: its slot (and a keys session's keys) go without another request", async () => {
-  const { base, logLines } = await start({ sessionTokenTtlMs: 100 });
+  const { base, logLines } = await start({ sessionTokenTtlMs: 100, env: { MAX_KEYS_SESSIONS: "1" } });
   const issued = await requestSession(base, KEYS_REQUEST);
   assert.equal(issued.status, 201);
   assert.equal(issued.body.expires_in, 0.1);
@@ -1342,7 +1344,7 @@ test("no access token, provider key, static token or site secret reaches the log
   const refusingUsage = (path: string, body: any): FakeSiteReply =>
     path.endsWith("/usage/") ? { status: 503, body: { error: "unavailable" } } : authorizeFrom(ACCOUNTS)(path, body);
   const { base, logLines, site, gateway } = await startWithSite(refusingUsage, {
-    env: { MAX_SESSIONS: "3" },
+    env: { MAX_SESSIONS: "3", MAX_KEYS_SESSIONS: "1" },
     fake: { transcripts: ["bir", "ikki", "uch"] },
   });
   const issued = [
@@ -1542,6 +1544,7 @@ test("voices, keys: that key's own list from a factory built with exactly that k
   let calls = 0;
   const own = { ...createFakeProviders({ delayMs: 2 }), voices: async () => (calls++, [CLONED("ownvoice0000000001", "Mine")]) };
   const { base, logLines } = await start({
+    env: { MAX_KEYS_SESSIONS: "1" },
     providersFor: (keys) => (asked.push({ ...keys }), own),
   });
   const headers = { "x-elevenlabs-api-key": ELEVENLABS_KEY };
@@ -1565,7 +1568,7 @@ test("voices, keys: that key's own list from a factory built with exactly that k
 test("voices, keys: the key's list expires with the cache time, and at most 50 keys are kept", async () => {
   let calls = 0;
   const own = { ...createFakeProviders({ delayMs: 2 }), voices: async () => (calls++, [CLONED("ownvoice0000000001", "Mine")]) };
-  const { base } = await start({ providersFor: () => own, voicesCacheMs: 150 });
+  const { base } = await start({ providersFor: () => own, voicesCacheMs: 150, env: { MAX_KEYS_SESSIONS: "1" } });
   const headers = { "x-elevenlabs-api-key": ELEVENLABS_KEY };
   await voicesWith(base, headers);
   await voicesWith(base, headers);
@@ -1575,7 +1578,7 @@ test("voices, keys: the key's list expires with the cache time, and at most 50 k
   assert.equal(calls, 2);
 
   await stopAll();
-  const many = await start({ providersFor: () => own });
+  const many = await start({ providersFor: () => own, env: { MAX_KEYS_SESSIONS: "1" } });
   calls = 0;
   const keyOf = (n: number) => `key-number-${String(n).padStart(4, "0")}-padding`;
   for (let n = 0; n < 51; n++) await voicesWith(many.base, { "x-elevenlabs-api-key": keyOf(n) });
@@ -1597,7 +1600,7 @@ test("voices, keys: a refused key is 401 invalid_key, a malformed one never reac
       throw failure;
     },
   };
-  const { base } = await start({ providersFor: () => (built++, own) });
+  const { base } = await start({ providersFor: () => (built++, own), env: { MAX_KEYS_SESSIONS: "1" } });
   const headers = { "x-elevenlabs-api-key": ELEVENLABS_KEY };
   const refused = await voicesWith(base, headers);
   assert.equal(refused.status, 401);
@@ -1616,6 +1619,25 @@ test("voices, keys: a refused key is 401 invalid_key, a malformed one never reac
   const down = await voicesWith(base, headers);
   assert.equal(down.status, 502);
   assert.deepEqual(down.body, { error: "voices_unavailable" });
+});
+
+test("keys mode is off unless MAX_KEYS_SESSIONS is set: sessions are 429 session_limit, a key's voice list is 401 and asks no provider", async () => {
+  let calls = 0;
+  const own = { ...createFakeProviders({ delayMs: 2 }), voices: async () => (calls++, [CLONED("ownvoice0000000001", "Mine")]) };
+  for (const env of [{}, { MAX_KEYS_SESSIONS: "" }, { MAX_KEYS_SESSIONS: "0" }] as Record<string, string>[]) {
+    const { base } = await start({ env: { MAX_SESSIONS: "2", ...env }, providersFor: () => own });
+    const refused = await requestSession(base, KEYS_REQUEST);
+    assert.equal(refused.status, 429);
+    assert.deepEqual(refused.body, { error: "session_limit" });
+    const voices = await voicesWith(base, { "x-elevenlabs-api-key": ELEVENLABS_KEY });
+    assert.equal(voices.status, 401);
+    assert.deepEqual(voices.body, { error: "unauthorized" });
+    // Token sessions and the static token's voice list are unaffected.
+    assert.equal((await issueSession(base)).status, 201);
+    assert.equal((await voicesWith(base, { authorization: `Bearer ${ACCESS_TOKEN}` })).status, 200);
+    await stopAll();
+  }
+  assert.equal(calls, 0);
 });
 
 test("voices: without a header or an account token, only the static token is accepted", async () => {

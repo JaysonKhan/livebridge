@@ -145,6 +145,7 @@ test("remote benchmark, token and own keys: turns through a running gateway, ses
   const WRONG_TOKEN = "wrong-token-0123456789abcdef0123456789";
   const asked: { elevenlabs: string; gemini: string }[] = [];
   const { gateway, base } = await startGateway({
+    env: { MAX_KEYS_SESSIONS: "1" },
     // A translation unlike the transcript, so no turn is taken for an echo of the one before.
     fake: { translate: () => "hello world" },
     providersFor: (keys) => (asked.push(keys), createFakeProviders({ delayMs: 2, translate: () => "hello world" })),

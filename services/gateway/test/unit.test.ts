@@ -101,13 +101,15 @@ test("config: account voices are a trimmed list, empty by default", () => {
   assert.deepEqual(loadConfig({ ...real, ACCOUNT_VOICE_IDS: "a, b ," }).accountVoiceIds, ["a", "b"]);
 });
 
-test("config: session caps default to MAX_SESSIONS; idle and report settings have defaults and bounds", () => {
+test("config: account sessions default to MAX_SESSIONS, own-keys sessions to 0 (off); idle and report settings have defaults and bounds", () => {
   const d = loadConfig({ ...real, MAX_SESSIONS: "4" });
   assert.equal(d.MAX_ACCOUNT_SESSIONS, 4);
-  assert.equal(d.MAX_KEYS_SESSIONS, 4);
+  assert.equal(d.MAX_KEYS_SESSIONS, 0);
   const blank = loadConfig({ ...real, MAX_SESSIONS: "4", MAX_ACCOUNT_SESSIONS: "", MAX_KEYS_SESSIONS: "" });
   assert.equal(blank.MAX_ACCOUNT_SESSIONS, 4);
-  assert.equal(blank.MAX_KEYS_SESSIONS, 4);
+  assert.equal(blank.MAX_KEYS_SESSIONS, 0);
+  assert.equal(loadConfig({ ...real, MAX_SESSIONS: "4", MAX_KEYS_SESSIONS: "0" }).MAX_KEYS_SESSIONS, 0);
+  assert.throws(() => loadConfig({ ...real, MAX_KEYS_SESSIONS: "-1" }), /MAX_KEYS_SESSIONS/);
   assert.equal(d.PAID_RESERVED_SESSIONS, 0);
   assert.equal(d.IDLE_TIMEOUT_MINUTES, 10);
   assert.equal(d.USAGE_REPORT_SECONDS, 10);

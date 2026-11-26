@@ -91,9 +91,13 @@ const schema = z
     TRANSLATION_HEDGE_AFTER_MS: z.coerce.number().int().min(0).default(1200),
 
     MAX_SESSIONS: z.coerce.number().int().min(1).default(1),
-    /** Per-mode caps; unset = MAX_SESSIONS. */
+    /** Cap on account sessions; unset = MAX_SESSIONS (accounts are off anyway until the site is configured). */
     MAX_ACCOUNT_SESSIONS: optionalCap,
-    MAX_KEYS_SESSIONS: optionalCap,
+    /**
+     * Cap on own-keys sessions; unset or 0 = own keys off. Off unless chosen: otherwise a stranger with junk keys
+     * could hold a self-hosted gateway's only slot.
+     */
+    MAX_KEYS_SESSIONS: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(0).default(0)),
     /** Slots of the total that only account sessions may take. */
     PAID_RESERVED_SESSIONS: z.coerce.number().int().min(0).default(0),
     /** No speech on either lane for this long ends the session. 0 disables. */
@@ -125,7 +129,6 @@ export type Env = z.infer<typeof schema>;
 
 export interface Config extends Env {
   MAX_ACCOUNT_SESSIONS: number;
-  MAX_KEYS_SESSIONS: number;
   accountsEnabled: boolean;
   accountVoiceIds: string[];
   allowedTranslationModels: string[];
@@ -149,7 +152,6 @@ export function loadConfig(
   return {
     ...env,
     MAX_ACCOUNT_SESSIONS: env.MAX_ACCOUNT_SESSIONS ?? env.MAX_SESSIONS,
-    MAX_KEYS_SESSIONS: env.MAX_KEYS_SESSIONS ?? env.MAX_SESSIONS,
     accountsEnabled: Boolean(env.SITE_SOCKET_PATH && env.LIVEBRIDGE_GATEWAY_SECRET),
     accountVoiceIds: csv(env.ACCOUNT_VOICE_IDS),
     allowedTranslationModels: allowed.length

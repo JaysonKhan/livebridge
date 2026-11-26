@@ -70,6 +70,8 @@ The gateway starts a session in one of three ways (`POST /v1/sessions`):
   `USAGE_REPORT_SECONDS`. The gateway sends raw counters only (audio milliseconds per direction, synthesis characters);
   the site turns them into a charge.
 - **Own keys** — the caller's own ElevenLabs and Gemini keys in the request body. Nothing is billed by the service.
+  **Off unless** `MAX_KEYS_SESSIONS` is set above 0: until then an own-keys request gets `429 session_limit` and
+  `GET /v1/voices` with a key gets `401 unauthorized`, so a stranger cannot hold a self-hosted gateway's slots.
 
 Accounts are **off unless both** `SITE_SOCKET_PATH` and `LIVEBRIDGE_GATEWAY_SECRET` are set; until then an account
 request gets `503 accounts_unavailable`. The `gateway.listening` log line says `accounts: true` once they are on.
@@ -83,7 +85,7 @@ request gets `503 accounts_unavailable`. The `gateway.listening` log line says `
 | `LIVEBRIDGE_GATEWAY_SECRET` | empty | Shared secret that signs every call to the site: at least 32 characters, the same value as in the site's `.env`. Empty = accounts off. |
 | `ACCOUNT_VOICE_IDS` | empty | Comma-separated voice ids an account session may choose. The two configured voices are always allowed; while the list is empty, the provider's stock voices are allowed too. `GET /v1/voices` shows an account exactly these. |
 | `MAX_ACCOUNT_SESSIONS` | `MAX_SESSIONS` | Cap on account sessions. |
-| `MAX_KEYS_SESSIONS` | `MAX_SESSIONS` | Cap on own-keys sessions. |
+| `MAX_KEYS_SESSIONS` | `0` (off) | Cap on own-keys sessions. Empty or 0 = own keys off. The hosted gateway sets it explicitly. |
 | `PAID_RESERVED_SESSIONS` | `0` | Slots held back for accounts that have made a purchase: an account with only the trial gets `429 session_limit` once no more than this many slots are left (of `MAX_SESSIONS` or of `MAX_ACCOUNT_SESSIONS`). Token and own-keys sessions are bounded by their caps only. |
 | `IDLE_TIMEOUT_MINUTES` | `10` | No recognised speech in either direction for this long ends the session (`idle_timeout`). 0 = off. |
 | `USAGE_REPORT_SECONDS` | `10` | How often an account session reports usage to the site (at least 2). |
@@ -106,8 +108,9 @@ The 1 is a margin for a reconnect or a benchmark run. A plan that allows 10 conc
 
 The server's `.env` is edited by hand, on the server: it is not in git and `deploy.sh` never touches it.
 
-1. Add the new lines to `/var/www/livebridge/.env` (the socket path is in your server notes; leave a cap empty to use
-   `MAX_SESSIONS`):
+1. Add the new lines to `/var/www/livebridge/.env` (the socket path is in your server notes; leave
+   `MAX_ACCOUNT_SESSIONS` empty to use `MAX_SESSIONS`; own keys stay off until `MAX_KEYS_SESSIONS` is set, so set it
+   explicitly):
 
    ```
    SITE_SOCKET_PATH=<the site's Gunicorn socket>
@@ -115,7 +118,7 @@ The server's `.env` is edited by hand, on the server: it is not in git and `depl
    ACCOUNT_VOICE_IDS=
    MAX_SESSIONS=<from the plan, see above>
    MAX_ACCOUNT_SESSIONS=
-   MAX_KEYS_SESSIONS=
+   MAX_KEYS_SESSIONS=<how many own-keys sessions to allow; 0 = off>
    PAID_RESERVED_SESSIONS=0
    IDLE_TIMEOUT_MINUTES=10
    USAGE_REPORT_SECONDS=10

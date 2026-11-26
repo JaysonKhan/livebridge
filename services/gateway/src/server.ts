@@ -259,6 +259,8 @@ export function createGateway({
     const unavailable = { status: 502, body: { error: "voices_unavailable" } };
     const header = req.headers["x-elevenlabs-api-key"];
     if (header !== undefined) {
+      // Own keys are off on this gateway: no list for a key, and the provider is not asked.
+      if (config.MAX_KEYS_SESSIONS === 0) return { status: 401, body: { error: "unauthorized" } };
       if (typeof header !== "string" || !API_KEY_PATTERN.test(header))
         return { status: 401, body: { error: "invalid_key" } };
       try {
