@@ -88,7 +88,7 @@ request gets `503 accounts_unavailable`. The `gateway.listening` log line says `
 | `MAX_KEYS_SESSIONS` | `0` (off) | Cap on own-keys sessions. Empty or 0 = own keys off. The hosted gateway sets it explicitly. |
 | `PAID_RESERVED_SESSIONS` | `0` | Slots held back for accounts that have made a purchase: an account with only the trial gets `429 session_limit` once no more than this many slots are left (of `MAX_SESSIONS` or of `MAX_ACCOUNT_SESSIONS`). Token and own-keys sessions are bounded by their caps only. |
 | `IDLE_TIMEOUT_MINUTES` | `10` | No recognised speech in either direction for this long ends the session (`idle_timeout`). 0 = off. |
-| `USAGE_REPORT_SECONDS` | `10` | How often an account session reports usage to the site (at least 2). |
+| `USAGE_REPORT_SECONDS` | `10` | How often an account session reports usage to the site (2 to 60; the interval bounds how far an empty account can overrun). |
 
 `MAX_SESSIONS` stays the cap on all sessions together, own-keys sessions included.
 

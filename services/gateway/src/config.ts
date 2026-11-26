@@ -102,8 +102,8 @@ const schema = z
     PAID_RESERVED_SESSIONS: z.coerce.number().int().min(0).default(0),
     /** No speech on either lane for this long ends the session. 0 disables. */
     IDLE_TIMEOUT_MINUTES: z.coerce.number().int().min(0).default(10),
-    /** How often an account session reports usage to the site. */
-    USAGE_REPORT_SECONDS: z.coerce.number().int().min(2).default(10),
+    /** How often an account session reports usage to the site. At most 60: it bounds an empty account's overrun. */
+    USAGE_REPORT_SECONDS: z.coerce.number().int().min(2).max(60).default(10),
     MAX_SESSION_MINUTES: z.coerce.number().int().min(1).default(120),
     /** Content persistence is not implemented; anything but `false` is refused so nobody assumes it works. */
     STORE_CONTENT: z.literal("false").default("false"),

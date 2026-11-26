@@ -127,6 +127,9 @@ test("config: account sessions default to MAX_SESSIONS, own-keys sessions to 0 (
   assert.equal(o.PAID_RESERVED_SESSIONS, 1);
   assert.equal(o.IDLE_TIMEOUT_MINUTES, 0);
   assert.throws(() => loadConfig({ ...real, USAGE_REPORT_SECONDS: "1" }), /USAGE_REPORT_SECONDS/);
+  // The interval bounds how far an empty account can overrun before its report comes back with a balance of 0.
+  assert.equal(loadConfig({ ...real, USAGE_REPORT_SECONDS: "60" }).USAGE_REPORT_SECONDS, 60);
+  assert.throws(() => loadConfig({ ...real, USAGE_REPORT_SECONDS: "61" }), /USAGE_REPORT_SECONDS/);
   assert.throws(() => loadConfig({ ...real, PAID_RESERVED_SESSIONS: "-1" }), /PAID_RESERVED_SESSIONS/);
   assert.throws(() => loadConfig({ ...real, IDLE_TIMEOUT_MINUTES: "-1" }), /IDLE_TIMEOUT_MINUTES/);
 });
