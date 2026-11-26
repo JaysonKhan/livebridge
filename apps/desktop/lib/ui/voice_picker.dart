@@ -9,6 +9,7 @@ import '../bridge/models.dart';
 import '../bridge/voices_client.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/labels.dart';
+import '../state/connection_state.dart';
 import '../state/providers.dart';
 import '../state/sample_player.dart';
 import '../state/setup_state.dart';
@@ -118,9 +119,10 @@ class _VoicePickerState extends ConsumerState<_VoicePicker> {
   /// Null is "Default".
   void _choose(Voice? voice) {
     final setup = ref.read(setupProvider.notifier);
+    final mode = ref.read(connectionProvider).mode ?? ConnectionMode.gateway;
     widget.direction == Direction.out
-        ? setup.setOutVoice(voice?.id, name: voice?.name)
-        : setup.setInVoice(voice?.id, name: voice?.name);
+        ? setup.setOutVoice(mode, voice?.id, name: voice?.name)
+        : setup.setInVoice(mode, voice?.id, name: voice?.name);
     Navigator.of(context).pop();
   }
 
@@ -130,12 +132,17 @@ class _VoicePickerState extends ConsumerState<_VoicePicker> {
     final t = context.tokens;
     final theme = Theme.of(context);
     final out = widget.direction == Direction.out;
-    final gateway = ref.watch(setupProvider.select((s) => (url: s.gatewayUrl.trim(), token: s.accessToken.trim())));
-    final current = ref.watch(setupProvider.select((s) => out ? s.outVoiceId : s.inVoiceId));
+    final mode = ref.watch(connectionProvider.select((s) => s.mode)) ?? ConnectionMode.gateway;
+    // The own gateway's address is part of what is asked; the other modes use the hosted gateway.
+    final listKey = (
+      mode: mode,
+      url: mode == ConnectionMode.gateway ? ref.watch(setupProvider.select((s) => s.gatewayUrl.trim())) : '',
+    );
+    final current = ref.watch(setupProvider.select((s) => out ? s.voicesFor(mode).outId : s.voicesFor(mode).inId));
     // The sample is in the language this direction speaks: the other person's for my voice, mine for theirs.
     final spoken = ref.watch(setupProvider.select((s) => out ? s.targetLang : s.myLang));
     final languageNames = ref.watch(languageNamesProvider(l.localeName)).value ?? const <String, String>{};
-    final listing = ref.watch(voicesProvider(gateway));
+    final listing = ref.watch(voicesProvider(listKey));
     // Only a list that is on screen has filters; an earlier one is not used while it is reloading or after it failed.
     final voices = listing.isLoading || listing.hasError ? const <Voice>[] : listing.value ?? const <Voice>[];
     final padding = t.isWindows ? 24.0 : 20.0;
@@ -180,7 +187,7 @@ class _VoicePickerState extends ConsumerState<_VoicePicker> {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: OutlinedButton(
                 key: const Key('voices-retry'),
-                onPressed: () => ref.invalidate(voicesProvider(gateway)),
+                onPressed: () => ref.invalidate(voicesProvider(listKey)),
                 child: Text(l.voiceRetry),
               ),
             ),

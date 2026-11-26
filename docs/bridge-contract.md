@@ -65,6 +65,7 @@ the host sends `voices: { out?, in? }` in `session.configure` only for the ids t
 | `captionFontSize` | double | caption text size |
 | `showOriginal` / `showTranslated` | bool | caption line visibility |
 | `outVoiceName` / `inVoiceName` | String? | what the chosen voices are called, saved with `outVoiceId` / `inVoiceId` the moment a voice is picked (so the setup column can show the choice without asking the gateway); `null` removes them |
+| `accountOutVoiceId` / `accountInVoiceId` / `accountOutVoiceName` / `accountInVoiceName`, and the same with a `keys` prefix | String? | the same four values for the account and own-keys connection modes (the voice lists differ); `outVoiceId` & co. stay the own gateway's |
 
 Mode semantics: `captions` — both directions transcribe and translate, nothing is synthesized, no virtual mic needed.
 `incoming` — captions both ways plus Uzbek audio in the headphones. `bidirectional` — also synthesizes the owner's

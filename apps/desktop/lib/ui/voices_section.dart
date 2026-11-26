@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/models.dart';
 import '../l10n/labels.dart';
+import '../state/connection_state.dart';
 import '../state/setup_state.dart';
 import 'setup_panel.dart';
 import 'theme/tokens.dart';
@@ -19,9 +20,21 @@ class VoicesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final mode = ref.watch(setupProvider.select((s) => s.mode));
-    final hasToken = ref.watch(setupProvider.select((s) => s.accessToken.trim().isNotEmpty));
-    final out = ref.watch(setupProvider.select((s) => (id: s.outVoiceId, name: s.outVoiceName)));
-    final incoming = ref.watch(setupProvider.select((s) => (id: s.inVoiceId, name: s.inVoiceName)));
+    final connection = ref.watch(connectionProvider.select((s) => (mode: s.mode, hasKeys: s.hasKeys)));
+    // What the gateway needs to list voices in this mode: the own gateway its address and token, own keys both keys,
+    // an account nothing more.
+    final canList = ref.watch(
+      setupProvider.select(
+        (s) => switch (connection.mode) {
+          ConnectionMode.gateway || null => s.gatewayUrl.trim().isNotEmpty && s.accessToken.trim().isNotEmpty,
+          ConnectionMode.keys => connection.hasKeys,
+          ConnectionMode.account => true,
+        },
+      ),
+    );
+    final choice = ref.watch(setupProvider.select((s) => s.voicesFor(connection.mode)));
+    final out = (id: choice.outId, name: choice.outName);
+    final incoming = (id: choice.inId, name: choice.inName);
     String current(({String? id, String? name}) voice) => voice.id == null ? l.voiceDefault : voice.name ?? voice.id!;
 
     return SectionCard(
@@ -34,7 +47,7 @@ class VoicesSection extends ConsumerWidget {
             label: l.voiceOut,
             current: current(out),
             // Only the bidirectional mode speaks my translation into the call.
-            onChange: hasToken && mode == SessionMode.bidirectional
+            onChange: canList && mode == SessionMode.bidirectional
                 ? () => showVoicePicker(context, direction: Direction.out)
                 : null,
           ),
@@ -43,11 +56,11 @@ class VoicesSection extends ConsumerWidget {
             name: 'voice-in',
             label: l.voiceIn,
             current: current(incoming),
-            onChange: hasToken && mode != SessionMode.captions
+            onChange: canList && mode != SessionMode.captions
                 ? () => showVoicePicker(context, direction: Direction.incoming)
                 : null,
           ),
-          if (!hasToken) ...[
+          if (!canList && connection.mode != ConnectionMode.keys) ...[
             const SizedBox(height: 8),
             Text(
               l.voiceNeedsToken,

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../bridge/live_bridge.dart';
 import '../bridge/models.dart';
 import '../bridge/voices_client.dart';
+import 'connection_state.dart';
 
 /// The native bridge. Tests override this with a fake.
 final bridgeProvider = Provider<LiveBridge>((ref) => MethodChannelLiveBridge());
@@ -32,10 +33,23 @@ final languageNamesProvider = FutureProvider.family<Map<String, String>, String>
 /// Reads the gateway's voice list. Tests override this with a fake.
 final voicesClientProvider = Provider<VoicesClient>((ref) => HttpVoicesClient());
 
-/// The voices of one gateway, per address and access token. Nothing keeps it between uses: each picker that opens
+/// The voices the current connection may use, per mode (and, for the own gateway, its address). The credential is not
+/// part of the key: it is fetched inside, from the connection. Nothing keeps it between uses: each picker that opens
 /// reads the list anew, so neither a failure nor an old list outlives the dialog that showed it.
-final voicesProvider = FutureProvider.autoDispose.family<List<Voice>, ({String url, String token})>(
-  (ref, key) => ref.watch(voicesClientProvider).list(gatewayUrl: key.url, accessToken: key.token),
+final voicesProvider = FutureProvider.autoDispose.family<List<Voice>, ({ConnectionMode mode, String url})>(
+  (ref, key) async {
+    final client = ref.watch(voicesClientProvider);
+    final connection = ref.read(connectionProvider.notifier);
+    var access = await connection.voicesAccess();
+    try {
+      return await client.list(gatewayUrl: access.url, auth: access.auth);
+    } on VoicesException catch (e) {
+      // An account's access token can be refused just as it ran out: refresh it once and ask again.
+      if (key.mode != ConnectionMode.account || e.failure != VoicesFailure.unauthorized) rethrow;
+    }
+    access = await connection.voicesAccess(forceRefresh: true);
+    return client.list(gatewayUrl: access.url, auth: access.auth);
+  },
   // A failure is shown with a Retry button. Retrying unasked would hide it and keep asking a gateway that refused.
   retry: (_, _) => null,
 );

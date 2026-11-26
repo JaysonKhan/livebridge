@@ -1792,6 +1792,12 @@ abstract class AppLocalizations {
   /// **'Could not reach the gateway.'**
   String get voicesNetwork;
 
+  /// No description provided for @voicesInvalidKey.
+  ///
+  /// In en, this message translates to:
+  /// **'ElevenLabs refused your key. Check that it is correct.'**
+  String get voicesInvalidKey;
+
   /// No description provided for @errVoiceNotFound.
   ///
   /// In en, this message translates to:

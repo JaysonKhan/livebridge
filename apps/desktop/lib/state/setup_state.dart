@@ -20,6 +20,34 @@ class LostDevice {
   final String name;
 }
 
+/// The voices chosen in one connection mode: one per direction (a provider voice id; null = the gateway's configured
+/// voice) and what each is called, kept from the moment it was picked so that showing the choice never needs the
+/// gateway. A null name shows the id.
+class VoiceChoice {
+  const VoiceChoice({this.outId, this.inId, this.outName, this.inName});
+
+  static const none = VoiceChoice();
+
+  final String? outId;
+  final String? inId;
+  final String? outName;
+  final String? inName;
+
+  VoiceChoice withOut(String? id, String? name) =>
+      VoiceChoice(outId: id, inId: inId, outName: id == null ? null : name, inName: inName);
+
+  VoiceChoice withIn(String? id, String? name) =>
+      VoiceChoice(outId: outId, inId: id, outName: outName, inName: id == null ? null : name);
+}
+
+/// The preference key of a voice setting in [mode]. The own gateway keeps the names it always had (`outVoiceId`);
+/// the other modes prefix theirs (`accountOutVoiceId`, `keysOutVoiceId`) since their voice lists differ.
+String _voiceKey(ConnectionMode? mode, String base) => switch (mode) {
+  ConnectionMode.account => 'account${base[0].toUpperCase()}${base.substring(1)}',
+  ConnectionMode.keys => 'keys${base[0].toUpperCase()}${base.substring(1)}',
+  ConnectionMode.gateway || null => base,
+};
+
 class SetupState {
   const SetupState({
     this.devices = const [],
@@ -34,10 +62,7 @@ class SetupState {
     this.gatewayUrl = 'http://127.0.0.1:8201',
     this.accessToken = '',
     this.translationModel = '',
-    this.outVoiceId,
-    this.inVoiceId,
-    this.outVoiceName,
-    this.inVoiceName,
+    this.voices = const {},
     this.micPermission = 'undetermined',
     this.lostDevices = const [],
     this.captionFontSize = 18,
@@ -62,14 +87,11 @@ class SetupState {
   final String accessToken;
   final String translationModel;
 
-  /// The voice chosen for each direction (a provider voice id); null = the gateway's configured voice.
-  final String? outVoiceId;
-  final String? inVoiceId;
+  /// The voices chosen in each connection mode: the lists differ, so the choice is remembered per mode.
+  final Map<ConnectionMode, VoiceChoice> voices;
 
-  /// What the chosen voices are called, kept from the moment they were picked so that showing the choice never
-  /// needs the gateway. Null when unknown (the id is shown then).
-  final String? outVoiceName;
-  final String? inVoiceName;
+  /// The choice of [mode]; the own gateway's when null (onboarding has no Voices group).
+  VoiceChoice voicesFor(ConnectionMode? mode) => voices[mode ?? ConnectionMode.gateway] ?? VoiceChoice.none;
   final String micPermission;
   final List<LostDevice> lostDevices;
   final double captionFontSize;
@@ -95,10 +117,7 @@ class SetupState {
     String? gatewayUrl,
     String? accessToken,
     String? translationModel,
-    Object? outVoiceId = _keep,
-    Object? inVoiceId = _keep,
-    Object? outVoiceName = _keep,
-    Object? inVoiceName = _keep,
+    Map<ConnectionMode, VoiceChoice>? voices,
     String? micPermission,
     List<LostDevice>? lostDevices,
     double? captionFontSize,
@@ -119,10 +138,7 @@ class SetupState {
     gatewayUrl: gatewayUrl ?? this.gatewayUrl,
     accessToken: accessToken ?? this.accessToken,
     translationModel: translationModel ?? this.translationModel,
-    outVoiceId: identical(outVoiceId, _keep) ? this.outVoiceId : outVoiceId as String?,
-    inVoiceId: identical(inVoiceId, _keep) ? this.inVoiceId : inVoiceId as String?,
-    outVoiceName: identical(outVoiceName, _keep) ? this.outVoiceName : outVoiceName as String?,
-    inVoiceName: identical(inVoiceName, _keep) ? this.inVoiceName : inVoiceName as String?,
+    voices: voices ?? this.voices,
     micPermission: micPermission ?? this.micPermission,
     lostDevices: lostDevices ?? this.lostDevices,
     captionFontSize: captionFontSize ?? this.captionFontSize,
@@ -150,8 +166,9 @@ class SetupState {
 
   AudioDevice? deviceByUid(String? uid) => devices.where((d) => d.uid == uid).firstOrNull;
 
-  /// Builds the `start` config. Only valid when the route check has no blockers.
-  StartConfig toConfig() => StartConfig(
+  /// Builds the `start` config with the voices of the [connection] mode (the own gateway's when null). Only valid when
+  /// the route check has no blockers.
+  StartConfig toConfig([ConnectionMode? connection]) => StartConfig(
     gatewayUrl: gatewayUrl.trim(),
     accessToken: accessToken.trim(),
     micUid: micUid!,
@@ -164,8 +181,8 @@ class SetupState {
     outCommit: outCommit,
     translationModel: translationModel.trim().isEmpty ? null : translationModel.trim(),
     // Always both: the gateway ignores the voice of a direction that does not speak.
-    outVoiceId: outVoiceId,
-    inVoiceId: inVoiceId,
+    outVoiceId: voicesFor(connection).outId,
+    inVoiceId: voicesFor(connection).inId,
   );
 }
 
@@ -206,10 +223,15 @@ class SetupNotifier extends Notifier<SetupState> {
         gatewayUrl: saved['gatewayUrl'] as String?,
         accessToken: saved['accessToken'] as String?,
         translationModel: saved['translationModel'] as String?,
-        outVoiceId: _savedVoice(saved['outVoiceId']),
-        inVoiceId: _savedVoice(saved['inVoiceId']),
-        outVoiceName: _savedVoice(saved['outVoiceName']),
-        inVoiceName: _savedVoice(saved['inVoiceName']),
+        voices: {
+          for (final mode in ConnectionMode.values)
+            mode: VoiceChoice(
+              outId: _savedVoice(saved[_voiceKey(mode, 'outVoiceId')]),
+              inId: _savedVoice(saved[_voiceKey(mode, 'inVoiceId')]),
+              outName: _savedVoice(saved[_voiceKey(mode, 'outVoiceName')]),
+              inName: _savedVoice(saved[_voiceKey(mode, 'inVoiceName')]),
+            ),
+        },
         myLang: kLanguages.containsKey(saved['myLang']) ? saved['myLang'] as String : null,
         targetLang: kLanguages.containsKey(saved['targetLang']) ? saved['targetLang'] as String : null,
         mode: parseWire(SessionMode.values, saved['mode']),
@@ -295,16 +317,18 @@ class SetupNotifier extends Notifier<SetupState> {
         .guard('saveSettings', () => ref.read(bridgeProvider).savePreferences(preferences)),
   );
 
-  /// Chooses a direction's voice and saves the choice with its [name]; a null [id] goes back to the gateway's
-  /// configured voice.
-  void setOutVoice(String? id, {String? name}) {
-    state = state.copyWith(outVoiceId: id, outVoiceName: id == null ? null : name);
-    _persist({'outVoiceId': state.outVoiceId, 'outVoiceName': state.outVoiceName});
+  /// Chooses a direction's voice in the connection [mode] and saves the choice with its [name]; a null [id] goes back
+  /// to the gateway's configured voice. The other modes' choices stay as they are.
+  void setOutVoice(ConnectionMode mode, String? id, {String? name}) {
+    final choice = state.voicesFor(mode).withOut(id, name);
+    state = state.copyWith(voices: {...state.voices, mode: choice});
+    _persist({_voiceKey(mode, 'outVoiceId'): choice.outId, _voiceKey(mode, 'outVoiceName'): choice.outName});
   }
 
-  void setInVoice(String? id, {String? name}) {
-    state = state.copyWith(inVoiceId: id, inVoiceName: id == null ? null : name);
-    _persist({'inVoiceId': state.inVoiceId, 'inVoiceName': state.inVoiceName});
+  void setInVoice(ConnectionMode mode, String? id, {String? name}) {
+    final choice = state.voicesFor(mode).withIn(id, name);
+    state = state.copyWith(voices: {...state.voices, mode: choice});
+    _persist({_voiceKey(mode, 'inVoiceId'): choice.inId, _voiceKey(mode, 'inVoiceName'): choice.inName});
   }
 
   void setShowOriginal(bool v) {

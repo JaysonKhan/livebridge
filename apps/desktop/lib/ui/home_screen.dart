@@ -161,7 +161,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 Future<void> _startWithConsent(BuildContext context, WidgetRef ref) async {
   final agreed = await showConsentDialog(context);
   if (!agreed || !context.mounted) return;
-  await ref.read(connectionProvider.notifier).start(ref.read(setupProvider).toConfig());
+  await ref
+      .read(connectionProvider.notifier)
+      .start(ref.read(setupProvider).toConfig(ref.read(connectionProvider).mode));
 }
 
 /// The strip under the header for the last session error. The codes people can act on get their own sentence (and a

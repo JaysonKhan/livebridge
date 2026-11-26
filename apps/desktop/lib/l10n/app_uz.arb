@@ -283,6 +283,7 @@
   "voicesUnsupported": "Bu gateway ovozlar ro'yxatini bera olmaydi. Ovoz tanlash uchun uni yangilang.",
   "voicesUnavailable": "Ovozlar ro'yxati hozir mavjud emas.",
   "voicesNetwork": "Gateway'ga ulanib bo'lmadi.",
+  "voicesInvalidKey": "ElevenLabs kalitingizni qabul qilmadi. To'g'riligini tekshiring.",
   "errVoiceNotFound": "Tanlangan ovoz mavjud emas. Boshqasini tanlang yoki Standart ovozga qayting.",
   "onboardingTitle": "Real vaqtdagi tarjimon",
   "onboardingSubtitle": "Kiring va 5 daqiqani bepul sinab ko'ring",

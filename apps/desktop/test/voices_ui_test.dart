@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/bridge/voices_client.dart';
+import 'package:livebridge/state/connection_state.dart';
 import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/setup_state.dart';
 
+import 'fake_account_client.dart';
 import 'fake_live_bridge.dart';
 import 'fake_voices_client.dart';
 import 'harness.dart';
@@ -98,7 +100,7 @@ void main() {
       expect(fakeVoices.calls, isEmpty);
 
       await _open(tester, _outChange);
-      expect(fakeVoices.calls, [(url: 'http://127.0.0.1:8201', token: _token)]);
+      expect(fakeVoices.calls, [(url: 'http://127.0.0.1:8201', auth: const BearerAuth(_token))]);
     });
 
     testWidgets('a saved voice is shown by its saved name; one saved without a name shows its id', (tester) async {
@@ -149,7 +151,7 @@ void main() {
 
       // Opening a picker is the owner's own request, to the address as it now stands.
       await _open(tester, _outChange);
-      expect(fakeVoices.calls, [(url: 'http://192.168.1.15:8201', token: 'secret-token')]);
+      expect(fakeVoices.calls, [(url: 'http://192.168.1.15:8201', auth: const BearerAuth('secret-token'))]);
     });
   });
 
@@ -166,7 +168,7 @@ void main() {
       expect(_text('voice-out-current'), 'Fake Bruno');
       expect(_text('voice-in-current'), en.voiceDefault);
       final c = ProviderScope.containerOf(tester.element(startButton));
-      expect(c.read(setupProvider).outVoiceId, _bruno);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, _bruno);
 
       await tester.tap(startButton);
       await tester.pumpAndSettle();
@@ -227,7 +229,7 @@ void main() {
     testWidgets('back to Default', (tester) async {
       await _pumpBidirectional(tester);
       final c = ProviderScope.containerOf(tester.element(startButton));
-      c.read(setupProvider.notifier).setOutVoice(_bruno);
+      c.read(setupProvider.notifier).setOutVoice(ConnectionMode.gateway, _bruno);
       await tester.pumpAndSettle();
       await _open(tester, _outChange);
       // The current voice is the marked one.
@@ -240,14 +242,14 @@ void main() {
       await tester.tap(find.byKey(const Key('voice-row-default')));
       await tester.pumpAndSettle();
       expect(_picker, findsNothing);
-      expect(c.read(setupProvider).outVoiceId, isNull);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, isNull);
       expect(_text('voice-out-current'), en.voiceDefault);
     });
 
     testWidgets('the current voice comes first, right after Default', (tester) async {
       await _pumpBidirectional(tester);
       final c = ProviderScope.containerOf(tester.element(startButton));
-      c.read(setupProvider.notifier).setOutVoice('fakevoice0000000004');
+      c.read(setupProvider.notifier).setOutVoice(ConnectionMode.gateway, 'fakevoice0000000004');
       await tester.pumpAndSettle();
       await _open(tester, _outChange);
       expect(_rowNames(), [en.voiceDefault, 'Fake Timur', 'Fake Aria', 'Fake Bruno', 'Fake Dilnoza']);
@@ -274,7 +276,7 @@ void main() {
 
       fakeVoices.failure = VoicesFailure.unavailable;
       ProviderScope.containerOf(tester.element(_picker))
-          .invalidate(voicesProvider((url: 'http://127.0.0.1:8201', token: _token)));
+          .invalidate(voicesProvider((mode: ConnectionMode.gateway, url: 'http://127.0.0.1:8201')));
       await tester.pumpAndSettle();
       expect(find.text(en.voicesUnavailable), findsOneWidget);
       expect(find.byKey(const Key('voice-filter-gender')), findsNothing);
@@ -284,13 +286,13 @@ void main() {
     testWidgets('closing the picker without choosing keeps the choice', (tester) async {
       await _pumpBidirectional(tester);
       final c = ProviderScope.containerOf(tester.element(startButton));
-      c.read(setupProvider.notifier).setOutVoice(_bruno);
+      c.read(setupProvider.notifier).setOutVoice(ConnectionMode.gateway, _bruno);
       await tester.pumpAndSettle();
       await _open(tester, _outChange);
       await tester.tap(find.widgetWithText(OutlinedButton, en.cancel));
       await tester.pumpAndSettle();
       expect(_picker, findsNothing);
-      expect(c.read(setupProvider).outVoiceId, _bruno);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, _bruno);
     });
 
     testWidgets('filters and search narrow the list', (tester) async {
@@ -407,6 +409,7 @@ void main() {
         VoicesFailure.unsupported: en.voicesUnsupported,
         VoicesFailure.unavailable: en.voicesUnavailable,
         VoicesFailure.network: en.voicesNetwork,
+        VoicesFailure.invalidKey: en.voicesInvalidKey,
       };
       fakeVoices.failure = VoicesFailure.unauthorized;
       await _open(tester, _outChange);
@@ -468,5 +471,158 @@ void main() {
     await push(const ErrorEvent(code: 'voice_not_found', message: 'raw gateway words', fatal: false));
     expect(find.textContaining(en.errVoiceNotFound), findsOneWidget);
     expect(find.textContaining('raw gateway words'), findsNothing);
+  });
+
+  group('per connection mode', () {
+    const elevenlabs = 'el-secret-key';
+    const keysSettings = {'connectionMode': 'keys', 'elevenlabsApiKey': elevenlabs, 'geminiApiKey': 'gm-secret-key'};
+    const accountSettings = {'connectionMode': 'account', 'accountRefreshToken': 'refresh-0'};
+
+    /// The app in [settings]' mode, both directions speaking. The account's waits never finish.
+    Future<ProviderContainer> pumpMode(WidgetTester tester, Map<String, Object?> settings) async {
+      final c = await pumpApp(
+        tester,
+        bridge: FakeLiveBridge()..settings = {'accessToken': 'static-token', ...settings},
+        site: FakeAccountClient(),
+        overrides: [delayProvider.overrideWithValue((_) => Completer<void>().future)],
+      );
+      c.read(setupProvider.notifier).setMode(SessionMode.bidirectional);
+      await tester.pumpAndSettle();
+      return c;
+    }
+
+    testWidgets('keys: the ElevenLabs key goes to the hosted gateway, no token is needed', (tester) async {
+      await pumpMode(tester, {...keysSettings, 'accessToken': null});
+      expect([_enabled(_outChange), _enabled(_inChange)], [true, true]);
+      expect(find.text(en.voiceNeedsToken), findsNothing);
+
+      await _open(tester, _outChange);
+      expect(fakeVoices.calls, [(url: kHostedGateway, auth: const ProviderKeyAuth(elevenlabs))]);
+      expect(_rowNames().length, 5);
+    });
+
+    testWidgets('keys: one key is not enough to open a picker', (tester) async {
+      await pumpMode(tester, {'connectionMode': 'keys', 'elevenlabsApiKey': elevenlabs});
+      expect([_enabled(_outChange), _enabled(_inChange)], [false, false]);
+    });
+
+    testWidgets('keys: a key the provider refused says so', (tester) async {
+      await pumpMode(tester, keysSettings);
+      fakeVoices.failure = VoicesFailure.invalidKey;
+      await _open(tester, _outChange);
+      expect(find.text(en.voicesInvalidKey), findsOneWidget);
+      expect(find.textContaining(elevenlabs), findsNothing);
+    });
+
+    testWidgets('account: the access token goes to the hosted gateway', (tester) async {
+      await pumpMode(tester, accountSettings);
+      expect([_enabled(_outChange), _enabled(_inChange)], [true, true]);
+      await _open(tester, _inChange);
+      expect(fakeVoices.calls.single.url, kHostedGateway);
+      expect(fakeVoices.calls.single.auth, isA<BearerAuth>());
+      expect((fakeVoices.calls.single.auth as BearerAuth).token, 'access-1');
+    });
+
+    testWidgets('account: a refused token is refreshed once and the list is asked for again', (tester) async {
+      await pumpMode(tester, accountSettings);
+      fakeVoices.failures.add(VoicesFailure.unauthorized);
+      await _open(tester, _outChange);
+      expect([for (final call in fakeVoices.calls) (call.auth as BearerAuth).token], ['access-1', 'access-2']);
+      expect(_rowNames().length, 5);
+    });
+
+    testWidgets('account: refused again after the refresh shows the sentence, with no third try', (tester) async {
+      await pumpMode(tester, accountSettings);
+      fakeVoices.failure = VoicesFailure.unauthorized;
+      await _open(tester, _outChange);
+      expect(fakeVoices.calls.length, 2);
+      expect(find.text(en.voicesUnauthorized), findsOneWidget);
+    });
+
+    testWidgets('own gateway: other failures are not retried', (tester) async {
+      await _pumpBidirectional(tester);
+      fakeVoices.failure = VoicesFailure.unauthorized;
+      await _open(tester, _outChange);
+      expect(fakeVoices.calls.length, 1);
+    });
+
+    testWidgets('each mode shows and saves its own choice', (tester) async {
+      final c = await pumpMode(tester, {
+        ...keysSettings,
+        'outVoiceId': _aria,
+        'outVoiceName': 'Fake Aria',
+        'keysOutVoiceId': _bruno,
+        'keysOutVoiceName': 'Fake Bruno',
+        'accountInVoiceId': _aria,
+        'accountInVoiceName': 'Fake Aria',
+      });
+      expect(_text('voice-out-current'), 'Fake Bruno');
+      expect(_text('voice-in-current'), en.voiceDefault);
+
+      // Keys mode saves under its own names and leaves the others alone.
+      await _open(tester, _inChange);
+      await tester.tap(find.text('Fake Dilnoza'));
+      await tester.pumpAndSettle();
+      expect(fake.savedPrefs.last, {'keysInVoiceId': 'fakevoice0000000003', 'keysInVoiceName': 'Fake Dilnoza'});
+      expect(fake.settings['outVoiceId'], _aria);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, _aria);
+
+      // The own gateway: the owner's earlier choice, under the names it always had.
+      await c.read(connectionProvider.notifier).saveGateway('http://127.0.0.1:8201', _token);
+      await tester.pumpAndSettle();
+      expect(_text('voice-out-current'), 'Fake Aria');
+      expect(_text('voice-in-current'), en.voiceDefault);
+
+      // The account's saved choice is loaded too, and was never mixed into the others.
+      await c.read(connectionProvider.notifier).changeConnection();
+      await tester.pumpAndSettle();
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.account).inName, 'Fake Aria');
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.account).outId, isNull);
+    });
+
+    testWidgets('an account saves under the account names; the own gateway names are untouched', (tester) async {
+      final c = await pumpMode(tester, {...accountSettings, 'outVoiceId': _aria, 'outVoiceName': 'Fake Aria'});
+      expect(_text('voice-out-current'), en.voiceDefault);
+      await _open(tester, _outChange);
+      await tester.tap(find.text('Fake Bruno'));
+      await tester.pumpAndSettle();
+      expect(fake.savedPrefs.last, {'accountOutVoiceId': _bruno, 'accountOutVoiceName': 'Fake Bruno'});
+      expect(fake.settings['outVoiceId'], _aria);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, _aria);
+      expect(_text('voice-out-current'), 'Fake Bruno');
+
+      await _open(tester, _outChange);
+      await tester.tap(find.byKey(const Key('voice-row-default')));
+      await tester.pumpAndSettle();
+      expect(fake.savedPrefs.last, {'accountOutVoiceId': null, 'accountOutVoiceName': null});
+    });
+
+    test('toConfig sends the ids of the mode it is asked for', () {
+      const setup = SetupState(
+        micUid: 'mic1',
+        headphonesUid: 'hp1',
+        voices: {
+          ConnectionMode.gateway: VoiceChoice(outId: 'gateway-out'),
+          ConnectionMode.keys: VoiceChoice(outId: 'keys-out', inId: 'keys-in'),
+        },
+      );
+      expect(setup.toConfig(ConnectionMode.keys).outVoiceId, 'keys-out');
+      expect(setup.toConfig(ConnectionMode.keys).inVoiceId, 'keys-in');
+      expect(setup.toConfig(ConnectionMode.account).outVoiceId, isNull);
+      expect(setup.toConfig(ConnectionMode.gateway).outVoiceId, 'gateway-out');
+      expect(setup.toConfig().outVoiceId, 'gateway-out');
+    });
+
+    testWidgets('Start in keys mode sends the keys-mode voices', (tester) async {
+      await pumpMode(tester, {...keysSettings, 'outVoiceId': _aria, 'keysOutVoiceId': _bruno});
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(en.consentCheckbox));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+      await tester.pumpAndSettle();
+      expect(fake.startedWith!.outVoiceId, _bruno);
+      expect(fake.startedWith!.inVoiceId, isNull);
+    });
   });
 }

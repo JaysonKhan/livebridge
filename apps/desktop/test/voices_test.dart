@@ -5,16 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/models.dart';
 import 'package:livebridge/bridge/voices_client.dart';
+import 'package:livebridge/state/connection_state.dart';
 import 'package:livebridge/state/providers.dart';
+import 'package:livebridge/state/setup_state.dart';
+
+import 'fake_live_bridge.dart';
 
 /// Answers what the test tells it to, and remembers every call.
 class _RecordingClient implements VoicesClient {
-  final List<({String url, String token})> calls = [];
+  final List<({String url, VoicesAuth auth})> calls = [];
   VoicesFailure? failure;
 
   @override
-  Future<List<Voice>> list({required String gatewayUrl, required String accessToken}) async {
-    calls.add((url: gatewayUrl, token: accessToken));
+  Future<List<Voice>> list({required String gatewayUrl, required VoicesAuth auth}) async {
+    calls.add((url: gatewayUrl, auth: auth));
     if (failure != null) throw VoicesException(failure!);
     return const [Voice(id: 'fakevoice0000000001', name: 'Fake Aria')];
   }
@@ -27,7 +31,7 @@ void main() {
     late int status;
     late String body;
     late bool hang;
-    final requests = <({String method, String path, String? authorization})>[];
+    final requests = <({String method, String path, String? authorization, String? providerKey})>[];
 
     setUp(() async {
       status = 200;
@@ -41,6 +45,7 @@ void main() {
           method: request.method,
           path: request.uri.path,
           authorization: request.headers.value(HttpHeaders.authorizationHeader),
+          providerKey: request.headers.value('X-ElevenLabs-Api-Key'),
         ));
         if (hang) return;
         request.response.statusCode = status;
@@ -85,9 +90,14 @@ void main() {
         ],
       });
       // A trailing slash on the saved address must not change the route.
-      final voices = await HttpVoicesClient().list(gatewayUrl: '$base/', accessToken: 'secret-token');
+      final voices = await HttpVoicesClient().list(gatewayUrl: '$base/', auth: const BearerAuth('secret-token'));
 
-      expect(requests.single, (method: 'GET', path: '/v1/voices', authorization: 'Bearer secret-token'));
+      expect(requests.single, (
+        method: 'GET',
+        path: '/v1/voices',
+        authorization: 'Bearer secret-token',
+        providerKey: null,
+      ));
       expect(voices.map((v) => v.id), ['fakevoice0000000001', 'fakevoice0000000003']);
       final aria = voices.first;
       expect(
@@ -100,8 +110,13 @@ void main() {
       expect(voices.last.previewUrl, isNull);
     });
 
+    test('the ElevenLabs key goes in its own header and no bearer token is sent', () async {
+      await HttpVoicesClient().list(gatewayUrl: base, auth: const ProviderKeyAuth('el-key'));
+      expect(requests.single, (method: 'GET', path: '/v1/voices', authorization: null, providerKey: 'el-key'));
+    });
+
     test('keeps a path the gateway address carries', () async {
-      await HttpVoicesClient().list(gatewayUrl: '$base/bridge', accessToken: 't');
+      await HttpVoicesClient().list(gatewayUrl: '$base/bridge', auth: const BearerAuth('t'));
       expect(requests.single.path, '/bridge/v1/voices');
     });
 
@@ -109,10 +124,13 @@ void main() {
       Future<VoicesFailure?> answering(int code, [String text = '{"error":"x"}']) {
         status = code;
         body = text;
-        return failureOf(HttpVoicesClient().list(gatewayUrl: base, accessToken: 't'));
+        return failureOf(HttpVoicesClient().list(gatewayUrl: base, auth: const BearerAuth('t')));
       }
 
       expect(await answering(401), VoicesFailure.unauthorized);
+      expect(await answering(401, '{"error":"invalid_token"}'), VoicesFailure.unauthorized);
+      expect(await answering(401, '{"error":"invalid_key"}'), VoicesFailure.invalidKey);
+      expect(await answering(401, '<html>nope</html>'), VoicesFailure.unauthorized);
       expect(await answering(404), VoicesFailure.unsupported);
       expect(await answering(502, '{"error":"voices_unavailable"}'), VoicesFailure.unavailable);
       expect(await answering(429), VoicesFailure.unavailable);
@@ -121,9 +139,12 @@ void main() {
       expect(await answering(200, '{"voices":"none"}'), VoicesFailure.unavailable);
 
       await server.close(force: true);
-      expect(await failureOf(HttpVoicesClient().list(gatewayUrl: base, accessToken: 't')), VoicesFailure.network);
       expect(
-        await failureOf(HttpVoicesClient().list(gatewayUrl: 'not an address', accessToken: 't')),
+        await failureOf(HttpVoicesClient().list(gatewayUrl: base, auth: const BearerAuth('t'))),
+        VoicesFailure.network,
+      );
+      expect(
+        await failureOf(HttpVoicesClient().list(gatewayUrl: 'not an address', auth: const BearerAuth('t'))),
         VoicesFailure.network,
       );
     });
@@ -131,7 +152,7 @@ void main() {
     test('a gateway that never answers is a network failure after the timeout', () async {
       hang = true;
       final client = HttpVoicesClient(timeout: const Duration(milliseconds: 150));
-      expect(await failureOf(client.list(gatewayUrl: base, accessToken: 't')), VoicesFailure.network);
+      expect(await failureOf(client.list(gatewayUrl: base, auth: const BearerAuth('t'))), VoicesFailure.network);
     });
   });
 
@@ -160,26 +181,40 @@ void main() {
   });
 
   group('voicesProvider', () {
-    test('asks the client with the gateway address and token, once per pair', () async {
-      final client = _RecordingClient();
-      final container = ProviderContainer(overrides: [voicesClientProvider.overrideWithValue(client)]);
+    const key = (mode: ConnectionMode.gateway, url: 'http://gateway');
+
+    /// A container in the own-gateway mode with the address and token typed in.
+    Future<ProviderContainer> gatewayContainer(_RecordingClient client) async {
+      final bridge = FakeLiveBridge()..settings = {'connectionMode': 'gateway'};
+      final container = ProviderContainer(
+        overrides: [bridgeProvider.overrideWithValue(bridge), voicesClientProvider.overrideWithValue(client)],
+      );
       addTearDown(container.dispose);
-      const key = (url: 'http://gateway', token: 'tok');
+      addTearDown(bridge.dispose);
+      container.listen(connectionProvider, (_, _) {});
+      container.read(setupProvider.notifier)
+        ..setGatewayUrl('http://gateway')
+        ..setAccessToken('tok');
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
       final subscription = container.listen(voicesProvider(key), (_, _) {});
       addTearDown(subscription.close);
+      return container;
+    }
+
+    test('asks the client with the gateway address and token, once per mode', () async {
+      final client = _RecordingClient();
+      final container = await gatewayContainer(client);
 
       expect((await container.read(voicesProvider(key).future)).single.name, 'Fake Aria');
       await container.read(voicesProvider(key).future);
-      expect(client.calls, [key]);
+      expect(client.calls, [(url: 'http://gateway', auth: const BearerAuth('tok'))]);
     });
 
     test('a failure is reported as it is and not retried behind the picker\'s back', () async {
       final client = _RecordingClient()..failure = VoicesFailure.unsupported;
-      final container = ProviderContainer(overrides: [voicesClientProvider.overrideWithValue(client)]);
-      addTearDown(container.dispose);
-      const key = (url: 'http://gateway', token: 'tok');
-      final subscription = container.listen(voicesProvider(key), (_, _) {});
-      addTearDown(subscription.close);
+      final container = await gatewayContainer(client);
 
       await expectLater(
         container.read(voicesProvider(key).future),

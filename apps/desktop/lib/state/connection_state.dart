@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../bridge/account_client.dart';
 import '../bridge/live_bridge.dart';
 import '../bridge/models.dart';
+import '../bridge/voices_client.dart';
 import '../l10n/app_localizations.dart';
 import 'providers.dart';
 import 'session_state.dart';
@@ -549,6 +550,33 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
       accessToken: ref.read(setupProvider).accessToken.trim(),
     ),
   };
+
+  /// What the voice list needs in the current mode: the hosted gateway with an account's access token (a new one when
+  /// [forceRefresh]) or the ElevenLabs key, or the own gateway with its static token. The secret never leaves this call
+  /// except in the returned auth. Throws a [VoicesException] when an account's token cannot be had: `unauthorized` when
+  /// the site no longer knows this computer (which also signs out), `network` when it cannot be reached.
+  Future<({String url, VoicesAuth auth})> voicesAccess({bool forceRefresh = false}) async {
+    switch (state.mode) {
+      case ConnectionMode.account:
+        final run = _accountRun;
+        try {
+          return (url: kHostedGateway, auth: BearerAuth(await _keeper.accessToken(force: forceRefresh)));
+        } on AccountSignedOut {
+          await _signedOutDuring(run);
+          throw const VoicesException(VoicesFailure.unauthorized);
+        } on AccountError {
+          throw const VoicesException(VoicesFailure.network);
+        } on PlatformException {
+          // The rotated refresh token could not be saved.
+          throw const VoicesException(VoicesFailure.unavailable);
+        }
+      case ConnectionMode.keys:
+        return (url: kHostedGateway, auth: ProviderKeyAuth(_elevenlabsKey ?? ''));
+      case ConnectionMode.gateway || null:
+        final setup = ref.read(setupProvider);
+        return (url: setup.gatewayUrl.trim(), auth: BearerAuth(setup.accessToken.trim()));
+    }
+  }
 
   /// Starts a session with [base] (the setup's config), paid for by the current connection.
   Future<void> start(StartConfig base) async {

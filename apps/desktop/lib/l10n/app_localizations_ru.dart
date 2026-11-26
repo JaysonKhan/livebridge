@@ -961,6 +961,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get voicesNetwork => 'Не удалось связаться со шлюзом.';
 
   @override
+  String get voicesInvalidKey => 'ElevenLabs отклонил ваш ключ. Проверьте, что он верный.';
+
+  @override
   String get errVoiceNotFound => 'Выбранный голос недоступен. Выберите другой или вернитесь к голосу по умолчанию.';
 
   @override

@@ -283,6 +283,7 @@
   "voicesUnsupported": "Bu gateway sesleri listeleyemiyor. Ses seçmek için onu güncelleyin.",
   "voicesUnavailable": "Ses listesi şu anda kullanılamıyor.",
   "voicesNetwork": "Gateway'e ulaşılamadı.",
+  "voicesInvalidKey": "ElevenLabs anahtarınızı kabul etmedi. Doğru olduğunu kontrol edin.",
   "errVoiceNotFound": "Seçilen ses kullanılamıyor. Başka bir ses seçin veya Varsayılan'a dönün.",
   "onboardingTitle": "Gerçek zamanlı tercüman",
   "onboardingSubtitle": "Giriş yapın ve 5 dakikayı ücretsiz deneyin",

@@ -66,12 +66,16 @@ class FakeVoicesClient implements VoicesClient {
   /// Set to hold requests open until it completes.
   Completer<void>? gate;
 
-  final List<({String url, String token})> calls = [];
+  /// Failures for the next requests, one each, before [failure] applies.
+  final List<VoicesFailure> failures = [];
+
+  final List<({String url, VoicesAuth auth})> calls = [];
 
   @override
-  Future<List<Voice>> list({required String gatewayUrl, required String accessToken}) async {
-    calls.add((url: gatewayUrl, token: accessToken));
+  Future<List<Voice>> list({required String gatewayUrl, required VoicesAuth auth}) async {
+    calls.add((url: gatewayUrl, auth: auth));
     await gate?.future;
+    if (failures.isNotEmpty) throw VoicesException(failures.removeAt(0));
     if (failure != null) throw VoicesException(failure!);
     return voices;
   }

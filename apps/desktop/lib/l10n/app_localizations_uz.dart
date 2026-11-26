@@ -962,6 +962,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get voicesNetwork => 'Gateway\'ga ulanib bo\'lmadi.';
 
   @override
+  String get voicesInvalidKey => 'ElevenLabs kalitingizni qabul qilmadi. To\'g\'riligini tekshiring.';
+
+  @override
   String get errVoiceNotFound => 'Tanlangan ovoz mavjud emas. Boshqasini tanlang yoki Standart ovozga qayting.';
 
   @override

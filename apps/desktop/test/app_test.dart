@@ -603,8 +603,8 @@ void main() {
       final bridge = FakeLiveBridge()
         ..settings = {'accessToken': 'saved-token', 'outVoiceId': 'voiceChosenOut01', 'inVoiceId': 'voiceChosenIn001'};
       final c = await pumpApp(tester, bridge: bridge);
-      expect(c.read(setupProvider).outVoiceId, 'voiceChosenOut01');
-      expect(c.read(setupProvider).inVoiceId, 'voiceChosenIn001');
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, 'voiceChosenOut01');
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).inId, 'voiceChosenIn001');
       await startSession(tester);
       expect(fake.startedWith!.outVoiceId, 'voiceChosenOut01');
       expect(fake.startedWith!.inVoiceId, 'voiceChosenIn001');
@@ -615,18 +615,18 @@ void main() {
       // Anything that is not a non-empty string counts as "nothing saved".
       final bridge = FakeLiveBridge()..settings = {'accessToken': 'saved-token', 'outVoiceId': '', 'inVoiceId': 5};
       final c = await pumpApp(tester, bridge: bridge);
-      expect(c.read(setupProvider).outVoiceId, isNull);
-      expect(c.read(setupProvider).inVoiceId, isNull);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, isNull);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).inId, isNull);
 
       final setup = c.read(setupProvider.notifier);
-      setup.setOutVoice('voiceChosenOut01');
-      setup.setInVoice('voiceChosenIn001');
-      expect(c.read(setupProvider).outVoiceId, 'voiceChosenOut01');
-      expect(c.read(setupProvider).inVoiceId, 'voiceChosenIn001');
-      setup.setOutVoice(null);
-      expect(c.read(setupProvider).outVoiceId, isNull);
-      expect(c.read(setupProvider).inVoiceId, 'voiceChosenIn001');
-      setup.setInVoice(null);
+      setup.setOutVoice(ConnectionMode.gateway, 'voiceChosenOut01');
+      setup.setInVoice(ConnectionMode.gateway, 'voiceChosenIn001');
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, 'voiceChosenOut01');
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).inId, 'voiceChosenIn001');
+      setup.setOutVoice(ConnectionMode.gateway, null);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).outId, isNull);
+      expect(c.read(setupProvider).voicesFor(ConnectionMode.gateway).inId, 'voiceChosenIn001');
+      setup.setInVoice(ConnectionMode.gateway, null);
 
       await startSession(tester);
       expect(fake.startedWith!.outVoiceId, isNull);

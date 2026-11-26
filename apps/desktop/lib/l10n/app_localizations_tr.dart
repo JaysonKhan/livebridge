@@ -962,6 +962,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get voicesNetwork => 'Gateway\'e ulaşılamadı.';
 
   @override
+  String get voicesInvalidKey => 'ElevenLabs anahtarınızı kabul etmedi. Doğru olduğunu kontrol edin.';
+
+  @override
   String get errVoiceNotFound => 'Seçilen ses kullanılamıyor. Başka bir ses seçin veya Varsayılan\'a dönün.';
 
   @override

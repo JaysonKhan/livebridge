@@ -958,6 +958,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voicesNetwork => 'Could not reach the gateway.';
 
   @override
+  String get voicesInvalidKey => 'ElevenLabs refused your key. Check that it is correct.';
+
+  @override
   String get errVoiceNotFound => 'The chosen voice is not available. Choose another or go back to Default.';
 
   @override

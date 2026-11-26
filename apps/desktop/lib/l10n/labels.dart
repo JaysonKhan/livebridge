@@ -54,6 +54,7 @@ extension AppLocalizationsLabels on AppLocalizations {
     VoicesFailure.unsupported => voicesUnsupported,
     VoicesFailure.unavailable => voicesUnavailable,
     VoicesFailure.network => voicesNetwork,
+    VoicesFailure.invalidKey => voicesInvalidKey,
   };
 
   String turnSkipped(SkipReason reason) => switch (reason) {

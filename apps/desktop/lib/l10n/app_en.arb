@@ -584,6 +584,7 @@
   "voicesUnsupported": "This gateway cannot list voices. Update it to choose a voice.",
   "voicesUnavailable": "The voice list is not available right now.",
   "voicesNetwork": "Could not reach the gateway.",
+  "voicesInvalidKey": "ElevenLabs refused your key. Check that it is correct.",
   "errVoiceNotFound": "The chosen voice is not available. Choose another or go back to Default.",
   "onboardingTitle": "Real-time interpreter",
   "onboardingSubtitle": "Sign in and try 5 minutes for free",
