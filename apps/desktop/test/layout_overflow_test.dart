@@ -180,7 +180,8 @@ void main() {
   }
 
   /// The first-launch screen at the smallest window (980×680) in every state: closed, own keys open, own gateway open
-  /// with fields filled, two failure sentences, and waiting for the browser. Nothing may overflow.
+  /// with fields filled, two failure sentences, and waiting for a browser that did not open (the address shown).
+  /// Nothing may overflow.
   Future<void> exerciseOnboarding(WidgetTester tester, HostPlatform platform, String code) async {
     final site = FakeAccountClient();
     await pumpApp(
@@ -190,6 +191,7 @@ void main() {
       forceLocale: Locale(code),
       platform: platform,
       site: site,
+      opener: (url) async => false,
       overrides: [delayProvider.overrideWithValue((_) => Completer<void>().future)],
     );
     final l = lookupAppLocalizations(Locale(code));
@@ -214,6 +216,24 @@ void main() {
     await tester.tap(find.byType(GoogleButton));
     await tester.pumpAndSettle();
     expect(find.text(l.signInWaitingTitle), findsOneWidget);
+    expect(find.text(l.signInOpenManually), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }
+
+  /// The choice screen after Change: Back above the title, the saved keys filled in.
+  Future<void> exerciseBack(WidgetTester tester, HostPlatform platform, String code) async {
+    final bridge = FakeLiveBridge()
+      ..settings = {'connectionMode': 'keys', 'elevenlabsApiKey': 'sk-${'x' * 60}', 'geminiApiKey': 'g' * 40};
+    await pumpApp(tester, bridge: bridge, size: const Size(980, 680), forceLocale: Locale(code), platform: platform);
+    final l = lookupAppLocalizations(Locale(code));
+    // The header's menu: at this size the setup list has not built its connection summary.
+    await tester.tap(find.byKey(const Key('account-chip')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l.changeConnection));
+    await tester.pumpAndSettle();
+    expect(find.text(l.onboardingBack), findsOneWidget);
+    await tester.tap(find.text(l.onboardingOwnKeys));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   }
 
@@ -309,6 +329,9 @@ void main() {
     for (final code in ['uz', 'ru', 'tr', 'en']) {
       testWidgets('${platform.name} / $code: the onboarding fits 980×680', (tester) async {
         await exerciseOnboarding(tester, platform, code);
+      });
+      testWidgets('${platform.name} / $code: the choice screen after Change fits 980×680', (tester) async {
+        await exerciseBack(tester, platform, code);
       });
     }
   }
