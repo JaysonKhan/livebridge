@@ -2,7 +2,7 @@
 # Deploys the gateway to the server:
 # local commit -> git push -> server fetch + hard reset -> npm ci -> restart -> health check.
 # Nothing is ever edited on the server. First-time setup (DNS, certificate, nginx vhost, systemd unit, .env):
-# docs/deployment.md. This script has NOT been run yet — the first deploy needs the owner's approval.
+# docs/deployment.md. First run: 2026-11-26.
 set -euo pipefail
 
 SSH_HOST="${LIVEBRIDGE_SSH_HOST:?set LIVEBRIDGE_SSH_HOST to the ssh host or alias of the server}"

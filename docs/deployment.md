@@ -1,7 +1,9 @@
 # Gateway deployment
 
-**Nothing here has been executed.** No server was touched while building this project; the first deployment needs
-the owner's explicit go-ahead. The steps assume a conventional Linux server: plain systemd services under
+**First deployed on 2026-11-26**, with the owner's go-ahead: Node.js on the server, the repository under
+`/var/www/livebridge`, the systemd service — the gateway answers `GET /healthz` on the server's localhost and
+`./deploy.sh` has run end to end. Still to do there: the public hostname (DNS record, certificate, nginx vhost). The
+steps assume a conventional Linux server: plain systemd services under
 `/var/www/<name>`, an nginx reverse proxy, Let's Encrypt certificates, and a `./deploy.sh` that never edits files on
 the server. Server-specific details (addresses, other services, security tooling) are deliberately not recorded in
 this repository.
@@ -17,7 +19,10 @@ this repository.
 
 1. **Hostname.** A dedicated subdomain (e.g. `bridge.example.com`) with its own DNS A record and certificate.
 2. **Node.js on the server.** The gateway needs Node ≥ 22.18 (it runs the TypeScript sources directly). Check with
-   `ssh <server> "node -v"`; installing Node 24 LTS is a server change to approve first.
+   `ssh <server> "node -v"`; installing Node 24 LTS is a server change to approve first. On Ubuntu the NodeSource
+   apt repository gives `/usr/bin/node`, the path the systemd unit expects: add its signing key to
+   `/etc/apt/keyrings`, a `node_24.x` line to `/etc/apt/sources.list.d/`, then `apt-get install nodejs`. That
+   repository is outside the system's automatic security updates, so Node is updated by hand.
 3. **Region.** The gateway sits between the Mac and the providers, so its location matters. Run `npm run bench` from
    the Mac and from the server before deciding — do not move anything on a guess. `ELEVENLABS_BASE_URL` can point at
    a regional host.

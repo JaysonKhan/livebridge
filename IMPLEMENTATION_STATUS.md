@@ -16,7 +16,7 @@ idle).
 
 **Still not done, and not claimable:** no meeting app has been pointed at the BlackHole microphone yet, so no remote
 participant has heard it; the process tap has only delivered silence (permission), so the incoming direction is untested with
-real audio; nothing is deployed to the server; no Zoom / Meet / Upwork call has been made; no human has reviewed
+real audio; the gateway runs on the server but has no public address yet (DNS record and certificate pending); no Zoom / Meet / Upwork call has been made; no human has reviewed
 translation quality or the cloned voice; all test speech so far was synthetic. By the spec's definition
 (M0–M4 on real hardware with real calls) **the MVP is not accepted yet**.
 
@@ -28,7 +28,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | 2 | ~~Install BlackHole 2ch~~ — **done**, loopback and content verified | — |
 | 3 | Launch the release app from Finder and approve **Microphone** and **System Audio Recording** | incoming direction with real audio |
 | 4 | Listen to `bench-out/probe-outgoing-en.wav`, `probe-outgoing-ru.wav`, `probe-incoming-uz.wav`; read `bench-out/translations-*.jsonl` | voice and translation quality gate |
-| 5 | Decisions in `docs/deployment.md`: hostname + DNS record, Node.js on the server, go-ahead to deploy | "use my existing server" — the gateway runs only on localhost today |
+| 5 | ~~Decisions in `docs/deployment.md`~~ — **mostly done 2026-11-26**: Node.js installed, the gateway deployed as a service with `./deploy.sh`. Still needed: a DNS record for the chosen hostname | the gateway's public address (certificate and nginx vhost follow the record) |
 | 6 | A consenting second participant (and an Upwork contact) | platform acceptance (M4) |
 | 7 | Optional: sign with the Apple Development identity instead of ad-hoc | stable permissions, no Keychain prompt after each rebuild |
 | 8 | ~~Confirm the incoming voice id is a stock voice~~ — **dropped 2026-11-25**: both voice slots now default to the author's own voice, published by the author in the ElevenLabs Voice Library (`docs/privacy.md`) | — |
@@ -43,7 +43,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | Virtual microphone | BlackHole 2ch installed (`BlackHole2ch_UID`, 2 in / 2 out, 48 kHz); default devices unchanged |
 | Audio devices | built-in microphone (48 kHz), built-in speakers (48 kHz), iPhone Continuity microphone |
 | Repository | local git repo initialised, **nothing committed**; `.env` is git-ignored |
-| Server | conventions read from local documentation only; no SSH connection was made |
+| Server | gateway deployed 2026-11-26: Node 24, systemd service, reachable on the server's localhost only until its hostname has a DNS record |
 
 ## Milestones
 
@@ -55,7 +55,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | **M3** IN pipeline | **Code complete; verified on real providers at the gateway only** | en→uz and ru→uz run in the benchmark (60 turns) with the stock voice. Real tapped audio is blocked (3). |
 | **M4** platform acceptance | **Not started** | Routing guide is from documentation, not tested calls. |
 | **M5** hands-free / low latency | **Partly** | Model chosen by measurement; warm sockets; `vad` / `turn_prediction` commit confirmed live at the STT level, not end to end. Not built: echo detection, clause-level streaming into TTS, translated-only monitoring. |
-| **M6** hardening / packaging | **Mostly** | Reconnect (exercised), rate limit, bounded queues, session caps, 60-minute soak (fake providers), release `.app`, infra files. Not done: Docker build, deployment, signing/notarisation, a 60-minute run on real providers. |
+| **M6** hardening / packaging | **Mostly** | Reconnect (exercised), rate limit, bounded queues, session caps, 60-minute soak (fake providers), release `.app`, infra files. Not done: Docker build, the gateway's public hostname, signing/notarisation, a 60-minute run on real providers. |
 
 ## Verified — commands and actual results
 
@@ -68,6 +68,7 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | App end to end (fake providers) | `flutter test integration_test/session_test.dart -d macos` | passed — real UI, engine and microphone |
 | Release build | `flutter build macos --release` | `JK - LiveBridge.app`, 48 MB, ad-hoc signed, macOS 14.2+ |
 | **Live API probe** | `npm run probe` | 32 checks: 0 failed, 1 skipped (key lacks `user_read`). Voices: 108 in the account on 2 pages, 106 offered by the gateway, a sample fetched with no key, three voices of each category spoken by the realtime model |
+| **Gateway on the server** | `LIVEBRIDGE_SSH_HOST=<server> ./deploy.sh` | first deploy 2026-11-26: gates passed, service active, `/healthz` ok on the server's localhost, `GET /v1/voices` lists 106 voices from there, 401 without the token |
 | **Voice sample player on a device** | `flutter test integration_test/sample_player_test.dart -d macos --dart-define=LB_SAMPLE_URL=…` | passed — a real sample played 9.3 s to its end; a dead address ended as idle; a second sample replaced the first |
 | **Chosen voices with the real providers** | a session with `voices` through the gateway, recorded speech both ways, then the same with none | chosen stock voices: median pitch 218 / 218 Hz; defaults: 122 / 165 Hz; 4 turns, 0 errors |
 | **Voice choice in the app, end to end** | the app on this Mac against the gateway with the real key (no speech captured) | 106 voices in the picker, filter and two samples, a voice chosen per direction → the gateway received exactly those two ids and opened the outgoing synthesizer with the chosen one; after **Default** none were sent |
