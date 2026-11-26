@@ -44,6 +44,7 @@ export async function startGateway(
     site?: SiteClient;
     /** Builds an own-keys session's providers; the gateway's default when absent. */
     providersFor?: GatewayOptions["providersFor"];
+    sessionTokenTtlMs?: number;
   } = {},
 ) {
   const logLines: string[] = [];
@@ -68,6 +69,7 @@ export async function startGateway(
     voicesCacheMs: options.voicesCacheMs,
     site: options.site,
     providersFor: options.providersFor,
+    sessionTokenTtlMs: options.sessionTokenTtlMs,
   });
   const port = await gateway.listen();
   return { gateway, port, base: `http://127.0.0.1:${port}`, logLines, config };

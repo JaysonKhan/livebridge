@@ -1175,6 +1175,39 @@ test("a WebSocket handshake that fails after taking the session token gives the 
   assert.equal((await issueSession(base)).status, 201);
 });
 
+test("a failure while starting a session is 500 internal; the gateway keeps serving and holds no slot", async () => {
+  const { base, logLines } = await start({
+    providersFor: () => {
+      throw new Error(`could not use ${ELEVENLABS_KEY}`);
+    },
+  });
+  const failed = await requestSession(base, KEYS_REQUEST);
+  assert.equal(failed.status, 500);
+  assert.deepEqual(failed.body, { error: "internal" });
+  assert.ok(logLines.some((l) => l.includes('"session.issue_failed"')));
+  // The error's message is never logged: it may carry what the caller sent.
+  assert.ok(!logLines.join("\n").includes(ELEVENLABS_KEY));
+  // Still serving, and MAX_SESSIONS=1 is free.
+  assert.equal((await issueSession(base)).status, 201);
+});
+
+test("an unused session token expires on its own: its slot (and a keys session's keys) go without another request", async () => {
+  const { base, logLines } = await start({ sessionTokenTtlMs: 100 });
+  const issued = await requestSession(base, KEYS_REQUEST);
+  assert.equal(issued.status, 201);
+  assert.equal(issued.body.expires_in, 0.1);
+  assert.equal((await issueSession(base)).status, 429);
+  await sleep(250);
+  // Nothing reached the gateway in the meantime, so the expiry was the token's own timer.
+  assert.ok(
+    logLines.some(
+      (l) => l.includes('"session.token_expired"') && l.includes(issued.body.session_id!),
+    ),
+  );
+  assert.equal((await issueSession(base)).status, 201);
+  await assert.rejects(TestClient.open(base, issued.body.token!), /401/);
+});
+
 test("no access token, provider key, static token or site secret reaches the log in any mode", async () => {
   const { base, logLines, site } = await startWithSite(undefined, {
     env: { MAX_SESSIONS: "3" },

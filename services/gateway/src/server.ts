@@ -55,6 +55,8 @@ export interface GatewayOptions {
   site?: SiteClient;
   /** Builds an own-keys session's providers. Default: the real adapters with those keys; the fakes in fake mode. */
   providersFor?: (keys: { elevenlabs: string; gemini: string }) => ProviderFactory;
+  /** How long an issued session token waits for its socket. Default 60 seconds. */
+  sessionTokenTtlMs?: number;
 }
 
 function bearer(req: IncomingMessage): string {
@@ -113,14 +115,22 @@ export function createGateway({
           log,
         )
       : factory,
+  sessionTokenTtlMs = SESSION_TOKEN_TTL_MS,
 }: GatewayOptions): Gateway {
   /**
    * Issued but not yet connected: token -> what the session needs. A token is consumed by the first upgrade; a keys
-   * session's providers (and with them its keys) leave this map at that moment.
+   * session's providers (and with them its keys) leave this map at that moment, or when the token expires unused.
    */
   const pending = new Map<
     string,
-    { id: string; expires: number; auth: SessionAuth; ticket: Ticket; factory: ProviderFactory }
+    {
+      id: string;
+      expires: number;
+      timer: NodeJS.Timeout;
+      auth: SessionAuth;
+      ticket: Ticket;
+      factory: ProviderFactory;
+    }
   >();
   /** Connected sessions by the admission ticket each holds. */
   const sessions = new Map<Ticket, Session>();
@@ -140,13 +150,27 @@ export function createGateway({
     res.end(JSON.stringify(body));
   };
 
+  /** Takes an issued token out of the map, with its expiry timer. Its slot is the caller's to release or hand on. */
+  const forget = (token: string) => {
+    const entry = pending.get(token);
+    if (!entry) return undefined;
+    pending.delete(token);
+    clearTimeout(entry.timer);
+    return entry;
+  };
+
+  /** An unused token's time is up: its slot goes back, and a keys session's keys go with the entry. */
+  const expire = (token: string) => {
+    const entry = forget(token);
+    if (!entry) return;
+    admission.release(entry.ticket);
+    log.info("session.token_expired", { session: entry.id });
+  };
+
+  // Each token's own timer expires it on a quiet gateway; this catches one whose timer has not fired yet.
   const prune = () => {
     const now = Date.now();
-    for (const [token, entry] of pending)
-      if (entry.expires <= now) {
-        pending.delete(token);
-        admission.release(entry.ticket);
-      }
+    for (const [token, entry] of pending) if (entry.expires <= now) expire(token);
   };
 
   /** The static token, when one is configured. An empty one never matches, not even an empty bearer. */
@@ -156,7 +180,7 @@ export function createGateway({
   /** The account's newer session has taken this ticket's slot: void the older token, or end the older session. */
   const replace = (old: Ticket) => {
     for (const [token, entry] of pending)
-      if (entry.ticket === old) return void pending.delete(token);
+      if (entry.ticket === old) return void forget(token);
     sessions.get(old)?.end("session_replaced", "a newer session of this account started");
   };
 
@@ -242,7 +266,8 @@ export function createGateway({
     const token = randomBytes(32).toString("base64url");
     pending.set(token, {
       id,
-      expires: Date.now() + SESSION_TOKEN_TTL_MS,
+      expires: Date.now() + sessionTokenTtlMs,
+      timer: setTimeout(() => expire(token), sessionTokenTtlMs).unref(),
       auth,
       ticket: admitted.ticket,
       factory: sessionFactory,
@@ -251,7 +276,7 @@ export function createGateway({
     const issued = {
       session_id: id,
       token,
-      expires_in: SESSION_TOKEN_TTL_MS / 1000,
+      expires_in: sessionTokenTtlMs / 1000,
       ws_path: "/v1/realtime",
     };
     return json(
@@ -272,7 +297,11 @@ export function createGateway({
         req.resume();
         return json(res, 429, { error: "rate_limited" });
       }
-      return void issueSession(req, res);
+      return void issueSession(req, res).catch(() => {
+        // A fault of ours, not the caller's. The error itself is not logged: it may carry what the caller sent.
+        log.error("session.issue_failed");
+        if (!res.headersSent) json(res, 500, { error: "internal" });
+      });
     }
     if (req.method === "GET" && path === "/v1/voices") {
       if (rateLimited(callerAddress(req))) return json(res, 429, { error: "rate_limited" });
@@ -298,10 +327,8 @@ export function createGateway({
     if ((req.url ?? "").split("?")[0] !== "/v1/realtime")
       return reject(404, "Not Found");
     prune();
-    const token = bearer(req);
-    const entry = pending.get(token);
+    const entry = forget(bearer(req));
     if (!entry) return reject(401, "Unauthorized");
-    pending.delete(token);
     let connected = false;
     // A handshake the socket server refuses never reaches the callback; the slot must not stay taken.
     socket.once("close", () => {
@@ -338,6 +365,7 @@ export function createGateway({
         );
       }),
     close: async () => {
+      for (const token of pending.keys()) forget(token);
       for (const session of sessions.values()) session.close();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
