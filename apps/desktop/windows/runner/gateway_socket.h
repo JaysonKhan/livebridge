@@ -10,11 +10,13 @@
 #include <string>
 #include <thread>
 
+#include "livebridge/engine.h"
+
 // One connection to the gateway, over WinHTTP: the Windows twin of GatewayTransport.swift.
 //
-// Constructing it starts connecting: `POST <base>/v1/sessions` with the access token gives a session token, then
-// `<base>/v1/realtime` is opened as a WebSocket with that token. From then on it carries JSON text messages and
-// binary audio frames both ways.
+// Constructing it starts connecting: `POST <base>/v1/sessions` with the session request (a bearer token, a JSON body,
+// or both; livebridge::session_request builds it) gives a session token, then `<base>/v1/realtime` is opened as a
+// WebSocket with that token. From then on it carries JSON text messages and binary audio frames both ways.
 //
 // Threads: the object is created, used and closed on one thread (the engine thread). It owns two threads of its
 // own, one that connects and then receives, one that sends, and calls `Events` on those. A callback must return
@@ -27,12 +29,13 @@ class GatewaySocket {
     // One complete message: text (UTF-8 JSON) or a binary audio frame.
     std::function<void(bool binary, std::string payload)> message;
     // The connection could not be opened, or dropped, without Close() having been called. Called at most once.
-    // `code` is the bridge's error code: gateway_unreachable, unauthorized, session_limit or gateway_error.
+    // `code` is the bridge's error code: gateway_unreachable, gateway_error, or the code of a refused session request
+    // (livebridge::session_refusal).
     std::function<void(std::string code, std::string reason)> closed;
   };
 
   // `base_url` is `http://host[:port][/prefix]` or `https://...`. All three callbacks must be set.
-  GatewaySocket(std::string base_url, std::string access_token, Events events);
+  GatewaySocket(std::string base_url, livebridge::SessionRequest request, Events events);
   ~GatewaySocket();
   GatewaySocket(const GatewaySocket&) = delete;
   GatewaySocket& operator=(const GatewaySocket&) = delete;
@@ -59,7 +62,8 @@ class GatewaySocket {
   void Run();
   bool Connect(Handle& websocket, std::string& code, std::string& reason);
   Handle Exchange(Handle connection, const wchar_t* verb, const std::wstring& path, bool secure,
-                  const std::string& bearer, bool upgrade, unsigned long& status, std::string& reason);
+                  const std::string& bearer, const std::string& body, bool upgrade, unsigned long& status,
+                  std::string& reason);
   void Receive(Handle websocket);
   // The second thread.
   void SendLoop();
@@ -73,7 +77,8 @@ class GatewaySocket {
   void ReportClosed(const std::string& code, const std::string& reason);
 
   const std::string base_url_;
-  const std::string access_token_;
+  // Lives as long as the socket: WinHTTP reads the body from here while the request is being sent.
+  const livebridge::SessionRequest session_request_;
   const Events events_;
 
   // Guards everything below except the threads.

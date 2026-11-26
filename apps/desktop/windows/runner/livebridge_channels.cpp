@@ -226,8 +226,19 @@ void LiveBridgeChannels::HandleMethodCall(const flutter::MethodCall<EncodableVal
       telemetry_->SetEnabled(sharing->as_bool());
       telemetry_->UploadPending();
     }
-    if (call.arguments()) settings_store::Save(arguments);
-    result->Success();
+    const std::vector<std::string> failed =
+        call.arguments() ? settings_store::Save(arguments) : std::vector<std::string>();
+    if (failed.empty()) {
+      result->Success();
+    } else {
+      // Only the keys of the secrets that could not be stored are named, never their values.
+      std::string keys;
+      for (const std::string& key : failed) {
+        if (!keys.empty()) keys += ", ";
+        keys += key;
+      }
+      result->Error("settings_failed", "could not store: " + keys);
+    }
   } else if (method == "start") {
     // Waits for the engine thread's verdict on the settings; what the session then does arrives as events.
     const bool valid = host_->Call([&arguments](Engine& engine) { return engine.start(arguments); });
@@ -235,6 +246,15 @@ void LiveBridgeChannels::HandleMethodCall(const flutter::MethodCall<EncodableVal
       result->Success();
     } else {
       result->Error("invalid_settings", "The session settings are missing or invalid.");
+    }
+  } else if (method == "updateAccessToken") {
+    const Json* token = arguments.find("accessToken");
+    if (token != nullptr && token->is_string() && !token->as_string().empty()) {
+      // The running session's next reconnection sends it.
+      host_->Post([value = token->as_string()](Engine& engine) { engine.update_access_token(value); });
+      result->Success();
+    } else {
+      result->Error("bad_arguments", "missing or invalid arguments");
     }
   } else if (kCommands.count(method) > 0) {
     const Command command = kCommands.at(method);

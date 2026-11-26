@@ -81,7 +81,7 @@ class WinEngineHost final : public livebridge::EngineHost {
  private:
   // livebridge::EngineHost. Called by the engine, on the engine thread.
   std::uint64_t now_us() override;
-  void connect(const std::string& gateway_url, const std::string& access_token) override;
+  void connect(const std::string& gateway_url, const livebridge::SessionRequest& request) override;
   void send_text(const std::string& json) override;
   bool send_binary(const std::uint8_t* data, std::size_t size) override;
   void close() override;

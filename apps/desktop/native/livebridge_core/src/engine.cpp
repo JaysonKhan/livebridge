@@ -80,6 +80,30 @@ bool mode_from_name(const std::string& name, EngineConfig::Mode& mode) {
   return false;
 }
 
+bool connection_from_name(const std::string& name, EngineConfig::Connection& connection) {
+  if (name == "token") connection = EngineConfig::Connection::token;
+  else if (name == "account") connection = EngineConfig::Connection::account;
+  else if (name == "keys") connection = EngineConfig::Connection::keys;
+  else return false;
+  return true;
+}
+
+bool one_of(std::string_view code, std::initializer_list<const char*> codes) {
+  return std::any_of(codes.begin(), codes.end(), [code](const char* each) { return code == std::string_view(each); });
+}
+
+/// The gateway's own refusal codes that the app tells the user about; anything else is a plain `gateway_error`.
+bool is_refusal_code(std::string_view code) {
+  return one_of(code, {"unauthorized", "invalid_token", "balance_empty", "session_limit", "rate_limited",
+                       "billing_unavailable", "accounts_unavailable", "bad_request"});
+}
+
+/// The gateway refused this credential or account: retrying the same request cannot succeed.
+bool is_terminal_refusal(std::string_view code) {
+  return one_of(code, {"unauthorized", "invalid_token", "balance_empty", "billing_unavailable",
+                       "accounts_unavailable", "bad_request"});
+}
+
 /// The wait before reconnect attempt `attempt`: 0.5 s doubling up to 8 s, then shortened by up to half so that
 /// clients which lost the same gateway do not all come back in the same instant. The spread is derived from `seed`
 /// (the clock at the moment of the drop), which keeps the engine free of hidden state and its tests exact.
@@ -112,7 +136,18 @@ bool EngineConfig::parse(const Json& settings, EngineConfig& out) {
   const std::string* commit = string_member(settings, "outCommit");
 
   EngineConfig config;
-  if (!url || !is_http_url(*url) || !token || token->empty() || !mic || !headphones) return false;
+  if (!url || !is_http_url(*url) || !mic || !headphones) return false;
+  // Absent means the user's own gateway; a value that is there must name one of the modes.
+  if (const Json* connection = settings.find("connection");
+      connection && !(connection->is_string() && connection_from_name(connection->as_string(), config.connection)))
+    return false;
+  if (token) config.access_token = *token;
+  if (const std::string* key = string_member(settings, "elevenlabsApiKey")) config.elevenlabs_api_key = *key;
+  if (const std::string* key = string_member(settings, "geminiApiKey")) config.gemini_api_key = *key;
+  // Keys mode pays with the user's own provider keys; the other two modes need the access token.
+  if (config.connection == Connection::keys ? config.elevenlabs_api_key.empty() || config.gemini_api_key.empty()
+                                            : config.access_token.empty())
+    return false;
   if (!target || !is_language_code(*target)) return false;
   config.my_lang = my ? *my : "uz";
   if (!is_language_code(config.my_lang) || config.my_lang == *target) return false;
@@ -120,7 +155,6 @@ bool EngineConfig::parse(const Json& settings, EngineConfig& out) {
   if (!commit || (*commit != "manual" && *commit != "vad" && *commit != "turn_prediction")) return false;
 
   config.gateway_url = *url;
-  config.access_token = *token;
   config.mic_uid = *mic;
   config.headphones_uid = *headphones;
   if (const std::string* virtual_mic = string_member(settings, "virtualMicUid")) config.virtual_mic_uid = *virtual_mic;
@@ -143,6 +177,38 @@ bool EngineConfig::parse(const Json& settings, EngineConfig& out) {
   return true;
 }
 
+SessionRequest session_request(const EngineConfig& config) {
+  SessionRequest request;
+  switch (config.connection) {
+    case EngineConfig::Connection::token:
+      request.bearer = config.access_token;
+      break;
+    case EngineConfig::Connection::account:
+      request.bearer = config.access_token;
+      request.body = object({{"mode", "account"}}).dump();
+      break;
+    case EngineConfig::Connection::keys:
+      request.body = object({{"mode", "keys"},
+                             {"elevenlabs_api_key", config.elevenlabs_api_key},
+                             {"gemini_api_key", config.gemini_api_key}})
+                         .dump();
+      break;
+  }
+  return request;
+}
+
+HostError session_refusal(unsigned long status, std::string_view body) {
+  Json answer;
+  if (Json::parse(body, answer)) {
+    const std::string* code = string_member(answer, "error");
+    if (code && is_refusal_code(*code)) return {*code, "the gateway refused the session (" + *code + ")"};
+  }
+  // Older gateways answer without a body.
+  if (status == 401) return {"unauthorized", "the gateway rejected the access token"};
+  if (status == 429) return {"session_limit", "the gateway already has an active session"};
+  return {"gateway_error", "gateway answered HTTP " + std::to_string(status)};
+}
+
 Engine::Engine(EngineHost& host, EventCallback on_event) : host_(host), on_event_(std::move(on_event)) {}
 
 // ── Commands ──
@@ -155,6 +221,10 @@ bool Engine::start(const Json& settings) {
 }
 
 void Engine::stop() { stop_session(nullptr); }
+
+void Engine::update_access_token(const std::string& token) {
+  if (config_ && !token.empty()) config_->access_token = token;
+}
 
 void Engine::ptt_down() {
   if (!config_ || config_->out_commit != "manual") return;
@@ -298,7 +368,7 @@ void Engine::connect() {
   if (!config_) return;
   transport_active_ = true;
   transport_open_ = false;
-  host_.connect(config_->gateway_url, config_->access_token);
+  host_.connect(config_->gateway_url, session_request(*config_));
 }
 
 void Engine::close_transport() {
@@ -501,8 +571,9 @@ void Engine::on_transport_open() {
 
 void Engine::on_transport_closed(std::string_view code, std::string_view reason) {
   if (!transport_active_) return;
-  // First connection: fail loudly. Later ones are retries of a session that was already running.
-  if (!transport_open_ && phase_ == Phase::connecting) {
+  // First connection: fail loudly. Later ones are retries of a session that was already running; they keep
+  // retrying unless the gateway refused the credential or the account, which is then said with its own code.
+  if (!transport_open_ && (phase_ == Phase::connecting || is_terminal_refusal(code))) {
     emit_error(code.empty() ? "gateway_unreachable" : std::string(code), std::string(reason), true);
     stop_session(nullptr);
     return;
@@ -558,6 +629,13 @@ void Engine::received(const Json& message) {
     const std::string* text = string_member(message, "message");
     emit_error(code ? *code : "error", text ? *text : "", fatal, has_direction ? direction_name(direction) : nullptr);
     if (fatal) stop_session(nullptr);
+    return;
+  }
+
+  if (type == "account.balance") {
+    long long units = 0;
+    if (whole_number(message.find("balance_units"), units))
+      emit(object({{"type", "balance"}, {"balanceUnits", units}}));
     return;
   }
 

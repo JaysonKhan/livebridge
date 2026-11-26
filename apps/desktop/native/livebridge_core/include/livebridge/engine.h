@@ -43,6 +43,21 @@ struct HostError {
   std::string message;
 };
 
+/// The `POST <gateway_url>/v1/sessions` request that buys a session token (`session_request()` builds it).
+struct SessionRequest {
+  /// Sent as `Authorization: Bearer <bearer>`. Empty: no `Authorization` header.
+  std::string bearer;
+  /// Sent as the body, with `Content-Type: application/json`. Empty: no body and no `Content-Type`.
+  std::string body;
+};
+
+/// The error for a refused session request: HTTP `status` and the answer's `body` (empty when there was none or it
+/// could not be read). The gateway's own `error` code passes through when it is one the app tells the user about —
+/// `unauthorized`, `invalid_token`, `balance_empty`, `session_limit`, `rate_limited`, `billing_unavailable`,
+/// `accounts_unavailable` or `bad_request`; otherwise HTTP 401 is `unauthorized`, 429 `session_limit` and anything
+/// else `gateway_error`. The message never repeats anything the answer or the request carried.
+HostError session_refusal(unsigned long status, std::string_view body);
+
 /// What the engine needs to know about one audio device before it uses it.
 struct DeviceInfo {
   int input_channels = 0;
@@ -61,10 +76,11 @@ class EngineHost {
 
   // ── Gateway connection (GatewayTransport.swift): one at a time ──
 
-  /// Starts connecting: exchange the access token for a session token at `<gateway_url>/v1/sessions`, then open
-  /// the WebSocket `<gateway_url>/v1/realtime` with it. Answered by `Engine::on_transport_open` or
-  /// `Engine::on_transport_closed`. Noticing a dead peer (pings) is the host's job too.
-  virtual void connect(const std::string& gateway_url, const std::string& access_token) = 0;
+  /// Starts connecting: send `request` to `<gateway_url>/v1/sessions` for a session token, then open the WebSocket
+  /// `<gateway_url>/v1/realtime` with it. A refused request is reported with the code of `session_refusal()`.
+  /// Answered by `Engine::on_transport_open` or `Engine::on_transport_closed`. Noticing a dead peer (pings) is the
+  /// host's job too.
+  virtual void connect(const std::string& gateway_url, const SessionRequest& request) = 0;
   /// One JSON control message, already carrying `"v":1`. The engine sends only on an open connection; text and
   /// binary messages leave in the order given.
   virtual void send_text(const std::string& json) = 0;
@@ -118,9 +134,17 @@ class EngineHost {
 /// The `start` map of docs/bridge-contract.md, validated.
 struct EngineConfig {
   enum class Mode { captions, incoming, bidirectional };
+  /// How the session is paid for: `token` = the user's own gateway with its static token (the default), `account` =
+  /// a signed-in account's short-lived access token, `keys` = the user's own provider keys.
+  enum class Connection { token, account, keys };
 
   std::string gateway_url;
+  Connection connection = Connection::token;
+  /// The static gateway token (`token`) or the account access token (`account`); unused in `keys` mode.
   std::string access_token;
+  /// The user's own provider keys; both are required in `keys` mode.
+  std::string elevenlabs_api_key;
+  std::string gemini_api_key;
   std::string mic_uid;
   std::string headphones_uid;
   /// Absent: no outgoing audio is possible.
@@ -145,6 +169,11 @@ struct EngineConfig {
   static bool parse(const Json& settings, EngineConfig& out);
 };
 
+/// The session request for a connection mode (GatewayTransport.sessionRequest in Swift). Token: the static token and
+/// no body — the request as it always was. Account: the access token and `{"mode":"account"}`. Keys: the provider
+/// keys in `{"mode":"keys","elevenlabs_api_key":…,"gemini_api_key":…}` and no `Authorization`.
+SessionRequest session_request(const EngineConfig& config);
+
 /// One call's session: both capture lanes, both playback queues and the gateway connection, as a state machine.
 /// Destroying an engine does not touch the host: `stop()` first if a session may be running.
 class Engine {
@@ -162,6 +191,9 @@ class Engine {
   /// events: a `state` (connecting), or an `error` when the route is unusable or a session is already running.
   bool start(const Json& settings);
   void stop();
+  /// Replaces the access token that the running session's next (re)connection sends: an account's short-lived
+  /// token, refreshed by the app. An empty token, or no session, changes nothing.
+  void update_access_token(const std::string& token);
   void ptt_down();
   void ptt_up();
   void set_outgoing_muted(bool muted);
@@ -177,9 +209,12 @@ class Engine {
   void on_transport_open();
   void on_transport_text(std::string_view text);
   void on_transport_binary(const std::uint8_t* data, std::size_t size);
-  /// The connection ended without `close` being asked for: it could not be opened, or it dropped. `code` is used
-  /// when the session's first connection never opened and becomes that `error` event's code — `gateway_unreachable`,
-  /// `unauthorized` (HTTP 401), `session_limit` (429) or `gateway_error`.
+  /// The connection ended without `close` being asked for: it could not be opened, or it dropped. `code` is
+  /// `gateway_unreachable`, `gateway_error` or a refusal of the session request (`session_refusal()`). A connection
+  /// that never opened ends the session with an `error` event of that code when it was the session's first, or when
+  /// the gateway refused the credential or the account (`unauthorized`, `invalid_token`, `balance_empty`,
+  /// `billing_unavailable`, `accounts_unavailable`, `bad_request`), which no retry can change. Anything else is
+  /// retried.
   void on_transport_closed(std::string_view code, std::string_view reason);
   /// Captured audio as PCM s16le 16 kHz mono, whole samples, in pieces of any size: `out` from the microphone, `in`
   /// from the meeting source. The engine cuts it into the protocol's 20 ms frames itself.

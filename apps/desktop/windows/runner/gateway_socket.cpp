@@ -57,8 +57,8 @@ bool SessionToken(const std::string& body, std::string& token) {
 
 }  // namespace
 
-GatewaySocket::GatewaySocket(std::string base_url, std::string access_token, Events events)
-    : base_url_(std::move(base_url)), access_token_(std::move(access_token)), events_(std::move(events)) {
+GatewaySocket::GatewaySocket(std::string base_url, livebridge::SessionRequest request, Events events)
+    : base_url_(std::move(base_url)), session_request_(std::move(request)), events_(std::move(events)) {
   receiver_ = std::thread([this] { Run(); });
   sender_ = std::thread([this] { SendLoop(); });
 }
@@ -217,31 +217,28 @@ bool GatewaySocket::Connect(Handle& websocket, std::string& code, std::string& r
     return false;
   }
 
-  // 1. The long-lived access token buys a short-lived session token.
+  // 1. The session request (a static or account token, or the user's own provider keys) buys a short-lived session
+  //    token.
   DWORD status = 0;
-  HINTERNET request =
-      Exchange(connection, L"POST", prefix + L"/v1/sessions", secure, access_token_, false, status, reason);
+  HINTERNET request = Exchange(connection, L"POST", prefix + L"/v1/sessions", secure, session_request_.bearer,
+                               session_request_.body, false, status, reason);
   if (request == nullptr) return false;
   std::string body;
   std::string session_token;
-  const bool accepted = status == 201 && ReadBody(request, body) && SessionToken(body, session_token);
+  // The answer is read whatever its status: a refusal names its reason there.
+  const bool body_read = ReadBody(request, body);
+  const bool accepted = status == 201 && body_read && SessionToken(body, session_token);
   Release(request_);
   if (!accepted) {
-    if (status == 401) {
-      code = "unauthorized";
-      reason = "the gateway rejected the access token";
-    } else if (status == 429) {
-      code = "session_limit";
-      reason = "the gateway already has an active session";
-    } else {
-      code = "gateway_error";
-      reason = "gateway answered HTTP " + std::to_string(status);
-    }
+    const livebridge::HostError refusal = livebridge::session_refusal(status, body_read ? body : std::string());
+    code = refusal.code;
+    reason = refusal.message;
     return false;
   }
 
   // 2. The realtime WebSocket, opened with the session token.
-  request = Exchange(connection, L"GET", prefix + L"/v1/realtime", secure, session_token, true, status, reason);
+  request = Exchange(connection, L"GET", prefix + L"/v1/realtime", secure, session_token, std::string(), true, status,
+                     reason);
   if (request == nullptr) return false;
   if (status != 101) {
     Release(request_);
@@ -260,11 +257,12 @@ bool GatewaySocket::Connect(Handle& websocket, std::string& code, std::string& r
   return true;
 }
 
-// Sends `verb path` with a bearer token and waits for the status line of the answer. The request is returned, and
-// stays in `request_` so that Close() can cancel it; null, with `reason` set, when no answer came.
+// Sends `verb path` — with a bearer token unless `bearer` is empty, and with `body` as JSON unless it is empty — and
+// waits for the status line of the answer. The request is returned, and stays in `request_` so that Close() can
+// cancel it; null, with `reason` set, when no answer came.
 GatewaySocket::Handle GatewaySocket::Exchange(Handle connection, const wchar_t* verb, const std::wstring& path,
-                                              bool secure, const std::string& bearer, bool upgrade,
-                                              unsigned long& status, std::string& reason) {
+                                              bool secure, const std::string& bearer, const std::string& body,
+                                              bool upgrade, unsigned long& status, std::string& reason) {
   const DWORD flags = secure ? static_cast<DWORD>(WINHTTP_FLAG_SECURE) : 0;
   const HINTERNET request = ::WinHttpOpenRequest(connection, verb, path.c_str(), nullptr, WINHTTP_NO_REFERER,
                                                  WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
@@ -274,6 +272,10 @@ GatewaySocket::Handle GatewaySocket::Exchange(Handle connection, const wchar_t* 
   }
 
   const std::wstring authorization = L"Authorization: Bearer " + Utf16FromUtf8(bearer);
+  const std::wstring content_type = L"Content-Type: application/json";
+  // WinHTTP reads the body while sending; `body` outlives this call, and the answer arrives before it returns.
+  void* const data = body.empty() ? nullptr : static_cast<void*>(const_cast<char*>(body.data()));
+  const DWORD data_size = static_cast<DWORD>(body.size());
   DWORD answer_timeout = static_cast<DWORD>(kTimeoutMs);
   DWORD status_size = static_cast<DWORD>(sizeof(status));
   // A plain request gets a time-out for receiving too. The WebSocket request keeps "none" (see Connect), so only
@@ -285,9 +287,13 @@ GatewaySocket::Handle GatewaySocket::Exchange(Handle connection, const wchar_t* 
               : ::WinHttpSetTimeouts(request, kTimeoutMs, kTimeoutMs, kTimeoutMs, kTimeoutMs) != FALSE;
   const bool answered =
       prepared &&
-      ::WinHttpAddRequestHeaders(request, authorization.c_str(), static_cast<DWORD>(authorization.size()),
-                                 WINHTTP_ADDREQ_FLAG_ADD) &&
-      ::WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
+      (bearer.empty() ||
+       ::WinHttpAddRequestHeaders(request, authorization.c_str(), static_cast<DWORD>(authorization.size()),
+                                  WINHTTP_ADDREQ_FLAG_ADD)) &&
+      (body.empty() ||
+       ::WinHttpAddRequestHeaders(request, content_type.c_str(), static_cast<DWORD>(content_type.size()),
+                                  WINHTTP_ADDREQ_FLAG_ADD)) &&
+      ::WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, data, data_size, data_size, 0) &&
       ::WinHttpReceiveResponse(request, nullptr) &&
       ::WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
                             WINHTTP_HEADER_NAME_BY_INDEX, &status, &status_size, WINHTTP_NO_HEADER_INDEX);

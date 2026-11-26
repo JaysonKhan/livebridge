@@ -245,7 +245,7 @@ std::uint64_t WinEngineHost::now_us() {
   return (count / ticks_per_second_) * 1'000'000 + ((count % ticks_per_second_) * 1'000'000) / ticks_per_second_;
 }
 
-void WinEngineHost::connect(const std::string& gateway_url, const std::string& access_token) {
+void WinEngineHost::connect(const std::string& gateway_url, const livebridge::SessionRequest& request) {
   const std::uint64_t id = ++last_connection_id_;
   connection_id_ = id;
   // The socket calls these on its own threads; each only posts, and the posted task checks that the connection it
@@ -271,7 +271,7 @@ void WinEngineHost::connect(const std::string& gateway_url, const std::string& a
       if (id == connection_id_) engine.on_transport_closed(why, detail);
     });
   };
-  socket_ = std::make_unique<GatewaySocket>(gateway_url, access_token, std::move(events));
+  socket_ = std::make_unique<GatewaySocket>(gateway_url, request, std::move(events));
 }
 
 void WinEngineHost::send_text(const std::string& json) {

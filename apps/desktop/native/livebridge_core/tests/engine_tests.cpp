@@ -97,7 +97,8 @@ class FakeHost : public EngineHost {
   int connects = 0;
   int closes = 0;
   std::string gateway_url;
-  std::string access_token;
+  /// The session request of the last `connect`.
+  SessionRequest request;
   std::vector<Json> sent;
   std::vector<AudioFrame> frames;
   bool network_keeps_up = true;
@@ -119,12 +120,12 @@ class FakeHost : public EngineHost {
 
   std::uint64_t now_us() override { return now; }
 
-  void connect(const std::string& url, const std::string& token) override {
+  void connect(const std::string& url, const SessionRequest& session_request) override {
     CHECK(!connected);  // one connection at a time
     connected = true;
     connects++;
     gateway_url = url;
-    access_token = token;
+    request = session_request;
     log.push_back("connect");
   }
 
@@ -345,6 +346,27 @@ static Json settings(const char* mode, const char* commit, bool with_source = tr
   return map;
 }
 
+/// `map` without its member `key`.
+static Json without(const Json& map, const char* key) {
+  Json::Object members;
+  for (const auto& member : map.as_object()) {
+    if (member.first != key) members.push_back(member);
+  }
+  return Json(std::move(members));
+}
+
+/// `settings()` for a connection mode. `keys` drops the access token and carries both provider keys.
+static Json connected_by(const char* connection, const char* mode = "captions", const char* commit = "manual") {
+  Json map = settings(mode, commit);
+  map.set("connection", connection);
+  if (std::string(connection) == "keys") {
+    map = without(map, "accessToken");
+    map.set("elevenlabsApiKey", "el-key");
+    map.set("geminiApiKey", "gm-key");
+  }
+  return map;
+}
+
 static bool logged(const FakeHost& host, std::initializer_list<const char*> expected) {
   if (std::equal(host.log.begin(), host.log.end(), expected.begin(), expected.end())) return true;
   std::printf("  host calls were:");
@@ -435,6 +457,129 @@ static void test_settings_are_validated() {
   CHECK(s.events.empty() && s.host.log.empty());
 }
 
+// ── Connection modes ──
+
+static void test_connection_modes_are_validated() {
+  using Connection = EngineConfig::Connection;
+  EngineConfig config;
+  CHECK(EngineConfig::parse(settings("captions", "manual"), config));
+  CHECK(config.connection == Connection::token);  // absent: the user's own gateway and its static token
+  CHECK(EngineConfig::parse(connected_by("token"), config) && config.connection == Connection::token);
+  CHECK(EngineConfig::parse(connected_by("account"), config) && config.connection == Connection::account);
+  CHECK(config.access_token == "secret-token");
+
+  // Keys mode needs both provider keys and no access token at all.
+  CHECK(EngineConfig::parse(connected_by("keys"), config));
+  CHECK(config.connection == Connection::keys && config.access_token.empty());
+  CHECK(config.elevenlabs_api_key == "el-key" && config.gemini_api_key == "gm-key");
+  Json keys = connected_by("keys");
+  keys.set("accessToken", "");
+  CHECK(EngineConfig::parse(keys, config) && config.connection == Connection::keys);
+
+  const auto refused = [](Json map) {
+    EngineConfig ignored;
+    return !EngineConfig::parse(map, ignored);
+  };
+  CHECK(refused(without(connected_by("keys"), "elevenlabsApiKey")));
+  CHECK(refused(without(connected_by("keys"), "geminiApiKey")));
+  keys = connected_by("keys");
+  keys.set("elevenlabsApiKey", "");
+  CHECK(refused(keys));
+  keys = connected_by("keys");
+  keys.set("geminiApiKey", 5);
+  CHECK(refused(keys));
+  // The other two modes need the access token.
+  CHECK(refused(without(connected_by("token"), "accessToken")));
+  CHECK(refused(without(connected_by("account"), "accessToken")));
+  Json account = connected_by("account");
+  account.set("accessToken", "");
+  CHECK(refused(account));
+  // Only the three modes; a present value must be one of them.
+  for (Json unknown : {Json("cloud"), Json("Account"), Json(3), Json(), Json(true)}) {
+    Json map = settings("captions", "manual");
+    map.set("connection", std::move(unknown));
+    CHECK(refused(map));
+  }
+  CHECK(config.connection == Connection::keys);  // a refused map leaves the result untouched
+
+  Session s;
+  CHECK(!s.engine.start(without(connected_by("keys"), "geminiApiKey")));
+  CHECK(s.events.empty() && s.host.log.empty());
+}
+
+static void test_session_request_per_connection_mode() {
+  const auto request_for = [](const Json& map) {
+    EngineConfig config;
+    CHECK(EngineConfig::parse(map, config));
+    return session_request(config);
+  };
+  const auto body = [](const SessionRequest& request) {
+    Json parsed;
+    CHECK(Json::parse(request.body, parsed));
+    return parsed;
+  };
+
+  // Token: exactly today's request — the static token and no body.
+  const SessionRequest token = request_for(connected_by("token"));
+  CHECK(token.bearer == "secret-token" && token.body.empty());
+  CHECK(request_for(settings("captions", "manual")).bearer == "secret-token");
+
+  // Account: the short-lived access token and the mode.
+  const SessionRequest account = request_for(connected_by("account"));
+  CHECK(account.bearer == "secret-token");
+  CHECK(same(body(account), R"({"mode":"account"})"));
+
+  // Keys: the user's own provider keys in the body and no Authorization.
+  const SessionRequest keys = request_for(connected_by("keys"));
+  CHECK(keys.bearer.empty());
+  CHECK(same(body(keys), R"({"mode":"keys","elevenlabs_api_key":"el-key","gemini_api_key":"gm-key"})"));
+  // Also a token that came along is not sent in keys mode.
+  Json both = connected_by("keys");
+  both.set("accessToken", "stray-token");
+  CHECK(request_for(both).bearer.empty());
+  // A key with characters JSON escapes arrives as the very same string.
+  Json quoted = connected_by("keys");
+  quoted.set("geminiApiKey", "gm\"key\\with\nescapes");
+  CHECK(str(body(request_for(quoted)), "gemini_api_key") == "gm\"key\\with\nescapes");
+
+  // The engine hands the host the request of its mode.
+  Session s;
+  CHECK(s.engine.start(connected_by("account")));
+  CHECK(s.host.connects == 1 && s.host.request.bearer == "secret-token");
+  CHECK(same(body(s.host.request), R"({"mode":"account"})"));
+  Session k;
+  CHECK(k.engine.start(connected_by("keys")));
+  CHECK(k.host.connects == 1 && k.host.request.bearer.empty());
+  CHECK(same(body(k.host.request), R"({"mode":"keys","elevenlabs_api_key":"el-key","gemini_api_key":"gm-key"})"));
+}
+
+static void test_session_refusals_pass_the_gateways_own_code() {
+  CHECK(session_refusal(402, R"({"error":"balance_empty"})").code == "balance_empty");
+  for (const char* code : {"unauthorized", "invalid_token", "balance_empty", "session_limit", "rate_limited",
+                           "billing_unavailable", "accounts_unavailable", "bad_request"}) {
+    const HostError refusal = session_refusal(400, std::string(R"({"error":")") + code + "\"}");
+    CHECK(refusal.code == code);
+    CHECK(refusal.message == std::string("the gateway refused the session (") + code + ")");
+  }
+  // Anything else is a plain gateway error.
+  CHECK(session_refusal(503, R"({"error":"something_new"})").code == "gateway_error");
+  CHECK(session_refusal(503, R"({"error":5})").code == "gateway_error");
+  CHECK(session_refusal(402, R"(["balance_empty"])").code == "gateway_error");
+  CHECK(session_refusal(503, "not json").code == "gateway_error");
+  CHECK(session_refusal(500, "").code == "gateway_error");
+  CHECK(session_refusal(503, "").message == "gateway answered HTTP 503");
+  CHECK(session_refusal(201, R"({"tok":"x"})").message == "gateway answered HTTP 201");  // accepted, but no token
+  // Older gateways answer these without a body.
+  CHECK(session_refusal(401, "").code == "unauthorized");
+  CHECK(session_refusal(401, "").message == "the gateway rejected the access token");
+  CHECK(session_refusal(429, "").code == "session_limit");
+  CHECK(session_refusal(429, R"({"error":"something_new"})").code == "session_limit");
+  // The message never repeats what the answer carried.
+  CHECK(session_refusal(402, R"({"error":"balance_empty","detail":"secret-detail"})").message.find("secret") ==
+        std::string::npos);
+  CHECK(session_refusal(503, R"({"error":"secret-detail"})").message.find("secret") == std::string::npos);
+}
+
 // ── Start, connect, configure ──
 
 static void test_start_connects_and_configures_each_mode() {
@@ -442,7 +587,7 @@ static void test_start_connects_and_configures_each_mode() {
     Session s;
     CHECK(s.engine.start(settings("captions", "manual")));
     CHECK(s.host.connects == 1 && s.host.gateway_url == "https://bridge.example.com");
-    CHECK(s.host.access_token == "secret-token");
+    CHECK(s.host.request.bearer == "secret-token" && s.host.request.body.empty());
     CHECK(s.host.mic_open && s.host.mic_uid == "mic");
     CHECK(s.host.source_open && s.host.source_pids == std::vector<int>({4242, 4243}));
     CHECK(!s.host.sinks[0].open && !s.host.sinks[1].open);
@@ -835,6 +980,24 @@ static void test_gateway_messages_become_bridge_events() {
   CHECK(str(s.events[1], "state") == "stopping");
   CHECK(same(s.events[2], kIdleState));
   CHECK(!s.host.connected && s.host.closes == 1 && s.host.nothing_open());
+}
+
+static void test_account_balance_becomes_a_balance_event() {
+  Session s;
+  s.go(connected_by("account"));
+  s.text(R"({"v":1,"type":"account.balance","balance_units":4200})");
+  CHECK(s.events.size() == 1);
+  CHECK(same(s.events[0], R"({"type":"balance","balanceUnits":4200})"));
+  s.text(R"({"v":1,"type":"account.balance","balance_units":0})");
+  CHECK(s.events.size() == 2 && same(s.events[1], R"({"type":"balance","balanceUnits":0})"));
+
+  // Only a whole number of units is a balance.
+  s.forget();
+  s.text(R"({"v":1,"type":"account.balance","balance_units":12.5})");
+  s.text(R"({"v":1,"type":"account.balance","balance_units":"4200"})");
+  s.text(R"({"v":1,"type":"account.balance"})");
+  CHECK(s.events.empty());
+  CHECK(s.host.log.empty() && s.host.connected);  // nothing is answered and the session goes on
 }
 
 // ── Synthesized speech -> playback ──
@@ -1252,6 +1415,98 @@ static void test_reconnecting_gives_up_after_five_attempts() {
   CHECK(t.host.connects == 1 && t.host.closes == 1);
 }
 
+static void test_reconnect_uses_the_token_from_update_access_token() {
+  Json map = connected_by("account");
+  map.set("accessToken", "old-access");
+  Session s;
+  s.go(map);
+  CHECK(s.host.request.bearer == "old-access");
+
+  // A new token changes nothing on the open connection; the next one sends it.
+  s.engine.update_access_token("new-access");
+  s.engine.update_access_token("");  // an empty token is ignored
+  CHECK(s.events.empty() && s.host.log.empty() && s.host.connects == 1);
+  s.engine.on_transport_closed("gateway_unreachable", "reset");
+  s.host.now += 500'000;
+  s.engine.tick();
+  CHECK(s.host.connects == 2 && s.host.request.bearer == "new-access");
+  Json body;
+  CHECK(Json::parse(s.host.request.body, body) && same(body, R"({"mode":"account"})"));
+
+  // One that arrives while the session waits to reconnect is used by that reconnect.
+  s.engine.on_transport_open();
+  s.ready(true, true);
+  s.engine.on_transport_closed("gateway_unreachable", "reset");
+  s.engine.update_access_token("newer-access");
+  s.host.now += 500'000;
+  s.engine.tick();
+  CHECK(s.host.connects == 3 && s.host.request.bearer == "newer-access");
+
+  // With no session it does nothing, and it never outlives the session it was given to.
+  Session t;
+  t.engine.update_access_token("stray-access");
+  CHECK(t.events.empty() && t.host.log.empty());
+  CHECK(t.engine.start(map));
+  CHECK(t.host.request.bearer == "old-access");
+  t.engine.update_access_token("later-access");
+  t.engine.stop();
+  CHECK(t.engine.start(map));
+  CHECK(t.host.request.bearer == "old-access");
+}
+
+/// A session that lost its connection and is retrying it right now; whatever happened so far is forgotten.
+static void reconnecting(Session& s, const Json& map) {
+  s.go(map);
+  s.engine.on_transport_closed("gateway_unreachable", "reset");
+  s.host.now += 500'000;
+  s.engine.tick();
+  CHECK(s.host.connects == 2 && s.host.connected);
+  s.forget();
+}
+
+static void test_terminal_refusals_during_reconnect_end_the_session() {
+  // The gateway refused the credential or the account: no retry can change that, so it is said at once.
+  for (const char* code : {"unauthorized", "invalid_token", "balance_empty", "billing_unavailable",
+                           "accounts_unavailable", "bad_request"}) {
+    Session s;
+    reconnecting(s, connected_by("account", "incoming"));
+    s.engine.on_transport_closed(code, std::string("the gateway refused the session (") + code + ")");
+    CHECK(s.events.size() == 3);
+    CHECK(str(s.events[0], "type") == "error" && str(s.events[0], "code") == code && yes(s.events[0], "fatal"));
+    CHECK(str(s.events[0], "message") == std::string("the gateway refused the session (") + code + ")");
+    CHECK(s.events.size() == 3 && str(s.events[1], "state") == "stopping" && same(s.events[2], kIdleState));
+    CHECK(s.host.closes == 2 && !s.host.connected && s.host.nothing_open());
+    s.host.now += 60'000'000;
+    s.engine.tick();
+    CHECK(s.host.connects == 2);
+  }
+
+  // A busy or failing gateway, or none at all, is retried as before.
+  for (const char* code : {"session_limit", "rate_limited", "gateway_error", "gateway_unreachable"}) {
+    Session s;
+    reconnecting(s, connected_by("account", "incoming"));
+    s.engine.on_transport_closed(code, "try again later");
+    CHECK(s.events.size() == 1 && str(s.events[0], "state") == "degraded");
+    CHECK(s.events.size() == 1 && str(s.events[0], "message") == "Connection lost — reconnecting (attempt 2 of 5)");
+    CHECK(s.host.mic_open && s.host.source_open);
+    s.host.now += 1'000'000;
+    s.engine.tick();
+    CHECK(s.host.connects == 3);
+  }
+
+  // The same holds in the other modes: a static token the gateway no longer accepts is not retried either.
+  Session t;
+  reconnecting(t, settings("captions", "manual"));
+  t.engine.on_transport_closed("unauthorized", "the gateway rejected the access token");
+  CHECK(t.events.size() == 3 && str(t.events[0], "code") == "unauthorized" && same(t.events[2], kIdleState));
+
+  // A connection that had opened and then dropped is a lost connection, whatever code came with it.
+  Session d;
+  d.go(connected_by("account"));
+  d.engine.on_transport_closed("unauthorized", "dropped");
+  CHECK(d.events.size() == 1 && str(d.events[0], "state") == "degraded");
+}
+
 // ── Echo hold ──
 
 static void test_echo_hold_in_automatic_modes() {
@@ -1456,18 +1711,24 @@ static void test_stop_releases_everything() {
 
 int main() {
   test_settings_are_validated();
+  test_connection_modes_are_validated();
+  test_session_request_per_connection_mode();
+  test_session_refusals_pass_the_gateways_own_code();
   test_start_connects_and_configures_each_mode();
   test_unusable_routes_are_refused();
   test_first_connection_failure_ends_the_session();
   test_ready_reports_state_and_opens_capture();
   test_push_to_talk_turn();
   test_gateway_messages_become_bridge_events();
+  test_account_balance_becomes_a_balance_event();
   test_synthesized_speech_is_played_and_reported();
   test_panic_discards_everything();
   test_outgoing_mute_cancels_the_turn_in_flight();
   test_bypass_routes_the_microphone_to_the_call();
   test_connection_loss_degrades_and_reconnects();
   test_reconnecting_gives_up_after_five_attempts();
+  test_reconnect_uses_the_token_from_update_access_token();
+  test_terminal_refusals_during_reconnect_end_the_session();
   test_echo_hold_in_automatic_modes();
   test_source_and_device_loss();
   test_backlog_and_playback_overflow();
