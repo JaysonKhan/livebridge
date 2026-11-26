@@ -125,6 +125,23 @@ void main() {
     expect(find.text('ABCD-EFGH'), findsNothing);
   });
 
+  testWidgets('a browser that does not open: the page address is shown to open by hand', (tester) async {
+    final site = FakeAccountClient();
+    await pumpApp(
+      tester,
+      onboarding: true,
+      site: site,
+      opener: (url) async => false,
+      overrides: [delayProvider.overrideWithValue(_hang)],
+    );
+    await tester.tap(googleButton);
+    await tester.pumpAndSettle();
+    expect(find.text(en.signInWaitingTitle), findsOneWidget);
+    expect(find.text(en.signInOpenManually), findsOneWidget);
+    expect(find.text('https://site.test/en/connect/?code=ABCD-EFGH'), findsOneWidget);
+    expect(find.byType(SelectableText), findsNWidgets(2), reason: 'the code and the address can both be copied');
+  });
+
   testWidgets('an approved code enters the main screen in account mode', (tester) async {
     final site = FakeAccountClient();
     site.polls.add(
@@ -280,8 +297,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(c.read(connectionProvider).mode, ConnectionMode.keys);
       expect(find.byType(HomeScreen), findsOneWidget);
-      expect(bridge.savedPrefs.last['connectionMode'], 'keys');
-      expect(bridge.savedPrefs.last['elevenlabsApiKey'], 'el-key');
+      expect(bridge.settings['connectionMode'], 'keys');
+      expect(bridge.settings['elevenlabsApiKey'], 'el-key');
     });
 
     testWidgets('a failed save stays on the screen with a sentence', (tester) async {
@@ -334,7 +351,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(c.read(connectionProvider).mode, ConnectionMode.gateway);
       expect(find.byType(HomeScreen), findsOneWidget);
-      expect(bridge.savedPrefs.last['gatewayUrl'], 'https://gw.example');
+      expect(bridge.settings['gatewayUrl'], 'https://gw.example');
     });
 
     testWidgets('after Change, a saved static token is pre-filled and can be saved with a new address', (tester) async {
@@ -354,8 +371,8 @@ void main() {
       await tester.pump();
       await tester.tap(saveGatewayButton);
       await tester.pumpAndSettle();
-      expect(bridge.savedPrefs.last['gatewayUrl'], 'https://new.example');
-      expect(bridge.savedPrefs.last['accessToken'], 'static-token');
+      expect(bridge.settings['gatewayUrl'], 'https://new.example');
+      expect(bridge.settings['accessToken'], 'static-token');
     });
   });
 }

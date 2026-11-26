@@ -371,6 +371,13 @@ class TokenKeeper {
   /// When the access token in memory stops being valid; null when there is none.
   DateTime? get expiresAt => _expiresAt;
 
+  /// The access token in memory while it is still valid, without refreshing; null when there is none.
+  String? get current {
+    final access = _accessToken;
+    final expires = _expiresAt;
+    return access != null && expires != null && expires.isAfter(_now()) ? access : null;
+  }
+
   /// Takes a pair obtained elsewhere (the device grant). Its refresh token is saved by the caller.
   void adopt(TokenPair pair) {
     _reset();

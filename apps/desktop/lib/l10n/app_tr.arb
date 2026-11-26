@@ -308,6 +308,7 @@
   "signInWaitingTitle": "Tarayıcınızda devam edin",
   "signInWaitingHint": "Sayfadaki kodun bu kod olduğunu doğrulayın ve onaylayın.",
   "signInOpenAgain": "Yeniden aç",
+  "signInOpenManually": "Bu adresi tarayıcınızda açın:",
   "signInExpired": "Kodun süresi doldu. Yeniden giriş yapın.",
   "signInDenied": "Giriş tarayıcıda reddedildi.",
   "signInNetwork": "Giriş hizmetine ulaşılamadı. İnternet bağlantınızı kontrol edin.",

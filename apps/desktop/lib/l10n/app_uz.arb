@@ -308,6 +308,7 @@
   "signInWaitingTitle": "Brauzerda davom eting",
   "signInWaitingHint": "Sahifadagi kod shu kod ekanini tekshiring va tasdiqlang.",
   "signInOpenAgain": "Qayta ochish",
+  "signInOpenManually": "Ushbu manzilni brauzerda oching:",
   "signInExpired": "Kod muddati tugadi. Qaytadan kiring.",
   "signInDenied": "Brauzerda kirish rad etildi.",
   "signInNetwork": "Kirish xizmatiga ulanib bo'lmadi. Internet aloqasini tekshiring.",

@@ -55,6 +55,12 @@ class FakeLiveBridge implements LiveBridge {
   /// An error every `savePreferences` call throws (nothing is stored), e.g. a failed Keychain write.
   Exception? savePreferencesError;
 
+  /// An error a `savePreferences` call carrying a secret item throws; like the real hosts, the call's other keys are
+  /// stored all the same.
+  Exception? secretWriteError;
+
+  static const secretItems = {'accessToken', 'accountRefreshToken', 'elevenlabsApiKey', 'geminiApiKey'};
+
   /// While set and not completed, `savePreferences` calls are recorded but do not finish.
   Completer<void>? savePrefsGate;
 
@@ -120,6 +126,15 @@ class FakeLiveBridge implements LiveBridge {
     calls.add('savePreferences');
     final error = savePreferencesError;
     if (error != null) throw error;
+    final secretError = secretWriteError;
+    if (secretError != null && preferences.keys.any(secretItems.contains)) {
+      settings = {
+        ...settings,
+        for (final e in preferences.entries)
+          if (!secretItems.contains(e.key)) e.key: e.value,
+      };
+      throw secretError;
+    }
     savedPrefs.add(Map.of(preferences));
     final gate = savePrefsGate;
     if (gate != null) await gate.future;

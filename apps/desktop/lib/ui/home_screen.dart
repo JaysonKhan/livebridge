@@ -209,12 +209,15 @@ class _ErrorStrip extends ConsumerWidget {
       case 'billing_unavailable':
         return banner(Icons.cloud_off_outlined, l.bannerBillingUnavailable, StatusSeverity.critical);
       case 'idle_timeout':
-        final blocked = startBlockers(
-          ref.watch(setupProvider),
-          l,
-          ref.watch(hostPlatformProvider),
-          connection: ref.watch(connectionProvider),
-        ).isNotEmpty;
+        final connectionState = ref.watch(connectionProvider);
+        final blocked =
+            connectionState.startPending ||
+            startBlockers(
+              ref.watch(setupProvider),
+              l,
+              ref.watch(hostPlatformProvider),
+              connection: connectionState,
+            ).isNotEmpty;
         return banner(
           Icons.timer_off_outlined,
           l.bannerIdleTimeout,
@@ -267,13 +270,9 @@ class _StartFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final engine = ref.watch(sessionProvider.select((s) => s.engine));
     final setup = ref.watch(setupProvider);
+    final connection = ref.watch(connectionProvider);
     final l = context.l10n;
-    final blockers = startBlockers(
-      setup,
-      l,
-      ref.watch(hostPlatformProvider),
-      connection: ref.watch(connectionProvider),
-    );
+    final blockers = startBlockers(setup, l, ref.watch(hostPlatformProvider), connection: connection);
     final running = engine != EngineState.idle;
     final t = context.tokens;
     return Padding(
@@ -292,7 +291,8 @@ class _StartFooter extends ConsumerWidget {
           else ...[
             FilledButton.icon(
               key: const Key('start-button'),
-              onPressed: blockers.isEmpty ? () => _startWithConsent(context, ref) : null,
+              // Off while a Start gets its token, so a second press cannot start a second session.
+              onPressed: blockers.isEmpty && !connection.startPending ? () => _startWithConsent(context, ref) : null,
               icon: const Icon(Icons.play_arrow),
               label: Text(l.startSession),
             ),

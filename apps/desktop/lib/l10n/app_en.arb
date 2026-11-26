@@ -609,6 +609,7 @@
   "signInWaitingTitle": "Continue in your browser",
   "signInWaitingHint": "Check that this code is on the page, then approve it.",
   "signInOpenAgain": "Open again",
+  "signInOpenManually": "Open this address in your browser:",
   "signInExpired": "The code expired. Sign in again.",
   "signInDenied": "Sign-in was declined in the browser.",
   "signInNetwork": "Could not reach the sign-in service. Check your internet connection.",

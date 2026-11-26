@@ -49,13 +49,15 @@ class SignInIdle extends SignInPhase {
   const SignInIdle();
 }
 
-/// The site's page is open; the person approves [userCode] there before [expiresAt].
+/// The site's page is open; the person approves [userCode] there before [expiresAt]. [openFailed]: no browser could
+/// be opened, so the person opens [page] by hand.
 class SignInWaiting extends SignInPhase {
-  const SignInWaiting(this.userCode, this.page, this.expiresAt);
+  const SignInWaiting(this.userCode, this.page, this.expiresAt, {this.openFailed = false});
 
   final String userCode;
   final Uri page;
   final DateTime expiresAt;
+  final bool openFailed;
 }
 
 /// [reason] is `expired`, `denied`, `network` or `rate_limited`.
@@ -103,6 +105,7 @@ class ConnectionState {
     this.notice,
     this.hasKeys = false,
     this.previous,
+    this.startPending = false,
   });
 
   /// How sessions are paid for; null = not chosen yet (onboarding).
@@ -127,6 +130,9 @@ class ConnectionState {
   /// The mode left with "Change", which the onboarding can go back to; null when there is none (in memory only).
   final ConnectionMode? previous;
 
+  /// A Start is getting what it needs (an account's token can take a refresh); Start is off meanwhile.
+  final bool startPending;
+
   /// About how many minutes the balance lasts in [mode]; null when the balance or the rates are unknown.
   int? minutesLeft(SessionMode mode) {
     final a = account;
@@ -150,6 +156,7 @@ class ConnectionState {
     Object? notice = _keep,
     bool? hasKeys,
     Object? previous = _keep,
+    bool? startPending,
   }) => ConnectionState(
     mode: identical(mode, _keep) ? this.mode : mode as ConnectionMode?,
     loaded: loaded ?? this.loaded,
@@ -159,6 +166,7 @@ class ConnectionState {
     notice: identical(notice, _keep) ? this.notice : notice as String?,
     hasKeys: hasKeys ?? this.hasKeys,
     previous: identical(previous, _keep) ? this.previous : previous as ConnectionMode?,
+    startPending: startPending ?? this.startPending,
   );
 }
 
@@ -179,6 +187,9 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   /// The refresh token save running right now, so that a sign-out can wait for it.
   Future<void>? _pendingSave;
 
+  /// The `me/` read running now and the account it is for, so that callers join it instead of asking again.
+  ({int run, Future<void> future})? _accountRead;
+
   // Bumping one of these cancels what was started under the old value: the sign-in polling, answers for an account
   // that is gone, the running session's token refreshes.
   int _signInRun = 0;
@@ -189,7 +200,7 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   StartConfig? _accountStart;
   bool _startRetried = false;
 
-  /// The access token the running account session has.
+  /// The access token the running account session has; null while no account session runs.
   String? _sessionToken;
 
   @override
@@ -201,7 +212,10 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     _keeper = _newKeeper(null);
     // Listening builds the session first, so it hears each bridge event (a fatal error ends it) before this does.
     ref.listen(sessionProvider.select((s) => s.running), (_, running) {
-      if (!running) _refreshRun++;
+      if (!running) {
+        _refreshRun++;
+        _sessionToken = null;
+      }
     });
     final sub = _bridge.events.listen(_onEvent);
     ref.onDispose(() {
@@ -217,12 +231,28 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   TokenKeeper _newKeeper(String? refreshToken) =>
       TokenKeeper(client: _client, onRefreshed: _saveRefreshToken, refreshToken: refreshToken, now: _now);
 
-  Future<void> _saveRefreshToken(TokenPair pair) {
+  Future<void> _saveRefreshToken(TokenPair pair) async {
     final save = _bridge.savePreferences({'accountRefreshToken': pair.refreshToken});
     _pendingSave = save;
-    return save.whenComplete(() {
+    try {
+      await save;
+    } finally {
       if (identical(_pendingSave, save)) _pendingSave = null;
-    });
+    }
+    await _handToSession(pair.accessToken);
+  }
+
+  /// The site keeps one access token per device, so a refresh outside the session's timer (the voice list, a top up)
+  /// retires the running session's token: the session gets the new one at once, once its refresh token is saved.
+  Future<void> _handToSession(String token) async {
+    final held = _sessionToken;
+    if (held == null || held == token || !ref.mounted || !ref.read(sessionProvider).running) return;
+    try {
+      await _bridge.updateAccessToken(token);
+      _sessionToken = token;
+    } on Exception {
+      // The session's timer hands it over at its next check.
+    }
   }
 
   Future<void> _load() async {
@@ -254,9 +284,12 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
 
   void _onEvent(BridgeEvent e) {
     switch (e) {
-      case BalanceEvent(:final balanceUnits):
+      case BalanceEvent(:final balanceUnits) when state.mode == ConnectionMode.account:
         final a = state.account;
-        if (a != null && state.mode == ConnectionMode.account) {
+        if (a == null) {
+          // Not read yet (the site could not be reached at launch): read it now; the answer has this balance.
+          unawaited(refreshAccount());
+        } else {
           state = state.copyWith(
             account: AccountInfo(
               email: a.email,
@@ -297,8 +330,13 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     if (run != _signInRun || !ref.mounted) return;
     final expiresAt = _now().add(Duration(seconds: start.expiresIn));
     final page = _onSite(start.verificationUriComplete);
+    if (!_openable(page)) {
+      // Not a page of the site: nothing is opened and nothing polls.
+      state = state.copyWith(signIn: const SignInFailed('network'));
+      return;
+    }
     state = state.copyWith(signIn: SignInWaiting(start.userCode, page, expiresAt));
-    await _open(page);
+    if (!await _open(page)) _browserFailed(run);
     var interval = Duration(seconds: start.interval);
     while (true) {
       await _delay(interval);
@@ -354,8 +392,16 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
 
   /// Opens the approval page again (the person closed the browser tab).
   Future<void> openPageAgain() async {
+    final run = _signInRun;
     final phase = state.signIn;
-    if (phase is SignInWaiting) await _open(phase.page);
+    if (phase is SignInWaiting && !await _open(phase.page)) _browserFailed(run);
+  }
+
+  /// No browser opened the approval page: the waiting view shows its address to open by hand.
+  void _browserFailed(int run) {
+    final phase = state.signIn;
+    if (run != _signInRun || !ref.mounted || phase is! SignInWaiting || phase.openFailed) return;
+    state = state.copyWith(signIn: SignInWaiting(phase.userCode, phase.page, phase.expiresAt, openFailed: true));
   }
 
   void cancelSignIn() {
@@ -389,7 +435,10 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   Future<void> saveKeys(String elevenlabs, String gemini) async {
     final el = elevenlabs.trim();
     final gm = gemini.trim();
-    await _bridge.savePreferences({'elevenlabsApiKey': el, 'geminiApiKey': gm, 'connectionMode': 'keys'});
+    // The secrets first: a host stores the other keys of a call even when a secret cannot be written, so the choice
+    // is saved only once they are.
+    await _bridge.savePreferences({'elevenlabsApiKey': el, 'geminiApiKey': gm});
+    await _bridge.savePreferences({'connectionMode': 'keys'});
     _signInRun++;
     _elevenlabsKey = _text(el);
     _geminiKey = _text(gm);
@@ -410,7 +459,8 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   Future<void> saveGateway(String url, String token) async {
     final u = url.trim();
     final t = token.trim();
-    await _bridge.savePreferences({'gatewayUrl': u, 'accessToken': t, 'connectionMode': 'gateway'});
+    await _bridge.savePreferences({'gatewayUrl': u, 'accessToken': t});
+    await _bridge.savePreferences({'connectionMode': 'gateway'});
     _signInRun++;
     ref.read(setupProvider.notifier)
       ..setGatewayUrl(u)
@@ -439,25 +489,21 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     if (previous == ConnectionMode.account) await refreshAccount();
   }
 
-  /// Stops a running session, signs this computer out on the site (best effort), deletes the refresh token and goes back
-  /// to onboarding.
+  /// Stops a running session, deletes the refresh token and goes back to onboarding at once, then signs this computer
+  /// out on the site in the background (best effort) with the access token in memory. It never refreshes for that:
+  /// offline, a refresh and the logout could each wait for their timeout.
   Future<void> signOut() async {
-    await _stopRunningSession();
-    String? token;
-    try {
-      // Also waits for a refresh, and the save of its refresh token, that may be running.
-      token = await _keeper.accessToken();
-    } on Exception {
-      token = null;
-    }
-    if (token != null) {
-      try {
-        await _client.logout(token);
-      } on Exception {
-        // Offline or refused: the token is deleted here all the same.
-      }
-    }
+    final token = _keeper.current;
     await _forget();
+    if (token != null) unawaited(_logout(token));
+  }
+
+  Future<void> _logout(String token) async {
+    try {
+      await _client.logout(token);
+    } on Exception {
+      // Offline or refused: this computer has forgotten the account all the same.
+    }
   }
 
   /// Forgets the account and stops a running session. No refresh can start after the keeper is cleared and a refresh
@@ -507,10 +553,21 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   }
 
   /// Reads the account (`me/`) and, until it has worked once, the packages. Offline, what is known stays: this never
-  /// blocks Start.
-  Future<void> refreshAccount() async {
-    if (state.mode != ConnectionMode.account) return;
+  /// blocks Start. A call while a read for the same account runs joins it.
+  Future<void> refreshAccount() {
+    if (state.mode != ConnectionMode.account) return Future.value();
+    final running = _accountRead;
+    if (running != null && running.run == _accountRun) return running.future;
     final run = _accountRun;
+    late final Future<void> read;
+    read = _readAccount(run).whenComplete(() {
+      if (identical(_accountRead?.future, read)) _accountRead = null;
+    });
+    _accountRead = (run: run, future: read);
+    return read;
+  }
+
+  Future<void> _readAccount(int run) async {
     try {
       final info = await _withAccessToken(_client.me);
       if (run == _accountRun && ref.mounted) state = state.copyWith(account: info);
@@ -539,14 +596,13 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   }
 
   /// Opens the site's checkout for [packageCode] in the browser. Null when the page opened, else a code: `signed_out`,
-  /// the site's (`unknown_package`, `rate_limited`, `checkout_unavailable`), `network`, or the bridge's when a
-  /// refreshed token could not be saved.
+  /// the site's (`unknown_package`, `rate_limited`, `checkout_unavailable`), `network`, `open_failed` (not an https
+  /// page, or no browser opened), or the bridge's when a refreshed token could not be saved.
   Future<String?> topUp(String packageCode) async {
     final run = _accountRun;
     try {
       final url = await _withAccessToken((t) => _client.checkout(t, packageCode, language: _uiLanguage()));
-      await _open(url);
-      return null;
+      return await _open(url) ? null : 'open_failed';
     } on AccountSignedOut {
       await _signedOutDuring(run);
       return 'signed_out';
@@ -611,9 +667,12 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     }
   }
 
-  /// Starts a session with [base] (the setup's config), paid for by the current connection.
+  /// Starts a session with [base] (the setup's config), paid for by the current connection. Ignored while an earlier
+  /// Start is still getting its token: both would reach the host, and the second would be refused as busy.
   Future<void> start(StartConfig base) async {
+    if (state.startPending) return;
     final run = _accountRun;
+    state = state.copyWith(startPending: true);
     final StartAuth auth;
     try {
       auth = await authForStart();
@@ -623,6 +682,8 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     } on Exception catch (e) {
       if (ref.mounted) _reportStartFailure(e);
       return;
+    } finally {
+      if (ref.mounted) state = state.copyWith(startPending: false);
     }
     if (!ref.mounted) return;
     final config = auth.applyTo(base);
@@ -703,13 +764,20 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
 
   int? minutesLeft(SessionMode mode) => state.minutesLeft(mode);
 
-  Future<void> _open(Uri url) async {
+  /// Opens [url] in the browser. False when it was not opened: not an https page (plain http only on this computer,
+  /// for a test site), or no browser could be opened.
+  Future<bool> _open(Uri url) async {
+    if (!_openable(url)) return false;
     try {
-      await ref.read(urlOpenerProvider)(url);
+      return await ref.read(urlOpenerProvider)(url);
     } on Exception {
-      // No browser could be opened.
+      return false;
     }
   }
+
+  static bool _openable(Uri url) =>
+      url.host.isNotEmpty &&
+      (url.scheme == 'https' || (url.scheme == 'http' && (url.host == 'localhost' || url.host == '127.0.0.1')));
 
   /// The interface language: the saved choice, else the system's when the app has it, else English.
   String _uiLanguage() {

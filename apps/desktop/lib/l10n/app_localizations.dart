@@ -1942,6 +1942,12 @@ abstract class AppLocalizations {
   /// **'Open again'**
   String get signInOpenAgain;
 
+  /// No description provided for @signInOpenManually.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this address in your browser:'**
+  String get signInOpenManually;
+
   /// No description provided for @signInExpired.
   ///
   /// In en, this message translates to:

@@ -1037,6 +1037,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get signInOpenAgain => 'Открыть снова';
 
   @override
+  String get signInOpenManually => 'Откройте этот адрес в браузере:';
+
+  @override
   String get signInExpired => 'Срок действия кода истёк. Войдите снова.';
 
   @override

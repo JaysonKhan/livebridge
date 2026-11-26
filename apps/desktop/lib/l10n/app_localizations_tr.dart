@@ -1040,6 +1040,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get signInOpenAgain => 'Yeniden aç';
 
   @override
+  String get signInOpenManually => 'Bu adresi tarayıcınızda açın:';
+
+  @override
   String get signInExpired => 'Kodun süresi doldu. Yeniden giriş yapın.';
 
   @override

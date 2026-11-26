@@ -1034,6 +1034,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInOpenAgain => 'Open again';
 
   @override
+  String get signInOpenManually => 'Open this address in your browser:';
+
+  @override
   String get signInExpired => 'The code expired. Sign in again.';
 
   @override

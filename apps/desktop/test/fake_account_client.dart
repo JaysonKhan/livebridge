@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:livebridge/bridge/account_client.dart';
 
 /// A scripted site: answers what a test sets and remembers every request. Its tokens are made-up test values.
@@ -24,6 +26,9 @@ class FakeAccountClient implements AccountClient {
   Object? refreshError;
   final List<String> refreshedWith = [];
 
+  /// While set and not completed, refreshes are recorded but do not answer.
+  Completer<void>? refreshGate;
+
   /// `me/`: the answer, or an exception to throw.
   Object meAnswer = info(54000);
   final List<String> meTokens = [];
@@ -34,6 +39,9 @@ class FakeAccountClient implements AccountClient {
 
   final List<String> logouts = [];
   Object? logoutError;
+
+  /// While set and not completed, logouts are recorded but do not answer (offline, waiting for a timeout).
+  Completer<void>? logoutGate;
 
   /// `checkout/`: the address to answer, or an exception to throw.
   Object checkoutAnswer = Uri.parse('https://pay.test/session/1');
@@ -69,6 +77,8 @@ class FakeAccountClient implements AccountClient {
   @override
   Future<TokenPair> refresh(String refreshToken) async {
     refreshedWith.add(refreshToken);
+    final gate = refreshGate;
+    if (gate != null) await gate.future;
     final error = refreshError;
     if (error != null) throw error;
     final n = refreshedWith.length;
@@ -100,6 +110,8 @@ class FakeAccountClient implements AccountClient {
   @override
   Future<void> logout(String accessToken) async {
     logouts.add(accessToken);
+    final gate = logoutGate;
+    if (gate != null) await gate.future;
     final error = logoutError;
     if (error != null) throw error;
   }

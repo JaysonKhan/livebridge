@@ -1040,6 +1040,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get signInOpenAgain => 'Qayta ochish';
 
   @override
+  String get signInOpenManually => 'Ushbu manzilni brauzerda oching:';
+
+  @override
   String get signInExpired => 'Kod muddati tugadi. Qaytadan kiring.';
 
   @override

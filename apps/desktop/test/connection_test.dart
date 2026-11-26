@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +24,9 @@ late FakeAccountClient site;
 late FakeDelays delays;
 late List<Uri> opened;
 late DateTime now;
+
+/// What the fake browser answers: false = no browser could be opened.
+late bool browserOpens;
 
 /// Lets every pending microtask and zero-length timer run.
 Future<void> flush() async {
@@ -66,11 +70,13 @@ Future<ProviderContainer> load([
   prepare?.call(site);
   delays = FakeDelays();
   opened = [];
+  browserOpens = true;
   final c = ProviderContainer(
     overrides: [
       bridgeProvider.overrideWithValue(bridge),
       accountClientProvider.overrideWithValue(site),
       urlOpenerProvider.overrideWithValue((url) async {
+        if (!browserOpens) return false;
         opened.add(url);
         return true;
       }),
@@ -525,6 +531,45 @@ void main() {
       expect(BridgeEvent.fromMap({'type': 'balance'}), isNull);
     });
 
+    test('a balance event before the account is known reads the account from the site, once', () async {
+      final c = await load(accountSettings, (site) => site.meAnswer = const AccountError('network'));
+      expect(c.read(connectionProvider).account, isNull);
+      final asked = site.meTokens.length;
+      site.meAnswer = FakeAccountClient.info(30000);
+      bridge.push(const BalanceEvent(30000));
+      bridge.push(const BalanceEvent(29000));
+      await flush();
+      expect(site.meTokens.length, asked + 1, reason: 'no second request while one is running');
+      expect(c.read(connectionProvider).account?.balanceUnits, 30000);
+    });
+
+    test('a token refreshed outside the session timer reaches the running session at once', () async {
+      final c = await load(accountSettings);
+      await notifier(c).voicesAccess(forceRefresh: true);
+      expect(bridge.updatedTokens, isEmpty, reason: 'no session to hand it to');
+      await notifier(c).start(base);
+      expect(bridge.startedWith!.accessToken, 'access-2');
+      // The voice picker asks for a new token; the site keeps one per device, so the session's one is retired now.
+      await notifier(c).voicesAccess(forceRefresh: true);
+      expect(bridge.updatedTokens, ['access-3']);
+      await delays.next();
+      expect(bridge.updatedTokens, ['access-3'], reason: 'the timer has nothing left to hand over');
+    });
+
+    test('a second Start while the first still waits for its token is ignored', () async {
+      final c = await load(accountSettings);
+      now = now.add(const Duration(minutes: 16));
+      site.refreshGate = Completer<void>();
+      final first = notifier(c).start(base);
+      await flush();
+      final second = notifier(c).start(base);
+      site.refreshGate!.complete();
+      await first;
+      await second;
+      expect(bridge.count('start'), 1);
+      expect(site.refreshedWith, hasLength(2));
+    });
+
     test('keys mode without both keys is blocked; the own gateway keeps its checks', () async {
       final c = await load({'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key'});
       final s = c.read(connectionProvider);
@@ -540,11 +585,10 @@ void main() {
     test('saveGateway saves the address and token and fills the setup fields', () async {
       final c = await load();
       await notifier(c).saveGateway('https://own.example', 'static-token');
-      expect(bridge.savedPrefs.last, {
-        'gatewayUrl': 'https://own.example',
-        'accessToken': 'static-token',
-        'connectionMode': 'gateway',
-      });
+      expect(bridge.savedPrefs, [
+        {'gatewayUrl': 'https://own.example', 'accessToken': 'static-token'},
+        {'connectionMode': 'gateway'},
+      ]);
       expect(c.read(connectionProvider).mode, ConnectionMode.gateway);
       expect(c.read(setupProvider).gatewayUrl, 'https://own.example');
       expect(c.read(setupProvider).accessToken, 'static-token');
@@ -553,13 +597,25 @@ void main() {
     test('saveKeys saves both keys and the choice', () async {
       final c = await load();
       await notifier(c).saveKeys('el-key', 'gm-key');
-      expect(bridge.savedPrefs.last, {
-        'elevenlabsApiKey': 'el-key',
-        'geminiApiKey': 'gm-key',
-        'connectionMode': 'keys',
-      });
+      expect(bridge.savedPrefs, [
+        {'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'},
+        {'connectionMode': 'keys'},
+      ]);
       expect(c.read(connectionProvider).mode, ConnectionMode.keys);
       expect(c.read(connectionProvider).hasKeys, isTrue);
+    });
+
+    test('a secret that cannot be written saves no mode: the secrets go first, the choice only after them', () async {
+      final c = await load();
+      bridge.secretWriteError = PlatformException(code: 'settings_failed', message: 'keychain refused');
+      await expectLater(notifier(c).saveKeys('el-key', 'gm-key'), throwsA(isA<PlatformException>()));
+      expect(bridge.settings.containsKey('connectionMode'), isFalse);
+      await expectLater(
+        notifier(c).saveGateway('https://own.example', 'static-token'),
+        throwsA(isA<PlatformException>()),
+      );
+      expect(bridge.settings.containsKey('connectionMode'), isFalse);
+      expect(c.read(connectionProvider).mode, isNull);
     });
 
     test('changeConnection saves "none" and keeps the saved secrets', () async {
@@ -657,6 +713,31 @@ void main() {
       expect(c.read(connectionProvider).account, isNull);
     });
 
+    test('signOut never refreshes just to log out: an expired token offline goes straight to the onboarding', () async {
+      final c = await load(accountSettings);
+      now = now.add(const Duration(minutes: 16));
+      site.refreshError = const AccountError('network');
+      await notifier(c).signOut();
+      expect(site.refreshedWith, ['refresh-0'], reason: 'no refresh for the logout');
+      expect(site.logouts, isEmpty, reason: 'no valid token to log out with');
+      expect(c.read(connectionProvider).mode, isNull);
+      expect(bridge.savedPrefs.last, {'accountRefreshToken': null, 'connectionMode': 'none'});
+    });
+
+    test('a logout that hangs does not hold the sign-out', () async {
+      final c = await load(accountSettings);
+      site.logoutGate = Completer<void>();
+      var done = false;
+      unawaited(notifier(c).signOut().then((_) => done = true));
+      await flush();
+      expect(done, isTrue);
+      expect(c.read(connectionProvider).mode, isNull);
+      expect(bridge.savedPrefs.last, {'accountRefreshToken': null, 'connectionMode': 'none'});
+      expect(site.logouts, ['access-1'], reason: 'sent in the background');
+      site.logoutGate!.complete();
+      await flush();
+    });
+
     test('signOut never deletes the refresh token while a save is still running', () async {
       final c = await load(accountSettings);
       site.logoutError = const AccountError('network');
@@ -748,6 +829,51 @@ void main() {
       site.checkoutAnswer = const AccountError('checkout_unavailable');
       expect(await notifier(c).topUp('p10'), 'checkout_unavailable');
       expect(opened, hasLength(1));
+    });
+
+    test('only https pages are opened, plain http only on this computer; anything else is a failure', () async {
+      final c = await load(accountSettings);
+      for (final page in ['http://pay.test/session/1', 'javascript:alert(1)', 'file:///etc/hosts', 'https:no-host']) {
+        site.checkoutAnswer = Uri.parse(page);
+        expect(await notifier(c).topUp('p10'), 'open_failed', reason: page);
+      }
+      expect(opened, isEmpty);
+      for (final page in ['http://localhost:8000/pay/1', 'http://127.0.0.1:8000/pay/1']) {
+        site.checkoutAnswer = Uri.parse(page);
+        expect(await notifier(c).topUp('p10'), isNull, reason: page);
+      }
+      expect(opened, hasLength(2));
+      browserOpens = false;
+      site.checkoutAnswer = Uri.parse('https://pay.test/session/1');
+      expect(await notifier(c).topUp('p10'), 'open_failed', reason: 'no browser opened');
+    });
+
+    test('a sign-in page that is not https fails as network and is not opened', () async {
+      final c = await load();
+      site.start = DeviceStart(
+        deviceCode: 'lbd_test',
+        userCode: 'ABCD-EFGH',
+        verificationUri: Uri.parse('http://site.test/en/connect/'),
+        verificationUriComplete: Uri.parse('http://site.test/en/connect/?code=ABCD-EFGH'),
+        expiresIn: 600,
+        interval: 5,
+      );
+      await notifier(c).beginSignIn();
+      expect(c.read(connectionProvider).signIn, failed('network'));
+      expect(opened, isEmpty);
+      expect(delays.waiting, isFalse, reason: 'nothing polls');
+    });
+
+    test('a browser that does not open still waits, and says so', () async {
+      final c = await load();
+      browserOpens = false;
+      final done = notifier(c).beginSignIn();
+      await flush();
+      final waiting = c.read(connectionProvider).signIn as SignInWaiting;
+      expect(waiting.openFailed, isTrue);
+      notifier(c).cancelSignIn();
+      await delays.next();
+      await done;
     });
   });
 }

@@ -134,6 +134,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
           ),
+          if (signIn.openFailed) ...[
+            const SizedBox(height: 16),
+            Text(
+              l.signInOpenManually,
+              textAlign: TextAlign.center,
+              style: text.bodyMedium!.copyWith(color: t.textSecondary),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              '${signIn.page}',
+              key: const Key('sign-in-address'),
+              textAlign: TextAlign.center,
+              style: text.bodyMedium!.copyWith(color: t.textPrimary),
+            ),
+          ],
           const SizedBox(height: 20),
           Wrap(
             alignment: WrapAlignment.center,

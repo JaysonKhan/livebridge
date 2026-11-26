@@ -135,6 +135,29 @@ void main() {
     });
   });
 
+  testWidgets('Start is off while an account start waits for its token', (tester) async {
+    var clock = DateTime.utc(2026, 11, 26, 12);
+    final site = FakeAccountClient()..now = () => clock;
+    final bridge = FakeLiveBridge()..settings = {'connectionMode': 'account', 'accountRefreshToken': 'refresh-0'};
+    final c = await pumpApp(
+      tester,
+      bridge: bridge,
+      site: site,
+      overrides: [delayProvider.overrideWithValue(_hang), clockProvider.overrideWithValue(() => clock)],
+    );
+    expect(startEnabled(), isTrue);
+    clock = clock.add(const Duration(minutes: 16));
+    site.refreshGate = Completer<void>();
+    final starting = c.read(connectionProvider.notifier).start(c.read(setupProvider).toConfig(ConnectionMode.account));
+    await tester.pump();
+    expect(startEnabled(), isFalse, reason: 'a second press would start a second session');
+    site.refreshGate!.complete();
+    await starting;
+    await tester.pumpAndSettle();
+    expect(bridge.count('start'), 1);
+    expect(find.byKey(const Key('stop-button')), findsOneWidget);
+  });
+
   group('the top-up sheet', () {
     testWidgets('lists the three packages; choosing one opens the checkout and closes the sheet', (tester) async {
       final (_, site, opened) = await pumpAccount(tester);
