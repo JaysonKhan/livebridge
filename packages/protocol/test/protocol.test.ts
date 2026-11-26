@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  clientMessage,
   decodeFrame,
   encodeFrame,
   FrameError,
@@ -116,6 +117,18 @@ test("session.configure accepts any pair of supported languages, never a languag
   assert.ok(!accepted({ ...outDir, target_lang: "kam" }, inDir));
   // A disabled direction is not checked for language sanity.
   assert.ok(accepted(outDir, { ...inDir, enabled: false, source_lang: "uz" }));
+});
+
+test("session.configure accepts optional voices and refuses malformed ids", () => {
+  const valid = JSON.parse(configure(outDir, inDir));
+  const ok = (voices: unknown) =>
+    clientMessage.safeParse({ ...valid, voices }).success;
+  assert.equal(ok({ out: "ehTFHBkERkWR22A3sR8M" }), true);
+  assert.equal(ok({ out: "ehTFHBkERkWR22A3sR8M", in: "voiceChosenIn001" }), true);
+  assert.equal(ok({}), true);
+  for (const bad of ["short", "a".repeat(41), "../../etc/passwd", "id with space"])
+    assert.equal(ok({ in: bad }), false, bad);
+  assert.equal(clientMessage.safeParse(valid).success, true); // absent stays valid
 });
 
 test("the language table matches the shared fixture the app's list is tested against", () => {

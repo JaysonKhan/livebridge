@@ -8,11 +8,14 @@ export const COMMIT_STRATEGIES = ["manual", "vad", "turn_prediction"] as const;
 export type CommitStrategy = (typeof COMMIT_STRATEGIES)[number];
 /** Capture audio is always this format in v1; synthesized format is announced in `session.ready`. */
 export const CAPTURE_SAMPLE_RATE = 16_000;
+/** Shape of a provider voice id. Anything else is refused, never forwarded to the provider. */
+export const VOICE_ID_PATTERN = /^[A-Za-z0-9]{10,40}$/;
 
 const v = z.literal(PROTOCOL_VERSION);
 const direction = z.enum(["out", "in"]);
 const u32 = z.number().int().min(0).max(0xffff_ffff);
 const lang = z.enum(LANGS);
+const voiceId = z.string().regex(VOICE_ID_PATTERN);
 
 const directionConfig = z.object({
   enabled: z.boolean(),
@@ -42,6 +45,8 @@ export const clientMessage = z.discriminatedUnion("type", [
     /** Must be one of the gateway's allowed models; omitted = gateway default. */
     translation_model: z.string().max(80).optional(),
     glossary: z.array(glossaryEntry).max(50).optional(),
+    /** Synthesized voice per direction; an omitted one = the gateway's configured voice for that direction. */
+    voices: z.object({ out: voiceId.optional(), in: voiceId.optional() }).optional(),
   }),
   z.object({ v, type: z.literal("capture.start"), direction, generation: u32 }),
   z.object({ v, type: z.literal("capture.pause"), direction }),

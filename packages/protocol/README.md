@@ -44,6 +44,10 @@ Languages: `source_lang` / `target_lang` of a direction are codes from `src/lang
 Eleven v4 can speak and realtime speech-to-text can recognise (`fixtures/languages.json` is the same table, shared
 with the app's tests). A direction never translates a language into itself; no language is special.
 
+Voices: `session.configure` may carry `voices: { out?, in? }` — the provider voice id each direction is spoken
+with. An id must match `VOICE_ID_PATTERN` (`^[A-Za-z0-9]{10,40}$`), otherwise the message is refused as
+`bad_message`. An omitted direction, or no `voices` at all, uses the voice the gateway is configured with.
+
 Gateway → client: `session.ready`, `caption.partial`, `caption.final`, `translation.delta`, `translation.final`,
 `turn.skipped`, `metrics`, `error`, `pong`.
 
