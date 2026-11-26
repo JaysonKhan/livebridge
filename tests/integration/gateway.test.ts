@@ -777,7 +777,7 @@ test("unavailable providers: direction is reported not ready, never as connected
   );
   // Captured audio has nowhere to go and is reported as dropped, not buffered forever.
   client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
-  client.sendAudio("out", 1, speech(600));
+  client.sendAudio("out", 1, speech(100));
   await client.waitFor(
     (c) => errors(c).some((e) => e.code === "capture_overflow"),
     "capture_overflow",

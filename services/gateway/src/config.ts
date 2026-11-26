@@ -98,7 +98,10 @@ const schema = z
      * could hold a self-hosted gateway's only slot.
      */
     MAX_KEYS_SESSIONS: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(0).default(0)),
-    /** Slots of the total that only account sessions may take. */
+    /**
+     * Slots held back for accounts that have made a purchase: a trial-only account is refused once no more than this
+     * many are left. Token, own-keys and paying account sessions are bounded by the plain caps.
+     */
     PAID_RESERVED_SESSIONS: z.coerce.number().int().min(0).default(0),
     /** No speech on either lane for this long ends the session. 0 disables. */
     IDLE_TIMEOUT_MINUTES: z.coerce.number().int().min(0).default(10),
