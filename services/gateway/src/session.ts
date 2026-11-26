@@ -166,6 +166,7 @@ export class Session {
           config: directionConfig,
           factory,
           translationModel: model,
+          voiceId: message.voices?.[direction],
           glossary: message.glossary ?? [],
           echo: this.echo,
           log,

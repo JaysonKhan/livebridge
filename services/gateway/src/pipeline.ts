@@ -30,6 +30,8 @@ export interface PipelineDeps {
   config: DirectionConfig;
   factory: ProviderFactory;
   translationModel: string;
+  /** Voice the client chose for this direction; absent = the gateway's configured voice. */
+  voiceId?: string;
   glossary: { source: string; target: string }[];
   /** Shared by both directions of a session; absent = our own speech coming back is not filtered. */
   echo?: EchoGuard;
@@ -176,6 +178,7 @@ export class DirectionPipeline {
         const tts = factory.tts({
           voice: direction === "out" ? "owner" : "incoming",
           language: config.target_lang,
+          voiceId: this.deps.voiceId,
         });
         await tts.open();
         if (this.closed) return tts.close();

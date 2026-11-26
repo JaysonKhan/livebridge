@@ -71,6 +71,8 @@ export interface StreamingTranslator {
 export interface TtsOptions {
   voice: "owner" | "incoming";
   language: Lang;
+  /** Chosen for this session; overrides the voice configured for the slot. */
+  voiceId?: string;
 }
 
 export interface StreamingTTS {

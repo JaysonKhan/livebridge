@@ -582,6 +582,27 @@ test("end to end on the real adapters (mock servers): one push-to-talk turn thro
     assert.ok(!log.includes(forbidden), `log leaked ${forbidden}`);
 });
 
+test("a voice chosen in session.configure is the one registered with the provider", async () => {
+  const { el, client } = await realStack(
+    {},
+    { "gemini-3.5-flash-lite": { pieces: ["ok"] } },
+  );
+  const ready = await client.configure({
+    voices: { out: "voiceChosenOut01", in: "voiceChosenIn001" },
+  });
+  assert.deepEqual(
+    [ready.directions.out.ready, ready.directions.in.ready],
+    [true, true],
+  );
+  assert.deepEqual(
+    el.tts.messages
+      .filter((m) => m.voices)
+      .map((m) => (m.voices as string[])[0])
+      .sort(),
+    ["voiceChosenIn001", "voiceChosenOut01"],
+  );
+});
+
 test("end to end (mock servers): a dropped STT connection is announced as not ready, then recovers without replaying audio", async () => {
   const { el, client } = await realStack(
     { transcripts: ["after reconnect"] },

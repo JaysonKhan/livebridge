@@ -24,7 +24,10 @@ const schema = z
     ELEVENLABS_API_KEY: z.string().default(""),
     /** Voice of your outgoing English / Russian speech. */
     ELEVENLABS_OWNER_VOICE_ID: z.string().default(DEFAULT_VOICE_ID),
-    /** Voice of the incoming Uzbek speech. May be the same voice; never a clone of the remote participant. */
+    /**
+     * Voice of the incoming speech when the client does not choose one in session.configure. May be the same voice;
+     * never a clone of the remote participant.
+     */
     ELEVENLABS_INCOMING_VOICE_ID: z.string().default(DEFAULT_VOICE_ID),
     /** Regional hosts exist (api.us / api.eu.residency / ...); http(s) here, ws(s) is derived. */
     ELEVENLABS_BASE_URL: z.string().url().default("https://api.elevenlabs.io"),

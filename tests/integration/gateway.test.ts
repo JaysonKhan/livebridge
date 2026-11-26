@@ -470,6 +470,44 @@ test("a translation model outside the allowed list is refused", async () => {
   );
 });
 
+test("a malformed voice id is refused as bad_message", async () => {
+  const { base } = await start();
+  const client = await TestClient.connect(base);
+  client.send({
+    v: 1,
+    type: "session.configure",
+    capture_format: { encoding: "pcm_s16le", sample_rate: 16000, channels: 1 },
+    directions: {
+      out: {
+        enabled: true,
+        source_lang: "uz",
+        target_lang: "en",
+        speak: true,
+        commit: "manual",
+      },
+      in: {
+        enabled: true,
+        source_lang: "en",
+        target_lang: "uz",
+        speak: true,
+        commit: "vad",
+      },
+    },
+    voices: { out: "bad id" },
+  });
+  await client.waitFor(
+    (c) => errors(c).some((e) => e.code === "bad_message"),
+    "bad_message",
+  );
+  // No direction becomes ready: the message was refused whole, not configured without the voice.
+  await sleep(50);
+  await client.sync();
+  assert.equal(
+    client.messages.filter((m) => m.type === "session.ready").length,
+    0,
+  );
+});
+
 for (const [name, output, reason] of [
   ["empty", "   ", "empty"],
   ["runaway", "word ".repeat(200), "excessive"],

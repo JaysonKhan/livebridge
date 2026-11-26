@@ -44,11 +44,12 @@ export function createRealProviders(
         apiKey: config.ELEVENLABS_API_KEY,
         baseUrl: config.ELEVENLABS_BASE_URL,
         model: config.TTS_MODEL,
-        // The owner's clone is only ever used for the owner's own outgoing speech.
+        // Unless the session chose a voice, the owner's clone only speaks the owner's own outgoing speech.
         voiceId:
-          options.voice === "owner"
+          options.voiceId ??
+          (options.voice === "owner"
             ? config.ELEVENLABS_OWNER_VOICE_ID
-            : config.ELEVENLABS_INCOMING_VOICE_ID,
+            : config.ELEVENLABS_INCOMING_VOICE_ID),
         language: options.language,
         outputFormat: config.TTS_OUTPUT_FORMAT,
         onMarkerMissing: () =>

@@ -194,7 +194,12 @@ export class TestClient {
   }
 
   async configure(
-    overrides: { out?: object; in?: object; translation_model?: string } = {},
+    overrides: {
+      out?: object;
+      in?: object;
+      translation_model?: string;
+      voices?: { out?: string; in?: string };
+    } = {},
   ) {
     this.send({
       v: 1,
@@ -223,6 +228,7 @@ export class TestClient {
         },
       },
       translation_model: overrides.translation_model,
+      voices: overrides.voices,
     } as ClientMessage);
     return this.message("session.ready");
   }
