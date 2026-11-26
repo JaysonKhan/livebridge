@@ -221,6 +221,21 @@ export function createGateway({
     }
   };
 
+  /** A background refresh of the service list, while one is under way. */
+  let refreshing: Promise<unknown> | undefined;
+  /**
+   * The service list for a voice check in session.configure: a list fetched once is used even when stale, and a fresh
+   * one is fetched in the background, so configure waits for the provider only before the very first list.
+   */
+  const knownVoices = async () => {
+    if (!voices) return listVoices();
+    if (Date.now() - voices.at >= voicesCacheMs) {
+      const done = () => (refreshing = undefined);
+      refreshing ??= listVoices().then(done, done);
+    }
+    return voices.list;
+  };
+
   /** Own-keys voice lists by SHA-256 of the key, oldest first; never logged. */
   const keyVoices = new Map<string, { list: Voice[]; at: number }>();
   const listKeyVoices = async (key: string) => {
@@ -246,7 +261,7 @@ export function createGateway({
     if (accountVoice({ id })) return true;
     if (config.accountVoiceIds.length > 0) return false;
     try {
-      const found = (await listVoices()).find((voice) => voice.id === id);
+      const found = (await knownVoices()).find((voice) => voice.id === id);
       return !!found && accountVoice(found);
     } catch {
       return false;

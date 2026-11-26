@@ -1728,6 +1728,44 @@ test("account session: with no approved ids a stock voice is allowed; if the lis
   await premade.message("session.ready");
 });
 
+test("account session: once a list was fetched, a voice check never waits for the provider; a stale list is refreshed in the background, once", async () => {
+  let calls = 0;
+  let release: (() => void) | undefined;
+  const factory: ProviderFactory = {
+    ...createFakeProviders({ delayMs: 2 }),
+    // The first list comes at once; every later request hangs until released.
+    voices: () =>
+      ++calls === 1
+        ? Promise.resolve(SERVICE_VOICES)
+        : new Promise((resolve) => (release = () => resolve(SERVICE_VOICES))),
+  };
+  const { base } = await startWithSite(undefined, {
+    factory,
+    voicesCacheMs: 50,
+    env: { ...VOICE_ENV, ACCOUNT_VOICE_IDS: "", MAX_SESSIONS: "2" },
+  });
+  const configured = async (token: string) => {
+    const client = await TestClient.open(base, (await requestSession(base, { mode: "account" }, token)).body.token!);
+    await client.configure({ voices: { out: premadeIds[1]!, in: INCOMING_DEFAULT } });
+    return client;
+  };
+  // No list yet: the first check waits for one.
+  await (await configured(ACCOUNT_TOKEN)).close();
+  assert.equal(calls, 1);
+  await sleep(80);
+  // The list is stale and the provider hangs, yet configure answers from the stale list and asks for a fresh one.
+  const began = performance.now();
+  const stale = await configured(OTHER_ACCOUNT_TOKEN);
+  assert.ok(performance.now() - began < 1000, `took ${Math.round(performance.now() - began)} ms`);
+  assert.equal(calls, 2);
+  // Another check while that refresh is under way starts no second one.
+  const again = await configured(ACCOUNT_TOKEN);
+  assert.equal(calls, 2);
+  release!();
+  await stale.close();
+  await again.close();
+});
+
 test("token and keys sessions may name any voice, as before", async () => {
   const { factory, state } = serviceVoices();
   const { base } = await start({ factory });
