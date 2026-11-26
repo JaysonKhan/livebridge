@@ -288,5 +288,26 @@ void main() {
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(bridge.savedPrefs.last['gatewayUrl'], 'https://gw.example');
     });
+
+    testWidgets('after Change, a saved static token is pre-filled and can be saved with a new address', (tester) async {
+      final bridge = FakeLiveBridge()..settings = {'connectionMode': 'gateway', 'accessToken': 'static-token'};
+      final c = await pumpApp(tester, bridge: bridge, onboarding: true);
+      expect(c.read(connectionProvider).mode, ConnectionMode.gateway);
+      await tester.tap(find.byKey(const Key('connection-change')));
+      await tester.pumpAndSettle();
+      await openGateway();
+      final token = tester.widget<TextField>(
+        find.descendant(of: find.byKey(const Key('onboarding-gateway-token')), matching: find.byType(TextField)),
+      );
+      expect(token.controller!.text, 'static-token');
+      expect(token.obscureText, isTrue);
+      expect(enabled(saveGatewayButton), isTrue);
+      await tester.enterText(find.byKey(const Key('onboarding-gateway-url')), 'https://new.example');
+      await tester.pump();
+      await tester.tap(saveGatewayButton);
+      await tester.pumpAndSettle();
+      expect(bridge.savedPrefs.last['gatewayUrl'], 'https://new.example');
+      expect(bridge.savedPrefs.last['accessToken'], 'static-token');
+    });
   });
 }

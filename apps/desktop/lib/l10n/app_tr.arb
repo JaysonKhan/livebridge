@@ -317,7 +317,7 @@
       }
     }
   },
-  "topUpTitle": "Bakiyeni yükle",
+  "topUpTitle": "Bakiyenizi yükleyin",
   "topUpMinutes": "{minutes} dk",
   "@topUpMinutes": {
     "placeholders": {
@@ -328,11 +328,11 @@
   },
   "topUpTaxNote": "Fiyatlara vergi dahil değildir; toplam tutar ödeme sayfasında gösterilir.",
   "topUpNoPackages": "Paketler yüklenemedi.",
-  "topUpTryAgain": "Tekrar dene",
-  "topUpRateLimited": "Çok fazla deneme. Bir dakika bekleyip tekrar deneyin.",
+  "topUpTryAgain": "Tekrar deneyin",
+  "topUpRateLimited": "Çok fazla deneme yapıldı.",
   "topUpNetwork": "Siteye ulaşılamadı. İnternet bağlantınızı kontrol edin.",
   "topUpUnavailable": "Ödeme sayfası şu an açılamadı. Daha sonra tekrar deneyin.",
-  "bannerBalanceEmpty": "Bakiye bitti — bakiye yükleyin",
+  "bannerBalanceEmpty": "Bakiye bitti — yükleme yapın",
   "bannerBillingUnavailable": "Ödeme hizmetine ulaşılamadı. Tekrar deneyin.",
   "bannerIdleTimeout": "Oturum, 10 dakika konuşma olmadığı için sona erdi.",
   "bannerSessionReplaced": "Oturum başka bir cihazda devam ettirildi.",

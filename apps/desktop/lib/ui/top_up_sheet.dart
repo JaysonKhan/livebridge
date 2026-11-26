@@ -25,7 +25,7 @@ class _TopUpSheet extends ConsumerStatefulWidget {
 
 class _TopUpSheetState extends ConsumerState<_TopUpSheet> {
   /// The packages are being read again.
-  bool _loading = false;
+  late bool _loading = ref.read(connectionProvider).packages.isEmpty;
 
   /// A checkout was asked for and has not answered.
   bool _busy = false;
@@ -35,7 +35,7 @@ class _TopUpSheetState extends ConsumerState<_TopUpSheet> {
   @override
   void initState() {
     super.initState();
-    if (ref.read(connectionProvider).packages.isEmpty) Future.microtask(_load);
+    if (_loading) Future.microtask(_load);
   }
 
   Future<void> _load() async {

@@ -1045,7 +1045,7 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String get topUpTitle => 'Bakiyeni yükle';
+  String get topUpTitle => 'Bakiyenizi yükleyin';
 
   @override
   String topUpMinutes(int minutes) {
@@ -1059,10 +1059,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get topUpNoPackages => 'Paketler yüklenemedi.';
 
   @override
-  String get topUpTryAgain => 'Tekrar dene';
+  String get topUpTryAgain => 'Tekrar deneyin';
 
   @override
-  String get topUpRateLimited => 'Çok fazla deneme. Bir dakika bekleyip tekrar deneyin.';
+  String get topUpRateLimited => 'Çok fazla deneme yapıldı.';
 
   @override
   String get topUpNetwork => 'Siteye ulaşılamadı. İnternet bağlantınızı kontrol edin.';
@@ -1071,7 +1071,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get topUpUnavailable => 'Ödeme sayfası şu an açılamadı. Daha sonra tekrar deneyin.';
 
   @override
-  String get bannerBalanceEmpty => 'Bakiye bitti — bakiye yükleyin';
+  String get bannerBalanceEmpty => 'Bakiye bitti — yükleme yapın';
 
   @override
   String get bannerBillingUnavailable => 'Ödeme hizmetine ulaşılamadı. Tekrar deneyin.';

@@ -30,10 +30,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _elevenlabs = TextEditingController();
   final _gemini = TextEditingController();
   late final _gatewayUrl = TextEditingController(text: ref.read(setupProvider).gatewayUrl);
-  final _gatewayToken = TextEditingController();
+  late final _gatewayToken = TextEditingController(text: ref.read(setupProvider).accessToken);
 
-  /// The address is only replaced by the saved one while the person has not typed in it.
+  /// The address and the token are only replaced by the saved ones while the person has not typed in them.
   bool _urlEdited = false;
+  bool _tokenEdited = false;
   bool _saving = false;
   _Group? _failed;
 
@@ -74,7 +75,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   );
 
   void _gatewayOpened(bool open) {
-    if (open && !_urlEdited) _gatewayUrl.text = ref.read(setupProvider).gatewayUrl;
+    if (!open) return;
+    final saved = ref.read(setupProvider);
+    if (!_urlEdited) _gatewayUrl.text = saved.gatewayUrl;
+    if (!_tokenEdited) _gatewayToken.text = saved.accessToken;
   }
 
   @override
@@ -248,7 +252,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _SecretField(key: const Key('onboarding-gateway-token'), label: l.accessToken, controller: _gatewayToken),
+            _SecretField(
+              key: const Key('onboarding-gateway-token'),
+              label: l.accessToken,
+              controller: _gatewayToken,
+              onChanged: (_) => _tokenEdited = true,
+            ),
             const SizedBox(height: 12),
             _saveRow(
               context,
@@ -304,10 +313,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
 /// A key or token field: hidden as typed, with a button that shows it for a moment.
 class _SecretField extends StatefulWidget {
-  const _SecretField({super.key, required this.label, required this.controller});
+  const _SecretField({super.key, required this.label, required this.controller, this.onChanged});
 
   final String label;
   final TextEditingController controller;
+  final ValueChanged<String>? onChanged;
 
   @override
   State<_SecretField> createState() => _SecretFieldState();
@@ -325,6 +335,7 @@ class _SecretFieldState extends State<_SecretField> {
       label: widget.label,
       child: TextField(
         controller: widget.controller,
+        onChanged: widget.onChanged,
         obscureText: !_shown,
         autocorrect: false,
         enableSuggestions: false,
