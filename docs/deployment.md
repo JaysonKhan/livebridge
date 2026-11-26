@@ -59,6 +59,106 @@ export LIVEBRIDGE_SSH_HOST=<server>
 ./deploy.sh --logs
 ```
 
+## Accounts and own keys
+
+The gateway starts a session in one of three ways (`POST /v1/sessions`):
+
+- **Token** — the static `GATEWAY_ACCESS_TOKEN`, as before. An empty `GATEWAY_ACCESS_TOKEN` switches this mode off
+  (`401 unauthorized`); accounts and own keys keep working.
+- **Account** — the app's access token from the owner's site (`Bearer lba_…`). The gateway asks the site once, when the
+  session starts, who the account is and whether its balance is above zero, then reports usage in the background every
+  `USAGE_REPORT_SECONDS`. The gateway sends raw counters only (audio milliseconds per direction, synthesis characters);
+  the site turns them into a charge.
+- **Own keys** — the caller's own ElevenLabs and Gemini keys in the request body. Nothing is billed by the service.
+
+Accounts are **off unless both** `SITE_SOCKET_PATH` and `LIVEBRIDGE_GATEWAY_SECRET` are set; until then an account
+request gets `503 accounts_unavailable`. The `gateway.listening` log line says `accounts: true` once they are on.
+
+### New `.env` keys
+
+| Key | Default | Meaning |
+|---|---|---|
+| `SITE_SOCKET_PATH` | empty | The site's Gunicorn unix socket; its path is in your server notes. Empty = accounts off. |
+| `SITE_HOST` | `jaysonkhan.com` | Host header sent on that socket; must be a host the site accepts. |
+| `LIVEBRIDGE_GATEWAY_SECRET` | empty | Shared secret that signs every call to the site: at least 32 characters, the same value as in the site's `.env`. Empty = accounts off. |
+| `ACCOUNT_VOICE_IDS` | empty | Comma-separated voice ids an account session may choose. The two configured voices are always allowed; while the list is empty, the provider's stock voices are allowed too. `GET /v1/voices` shows an account exactly these. |
+| `MAX_ACCOUNT_SESSIONS` | `MAX_SESSIONS` | Cap on account sessions. |
+| `MAX_KEYS_SESSIONS` | `MAX_SESSIONS` | Cap on own-keys sessions. |
+| `PAID_RESERVED_SESSIONS` | `0` | Slots held back for accounts that have made a purchase: an account with only the trial gets `429 session_limit` once no more than this many slots are left (of `MAX_SESSIONS` or of `MAX_ACCOUNT_SESSIONS`). Token and own-keys sessions are bounded by their caps only. |
+| `IDLE_TIMEOUT_MINUTES` | `10` | No recognised speech in either direction for this long ends the session (`idle_timeout`). 0 = off. |
+| `USAGE_REPORT_SECONDS` | `10` | How often an account session reports usage to the site (at least 2). |
+
+`MAX_SESSIONS` stays the cap on all sessions together, own-keys sessions included.
+
+### Sizing `MAX_SESSIONS`
+
+A voiced session holds two realtime speech-to-text connections (one per direction) and two speech synthesis
+connections, and the plan's realtime speech-to-text concurrency is the tighter of the two limits. So:
+
+```
+MAX_SESSIONS = (realtime speech-to-text concurrency of the ElevenLabs plan) / 2 − 1      rounded down
+```
+
+The 1 is a margin for a reconnect or a benchmark run. A plan that allows 10 concurrent realtime transcriptions gives
+`MAX_SESSIONS=4`. Keep `MAX_ACCOUNT_SESSIONS` and `MAX_KEYS_SESSIONS` at or below it.
+
+### Adding them on the server
+
+The server's `.env` is edited by hand, on the server: it is not in git and `deploy.sh` never touches it.
+
+1. Add the new lines to `/var/www/livebridge/.env` (the socket path is in your server notes; leave a cap empty to use
+   `MAX_SESSIONS`):
+
+   ```
+   SITE_SOCKET_PATH=<the site's Gunicorn socket>
+   SITE_HOST=jaysonkhan.com
+   ACCOUNT_VOICE_IDS=
+   MAX_SESSIONS=<from the plan, see above>
+   MAX_ACCOUNT_SESSIONS=
+   MAX_KEYS_SESSIONS=
+   PAID_RESERVED_SESSIONS=0
+   IDLE_TIMEOUT_MINUTES=10
+   USAGE_REPORT_SECONDS=10
+   ```
+
+2. Copy the shared secret from the site's `.env` without printing it. The first command removes an old line, the last
+   prints only a count, which must be `1`:
+
+   ```bash
+   ssh <server>
+   cd /var/www/livebridge
+   sed -i '/^LIVEBRIDGE_GATEWAY_SECRET=/d' .env
+   grep '^LIVEBRIDGE_GATEWAY_SECRET=' <site directory>/.env >> .env
+   grep -c '^LIVEBRIDGE_GATEWAY_SECRET=.\{32,\}' .env
+   ```
+
+   If the site has no secret yet, generate one (`openssl rand -base64 36`), put the same value in both files and
+   restart the site.
+
+3. Deploy, and reinstall the unit whenever `infra/livebridge-gateway.service` changed. The accounts step changed it:
+   `AF_UNIX` lets the gateway reach the site's socket (without it every site call fails), and the stop timeout leaves
+   room for the final usage reports.
+
+   ```bash
+   LIVEBRIDGE_SSH_HOST=<server> ./deploy.sh
+   ssh <server> "sudo cp /var/www/livebridge/infra/livebridge-gateway.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart livebridge-gateway"
+   LIVEBRIDGE_SSH_HOST=<server> ./deploy.sh --logs     # gateway.listening … "accounts":true
+   ```
+
+The socket must not live under `/tmp` or `/home` (the unit's `PrivateTmp` and `ProtectHome` hide both from the
+gateway), and the gateway's user needs write permission on the socket file.
+
+### Log events worth watching
+
+| Event | What it means |
+|---|---|
+| `site.authorize_failed` (`code`) | The site could not authorize an account; the app was told `503 billing_unavailable`. If every account start fails, check the socket path and its permissions, `AF_UNIX` in the installed unit, the secret, and that the site is up. |
+| `billing.report_failed` (`seq`, `failures`, `code`) | A usage report was not accepted. The identical report goes again at the next interval. |
+| `billing.fatal` (`code`) | The session was ended: `balance_exhausted` (the balance reached zero) or `billing_unavailable` (three reports in a row failed). |
+| `billing.final_dropped` (`seq`) | A closing session's last report failed three times and was dropped, so that usage was not charged. One around a site restart is expected; a run of them means the site was down. |
+| `session.token_expired` | A session was issued but its WebSocket never connected within a minute; the slot went back. Many of them mean clients cannot open the WebSocket (proxy upgrade headers, network). |
+| `session.issue_failed` | The gateway itself failed while issuing a session (the caller got `500 internal`). The error is deliberately not logged, because it may carry what the caller sent; reproduce it locally. |
+
 ## Rollback
 
 ```bash

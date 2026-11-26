@@ -53,6 +53,27 @@ with the `telemetryEndpoint` preference or removed entirely.
 **Send feedback** posts the text you type to the same collector, with your e-mail and a rating only if you fill
 them in. It is tied to your install ID only when statistics sharing is on.
 
+### The hosted gateway (account and own-keys modes)
+
+With an account or your own keys the app talks to the developer's hosted gateway instead of one you run. It is the
+same gateway code, with the same rules:
+
+- **Audio and text pass through and are not stored.** Your audio, the transcripts and the translations go from the
+  app through the gateway to the providers and back, in memory only, as described above. The gateway writes no
+  content to disk and its logs hold no content.
+- **Account usage is counted, never content.** For an account session the gateway asks the developer's site once, at
+  the start, who the account is and whether it has a balance. While the session runs it reports, every 10 seconds and
+  once at the end, how many milliseconds of audio were sent to speech-to-text in each direction and how many
+  characters were sent to speech synthesis, with the account and session ids. The site turns these counts into the
+  entries in your account history. No audio, transcript or translation is part of a report. The gateway does not keep
+  the account's access token after that first check.
+- **Own keys travel over TLS and live in memory for one session.** Your ElevenLabs and Gemini keys go to the gateway
+  over HTTPS when a session starts and are used only to call those providers for that session. They are held in the
+  gateway's memory until the session ends (or, if it never connects, until its one-minute start token expires),
+  never logged and never written to disk. When the voice picker lists your ElevenLabs voices, the key travels in the
+  same way; the gateway keeps that list in memory for 10 minutes under a one-way hash of the key, not the key itself.
+  With your own keys, the providers' terms are those of your own provider accounts.
+
 ## Logs
 
 Gateway logs hold event names, session ids, counts, durations and provider error codes. Transcript text, audio,
