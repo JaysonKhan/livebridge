@@ -22,8 +22,8 @@ Windows 10 yoki 11 (64-bit) kerak. Uchala rejim ham ishlaydi.
 2. **Virtual mikrofon (faqat ikki tomonlama rejim uchun):** [VB-CABLE](https://vb-audio.com/Cable/) ni o'rnating va
    kompyuterni qayta yoqing. U ikki qurilma qo'shadi: ilova tarjimani **CABLE Input** ga chiqaradi, Zoom/Meet'da
    mikrofon sifatida **CABLE Output** ni tanlaysiz.
-3. **Gateway:** Windows ilovasi ham gateway'ga ulanadi. Serverdagi gateway bo'lsa, uning `https://` manzilini va
-   tokenni kiriting. Mac'dagi gateway'dan foydalansangiz, uni tarmoq uchun oching (`HOST=0.0.0.0 npm run gateway`),
+3. **Ulanish:** Windows ilovasi ham macOS'dagi kabi uch usuldan biri bilan ulanadi (1.3-bo'lim). O'z gateway'ingizni
+   tanlasangiz, serverdagi gateway'ning `https://` manzilini va tokenni kiriting. Mac'dagi gateway'dan foydalansangiz, uni tarmoq uchun oching (`HOST=0.0.0.0 npm run gateway`),
    ilovaga `http://<Mac manzili>:8201` va o'sha tokenni kiriting.
 4. **Mikrofon ruxsati:** Settings → Privacy & security → Microphone → «Let desktop apps access your microphone» yoqilgan
    bo'lsin.
@@ -55,7 +55,10 @@ BlackHole'siz ham ilova ishlaydi, lekin faqat **subtitr** rejimida (Captions onl
 
 ### 1.2 Gateway (server qismi)
 
-Kalitlar faqat gateway'da turadi, ilovaga hech qachon kiritilmaydi.
+> Bu bo'lim faqat **o'z gateway'ingiz** bilan ishlasangiz kerak. Hisob (Google) yoki o'z kalitlaringiz bilan
+> ulanishda gateway'ni o'zingiz ishga tushirmaysiz — 1.3-bo'limga o'ting.
+
+Gateway'ga ulanganda kalitlar faqat gateway'da turadi, ilovaga kiritilmaydi.
 
 ```bash
 cp .env.example .env          # so'ng .env ni to'ldiring
@@ -86,6 +89,22 @@ open "build/macos/Build/Products/Release/JK - LiveBridge.app"
 
 Ilova Dock, Finder va Spotlight'da **JK - LiveBridge** nomi bilan ko'rinadi (Spotlight'ga «JK» deb yozing).
 
+**Ulanish usuli.** Birinchi ishga tushirishda ilova tarjima xizmatiga qanday ulanishni so'raydi:
+
+- **Google bilan kirish (hisob).** Tugmani bosing: ilova qisqa kod ko'rsatadi va brauzerda saytni ochadi. Sahifadagi
+  kod ilovadagi kod bilan bir xilligini tekshirib, tasdiqlang (brauzerda rad etsangiz, ilova bu haqda
+  xabar beradi; kod bir necha daqiqadan keyin eskiradi — qaytadan kiring). Yangi hisobda **5 daqiqalik sinov** bor.
+  Davomi uchun asosiy ekrandagi **Hisobni to'ldirish** ni bosing: ilova saytdagi paketlarni ko'rsatadi, to'lov sahifasi
+  brauzerda ochiladi (narxlar soliqsiz ko'rsatiladi). Qoldiq «≈ N daq» ko'rinishida chiqadi; **Hisob sahifasi** saytdagi
+  hisobingizni ochadi, **Chiqish** hisobdan chiqaradi. Qoldiq nolga tushsa, Start bosilmaydi. Apple bilan kirish hozircha yo'q.
+- **Menda o'z API kalitlarim bor.** ElevenLabs va Gemini kalitlarini kiriting. Ular Keychain (macOS) yoki Credential
+  Manager'da (Windows) saqlanadi; hisobdan pul yechilmaydi.
+- **O'z gateway'im** («o'z kalitlarim» qismi ichida): gateway manzili va access token. Ilovada token avvaldan saqlangan bo'lsa,
+  ilova shu usulda ochiladi va qayta so'ramaydi.
+
+Tanlangan ulanish sozlamalar panelida bir qatorda ko'rinadi; **O'zgartirish** (boshqa usullarda **Ulanishni
+o'zgartirish**) uni almashtiradi. Ovoz tanlovi har ulanish uchun alohida saqlanadi — ro'yxatlar farq qiladi.
+
 Birinchi ishga tushirishda macOS ikki ruxsat so'raydi — ikkalasiga ham **Allow** bosing:
 
 | Ruxsat | Nima uchun | Keyin qayerda |
@@ -110,11 +129,12 @@ imzolangan — qayta build qilinganda macOS ruxsatlarni yana so'rashi mumkin (bu
    - **Meeting source** — Zoom yoki brauzer jarayonini belgilang (avval qo'ng'iroqni oching, so'ng **Refresh**).
      Brauzerda bo'lsa: alohida brauzer oynasi ishlating va boshqa ovozli tablarni yoping — ilova bitta tabni emas,
      butun brauzer jarayonining ovozini oladi.
-   - **Gateway URL** va **Access token**.
+   - **Ulanish** — hisob bilan bo'lsa qoldiq ko'rinadi; faqat o'z gateway'ingizda **Gateway URL** va **Access token**
+     kerak.
    - **Ovozlar** — ikki qator: «Mening ovozim (chiquvchi)» suhbatdosh eshitadigan tarjimangiz ovozi, «Suhbatdosh ovozi
      (kiruvchi)» siz eshitadigan ovoz. **O'zgartirish** gateway'dagi ElevenLabs hisobining ovozlarini ochadi: nomini
      qidiring, jins, yosh, aksent, til va qo'llanish bo'yicha saralang, ▶ bilan namunani eshiting, keyin ovozni
-     bosing. **Standart** — gateway'da sozlangan ovozga qaytish. Tanlov darhol saqlanadi. Ro'yxat uchun token kerak,
+     bosing. **Standart** — gateway'da sozlangan ovozga qaytish. Tanlov darhol saqlanadi. Ro'yxat uchun ulanish (token yoki hisob) kerak,
      gateway'ning ElevenLabs kalitida esa *voices read* ruxsati bo'lishi kerak; aks holda oyna ro'yxat mavjud emasligini
      aytadi va sessiya sozlangan ovozlar bilan ishlayveradi.
 3. **Device test** bo'limida: gapirganingizda mikrofon ko'rsatkichi qimirlashi, suhbatdosh gapirganda manba
@@ -204,6 +224,11 @@ Ilova yopilsa yoki qulasa, BlackHole'ga hech narsa yozilmaydi — suhbatdosh jim
 | Manba ko'rsatkichi jim | «System Audio Recording» ruxsati yo'q, yoki noto'g'ri jarayon tanlangan (brauzerda «Helper» jarayonini ham belgilang), yoki uchrashuv ilovasi hali ovoz chiqarmagan. |
 | `source_gone` | Uchrashuv ilovasi yopildi — sessiyani qayta boshlang va manbani yana tanlang. |
 | `device_removed` | Naushnik/mikrofon uzildi. Ilova o'zi boshqa qurilmaga o'tmaydi — qurilmani tanlab qayta boshlang. |
+| «Balans tugadi — hisobni to'ldiring» / `balance_exhausted` | Hisob qoldig'i tugadi: sessiya to'xtaydi. **Hisobni to'ldirish** ni bosing. |
+| «To'lov xizmatiga ulanib bo'lmadi» | Qayta urinib ko'ring; takrorlansa birozdan keyin. |
+| «Seans 10 daqiqa gapirilmagani uchun tugadi» | Hisobda 10 daqiqa jim turilsa sessiya yopiladi — qayta boshlang. |
+| «Seans boshqa qurilmada davom ettirildi» | Shu hisob boshqa qurilmada ishga tushirildi; bir vaqtda bitta sessiya. |
+| «Xizmat band» | Bir daqiqadan so'ng qayta urinib ko'ring. |
 | `Connection lost — reconnecting` | Tarmoq uzildi; 5 martagacha qayta ulanadi. Uzilishgacha aytilgan gap qayta yuborilmaydi — takrorlang. |
 | Ovoz uzilib-uzilib chiqyapti | Tarmoq sekin (`capture_backlog`, `synthesis_congested`). Gateway'ni yaqinroq serverga qo'yishni o'ylab ko'ring. |
 

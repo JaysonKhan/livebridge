@@ -24,6 +24,7 @@ It works with Zoom, Google Meet and any other meeting app, and the other partici
 - [How it works](#how-it-works)
 - [Modes and turn-taking](#modes-and-turn-taking)
 - [Languages and voice](#languages-and-voice)
+- [Three ways to connect](#three-ways-to-connect)
 - [Safeguards](#safeguards)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
@@ -62,8 +63,8 @@ It works with Zoom, Google Meet and any other meeting app, and the other partici
 
 LiveBridge has three parts: a **desktop app** (Flutter) for controls and captions, a native **audio engine** that
 captures and plays sound (Swift on macOS, C++ on Windows), and a **gateway** (Node.js) that talks to the AI
-providers. The API keys live
-only in the gateway — never in the app.
+providers. The API keys live in the gateway; the app holds a key only in the *Own keys* connection (see
+[Three ways to connect](#three-ways-to-connect)), in the system's secret store.
 
 ```mermaid
 flowchart TB
@@ -186,6 +187,29 @@ to the voice the gateway is configured with. A row is switched off when the sele
 direction. The list needs the access token, and the gateway's ElevenLabs key needs the *voices read* permission;
 without it the picker says the list is not available and sessions keep the configured voices.
 
+## Three ways to connect
+
+On first launch the app asks how it should reach the translation service. Nothing else changes between the ways:
+same modes, languages and voices.
+
+- **Your account (the hosted service).** Press **Sign in with Google**: the app shows a short code and opens the
+  site in the browser, where you approve it. A new account has a **5-minute trial**; more minutes are bought in
+  packages with **Top up** (the app lists the site's packages and opens the checkout in the browser; prices are shown
+  before tax). The main screen shows the balance as "≈ N min" next to **Top up**, **Account page** and
+  **Sign out**. Start is blocked while the balance is known to be empty. Apple sign-in is not available yet.
+- **Own keys.** Open *I have my own API keys* and enter an ElevenLabs and a Gemini key. They stay in the Keychain
+  (macOS) or Credential Manager (Windows), are sent to the hosted gateway for each session and are not stored
+  there, and nothing is charged to an account.
+- **Own gateway.** Under *Own keys*, *Own gateway*: the address of a gateway you run yourself and its access token
+  (`docs/deployment.md`). An existing install that already had a saved token opens in this mode and skips the
+  onboarding.
+
+The setup panel shows a one-line summary of the connection with **Change** (other modes: **Change connection**).
+Voices are remembered per connection, because each one offers its own list. The account's access token lasts about
+15 minutes, lives in memory only and is refreshed in the background during a call; the refresh token is kept in the
+Keychain / Credential Manager. A session ends with a banner when the balance runs out, billing cannot be reached,
+10 minutes pass without speech, the account continues on another device, or the service is busy.
+
 ## Safeguards
 
 - **Consent first.** Before every session the app shows a disclosure sentence and will not start until you confirm
@@ -206,14 +230,14 @@ without it the picker says the list is not available and sessions keep the confi
 | **Mac** | macOS 14.2 or newer (developed on Apple Silicon) |
 | **Windows PC** | Windows 10 or 11, 64-bit. Hearing the meeting app (*Incoming audio*, *Bidirectional speech*) needs Windows 11 or Windows 10 build 20348 or newer |
 | **Build tools** | Flutter (Dart 3.13+) and Node.js 22.18+; Xcode with Swift for macOS, Visual Studio with C++ for Windows (the Windows app is also built by this repository's GitHub workflow) |
-| **API keys** | ElevenLabs (speech to text + text to speech) and Google Gemini |
+| **Connection** | A Google account for the hosted service, **or** your own ElevenLabs (speech to text + text to speech) and Google Gemini keys, **or** your own gateway (which holds those keys) |
 | **Virtual microphone** | Only for *Bidirectional speech*: [BlackHole 2ch](https://existential.audio/blackhole/) on macOS, [VB-CABLE](https://vb-audio.com/Cable/) on Windows |
 | **Headphones** | Strongly recommended: speakers feed the translated voice back into the microphone |
 
 ## Quick start
 
 **Download:** the [Releases page](https://github.com/JaysonKhan/livebridge/releases/latest) has the DMG for macOS
-and the installer for Windows. Both contain the app only — you still need a gateway (steps 1–2 below).
+and the installer for Windows. Both contain the app only: sign in with your account or enter your own keys in the app, or run your own gateway (steps 1–2 below).
 
 - **macOS:** open the DMG and drag **JK - LiveBridge** to Applications. It is not notarised, so the first launch
   needs **System Settings → Privacy & Security → Open Anyway**.
@@ -313,8 +337,8 @@ See [`.env.example`](.env.example) for the complete list with comments.
 
 ## Privacy
 
-- **Audio** leaves your computer only during a session you started, goes to your own gateway and from there to the
-  providers. LiveBridge does not store it.
+- **Audio** leaves your computer only during a session you started, goes to the gateway you connected to and from
+  there to the providers. LiveBridge does not store it.
 - **Captions** are kept in memory and disappear when the session ends. **Export** writes a Markdown file only when
   you ask for it.
 - **Analytics** are local and numbers-only: timings, counts, error codes and your ratings — never what was said.

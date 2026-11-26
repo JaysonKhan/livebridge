@@ -1,6 +1,6 @@
 # LiveBridge AI — implementation status
 
-**Updated:** 2026-11-26 (voice choice, gateway deployed, Windows supported) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
+**Updated:** 2026-11-26 (accounts in the app on a branch, voice choice, gateway deployed, Windows supported) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
 
 ## Where it stands
 
@@ -32,6 +32,19 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | 6 | A consenting second participant (and an Upwork contact) | platform acceptance (M4) |
 | 7 | Optional: sign with the Apple Development identity instead of ad-hoc | stable permissions, no Keychain prompt after each rebuild |
 | 8 | ~~Confirm the incoming voice id is a stock voice~~ — **dropped 2026-11-25**: both voice slots now default to the author's own voice, published by the author in the ElevenLabs Voice Library (`docs/privacy.md`) | — |
+
+## Accounts and paid service (design `docs/specs/2026-11-26-accounts-paid-service-voices-design.md`)
+
+| Step | State |
+|---|---|
+| 1. Voice choice | in the app (see Verified) |
+| 3. The gateway's account and own-keys modes | built on a separate branch by another session; not part of this branch |
+| 4. The desktop app | **built and tested on this branch (`claude/app-onboarding-e41735`), not pushed, not released.** Onboarding with Google sign-in through the site's device sign-in (code + browser; no Apple sign-in yet), the three ways to connect (account, own keys, own gateway; an existing saved token opens as own gateway), balance chip and top-up sheet, banners for empty balance / billing / idle / continued on another device / busy service, Start blocked on a known empty balance, access token refreshed in the background, secrets (refresh token, provider keys, static token) kept in the Keychain / Credential Manager. Both native hosts carry the new contract (`docs/bridge-contract.md`) |
+
+Checks for step 4 on this Mac: `flutter analyze` clean, `flutter test` 385 passed, `swift test` 40 run (1 skipped), 0 failures,
+`apps/desktop/native/livebridge_core/tests/run.sh` 2 262 checks, 0 failed. **Not done:** the Windows build of this
+branch has not run (it is not pushed, so the Windows workflow has not seen it); the end-to-end run with the real site and
+the deployed gateway has not happened (`docs/manual-qa.md` lists the checks, all NOT RUN); nothing is released.
 
 ## Environment (M0)
 
