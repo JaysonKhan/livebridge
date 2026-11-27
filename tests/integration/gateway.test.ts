@@ -1003,22 +1003,28 @@ test("turn.mode vad -> manual: afterwards speech waits for turn.commit, however 
   assert.deepEqual(errors(client), []);
 });
 
-test("turn.mode: speech under the old strategy, audio sent while the new session opens included, still becomes one turn", async () => {
+test("turn.mode: what came before it is the old session's turn; audio and a commit sent while the new session opens wait for it", async () => {
   const { base } = await start({ fake: { delayMs: 40 } });
   const client = await TestClient.connect(base);
-  await client.configure({ in: { enabled: false } });
+  await client.configure({ out: { commit: "vad" }, in: { enabled: false } });
+  // Automatic: speaking, then the switch to hold to talk (the host pauses the hands-free window first).
   client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
   const next = client.sendAudio("out", 1, speech(300));
-  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
-  // Sent while the new speech-to-text session is still opening: the old one still takes it.
-  client.sendAudio("out", 1, speech(300), next);
-  const final = await client.message("caption.final");
-  assert.equal(final.text, "fake transcript 1 (600 ms)");
-  assert.equal((await client.message("translation.final")).text, "(uz→en) fake transcript 1 (600 ms)");
-  await client.message("metrics");
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  // The talk button pressed and let go while the new session is still opening.
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(400), next);
+  client.send({ v: 1, type: "turn.commit", direction: "out" });
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  await client.waitFor((c) => c.messages.filter((m) => m.type === "caption.final").length === 2, "two turns");
+  const finals = client.messages.flatMap((m) => (m.type === "caption.final" ? [m.text] : []));
+  assert.deepEqual(
+    finals.map((t) => t.replace(/^fake transcript \d+ /, "")),
+    ["(300 ms)", "(400 ms)"],
+  );
   await sleep(150);
-  // The replaced session answered once and was closed.
-  assert.equal(client.messages.filter((m) => m.type === "caption.final").length, 1);
+  assert.equal(client.messages.filter((m) => m.type === "caption.final").length, 2);
   assert.deepEqual(errors(client), []);
 });
 

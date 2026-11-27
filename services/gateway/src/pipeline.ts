@@ -65,7 +65,13 @@ const CONGESTION_GRACE_MS = 1_500;
 const CONGESTION_AUDIO_SECONDS = 2;
 const OVERFLOW_WARNING_INTERVAL_MS = 1_000;
 /** A replaced speech-to-text session still delivers what it says for this long, then it is closed. */
-const RETIRE_TIMEOUT_MS = 8_000;
+const RETIRE_TIMEOUT_MS = 15_000;
+/**
+ * Captured audio that may wait for a swapped-in speech-to-text session to open: 5 s. Opening usually takes well under
+ * a second, but the provider has been seen to take 6 s; speech said meanwhile is sent late rather than lost. Older
+ * audio is dropped.
+ */
+const MAX_OPENING_AUDIO_BYTES = 160_000;
 
 const nowMs = () => performance.now();
 const jitteredBackoff = (attempt: number) =>
@@ -99,6 +105,11 @@ export class DirectionPipeline {
    * value is stale and closed.
    */
   private sttEpoch = 0;
+  /**
+   * While a session swapped in by `turn.mode` opens: the audio captured and the commit asked for since, which belong
+   * to it, not to the session it replaces.
+   */
+  private opening: { audio: Uint8Array[]; bytes: number; commitAt: number | null } | null = null;
   /** Replaced speech-to-text sessions, until they are closed, and when their last commit was asked for. */
   private readonly retiring = new Map<
     StreamingSTT,
@@ -141,6 +152,10 @@ export class DirectionPipeline {
   }
 
   commit() {
+    if (this.opening) {
+      this.opening.commitAt = nowMs();
+      return;
+    }
     this.commitRequestedAt = nowMs();
     this.stt?.commit();
   }
@@ -171,20 +186,31 @@ export class DirectionPipeline {
       return;
     }
     this.lastSequence = frame.sequence;
-    const overflow = this.stt
-      ? this.stt.sendAudio(frame.payload)
-      : frame.payload.byteLength;
-    this.deps.meter?.addStt(this.deps.direction, frame.payload.byteLength - overflow);
-    if (overflow > 0) {
-      this.dropped++;
-      const now = nowMs();
-      if (now - this.lastOverflowWarning >= OVERFLOW_WARNING_INTERVAL_MS) {
-        this.lastOverflowWarning = now;
-        this.error(
-          "capture_overflow",
-          "speech-to-text is not keeping up; some captured audio was dropped",
-        );
-      }
+    const opening = this.opening;
+    if (!opening) return this.feed(frame.payload);
+    opening.audio.push(frame.payload);
+    opening.bytes += frame.payload.byteLength;
+    while (opening.bytes > MAX_OPENING_AUDIO_BYTES) {
+      opening.bytes -= opening.audio.shift()!.byteLength;
+      this.overflowed();
+    }
+  }
+
+  private feed(pcm: Uint8Array) {
+    const overflow = this.stt ? this.stt.sendAudio(pcm) : pcm.byteLength;
+    this.deps.meter?.addStt(this.deps.direction, pcm.byteLength - overflow);
+    if (overflow > 0) this.overflowed();
+  }
+
+  private overflowed() {
+    this.dropped++;
+    const now = nowMs();
+    if (now - this.lastOverflowWarning >= OVERFLOW_WARNING_INTERVAL_MS) {
+      this.lastOverflowWarning = now;
+      this.error(
+        "capture_overflow",
+        "speech-to-text is not keeping up; some captured audio was dropped",
+      );
     }
   }
 
@@ -198,6 +224,7 @@ export class DirectionPipeline {
     this.tts?.close();
     this.stt = null;
     this.tts = null;
+    this.opening = null;
     for (const session of this.retiring.keys()) this.dropRetired(session);
   }
 
@@ -250,11 +277,15 @@ export class DirectionPipeline {
   }
 
   /**
-   * Make before break: the new session opens while the old one keeps taking audio and commits, so nothing said around
-   * the switch is lost and the direction never stops being ready.
+   * Make before break: the new session opens while the old one finishes what was said before `turn.mode`; what is
+   * captured after it waits for the new one. Nothing said around the switch is lost or split, and the direction never
+   * stops being ready.
    */
   private async swap() {
     const epoch = ++this.sttEpoch;
+    const started = nowMs();
+    // A swap that replaces one still opening keeps what is already waiting.
+    this.opening ??= { audio: [], bytes: 0, commitAt: null };
     const next = this.createStt(this.commitStrategy);
     try {
       await next.open();
@@ -266,8 +297,20 @@ export class DirectionPipeline {
     }
     if (this.closed || epoch !== this.sttEpoch) return next.close();
     const old = this.stt;
+    const waiting = this.opening;
+    this.opening = null;
     this.stt = next;
     if (old) this.retire(old);
+    this.deps.log.info("stt.swapped", {
+      direction: this.deps.direction,
+      commit: this.commitStrategy,
+      ms: Math.round(nowMs() - started),
+    });
+    for (const pcm of waiting?.audio ?? []) this.feed(pcm);
+    if (waiting?.commitAt != null) {
+      this.commitRequestedAt = waiting.commitAt;
+      next.commit();
+    }
   }
 
   /**
@@ -296,6 +339,7 @@ export class DirectionPipeline {
     if (this.closed) return;
     // A swap still opening is superseded: the reconnect opens with the current strategy.
     this.sttEpoch++;
+    this.opening = null;
     const code = error instanceof ProviderError ? error.code : "unknown";
     const permanent = error instanceof ProviderError && error.permanent;
     this.stt?.close();
@@ -340,8 +384,9 @@ export class DirectionPipeline {
     this.cancel.abort(new Error("cancelled"));
     this.cancel = new AbortController();
     this.stt?.fence();
-    // A replaced session's answers belong to the old generation.
+    // A replaced session's answers belong to the old generation, and so does what waits for a session still opening.
     for (const session of this.retiring.keys()) this.dropRetired(session);
+    if (this.opening) this.opening = { audio: [], bytes: 0, commitAt: null };
   }
 
   private onPartial(source: StreamingSTT, text: string) {
