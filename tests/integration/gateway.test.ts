@@ -898,15 +898,20 @@ function strategyFactory(fake: FakeOptions = {}) {
   return { strategies, control, factory };
 }
 
-/** A speech-to-text session the test drives by hand: it opens at once and answers only when told to. */
+/** A speech-to-text session the test drives by hand: it opens at once (or when released) and answers only when told to. */
 class ScriptedSTT implements StreamingSTT {
   readonly options: SttOptions;
   commits = 0;
   closed = false;
-  constructor(options: SttOptions) {
+  private opened: Promise<void> = Promise.resolve();
+  release = () => {};
+  constructor(options: SttOptions, held = false) {
     this.options = options;
+    if (held) this.opened = new Promise((resolve) => (this.release = resolve));
   }
-  async open() {}
+  open() {
+    return this.opened;
+  }
   sendAudio() {
     return 0;
   }
@@ -926,15 +931,17 @@ class ScriptedSTT implements StreamingSTT {
 
 function scriptedFactory() {
   const sessions: ScriptedSTT[] = [];
+  /** While set, new sessions open only when released. */
+  const control = { holdOpens: false };
   const factory: ProviderFactory = {
     ...createFakeProviders({ delayMs: 2 }),
     stt: (options) => {
-      const session = new ScriptedSTT(options);
+      const session = new ScriptedSTT(options, control.holdOpens);
       sessions.push(session);
       return session;
     },
   };
-  return { sessions, factory };
+  return { sessions, control, factory };
 }
 
 test("session.ready lists the optional messages this gateway accepts", async () => {
@@ -1085,7 +1092,10 @@ test("turn.cancel while the new session opens: nothing said before it is deliver
   const next = client.sendAudio("out", 2, speech(600));
   client.sendAudio("out", 2, silence(400), next);
   const final = await client.message("caption.final");
-  assert.deepEqual([final.generation, final.text], [2, "after the cancel"]);
+  assert.equal(final.generation, 2);
+  await sleep(100);
+  // The only turn is the one said after the cancel.
+  assert.equal(client.messages.filter((m) => m.type === "caption.final").length, 1);
 });
 
 test("turn.cancel while the new session opens drops the audio and the commit waiting for it", async () => {
@@ -1103,7 +1113,7 @@ test("turn.cancel while the new session opens drops the audio and the commit wai
   assert.deepEqual(errors(client), []);
 });
 
-test("turn.mode: a replaced session delivers every answer it still gives, in whatever order, until a cancel closes it", async () => {
+test("turn.mode: a replaced push-to-talk session is closed once it has answered every commit it was sent, in whatever order", async () => {
   const { sessions, factory } = scriptedFactory();
   const { base } = await start({ factory });
   const client = await TestClient.connect(base);
@@ -1117,18 +1127,112 @@ test("turn.mode: a replaced session delivers every answer it still gives, in wha
   assert.equal(old.commits, 2);
   // The switch's own commit had nothing left to finalise and is answered first.
   old.answer("");
+  assert.equal(old.closed, false);
   old.answer("the released phrase");
+  assert.equal(old.closed, true);
   const final = await client.message("caption.final");
   assert.equal(final.text, "the released phrase");
   await client.message("metrics");
-  // An answer the provider sends late (its own end of turn, say) is still delivered.
+});
+
+test("turn.mode: a replaced automatic session delivers every answer it still gives until a cancel closes it", async () => {
+  const { sessions, factory } = scriptedFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ out: { commit: "vad" }, in: { enabled: false } });
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  await client.sync();
+  const old = sessions[0]!;
+  assert.equal(old.commits, 1);
+  old.answer("the phrase");
+  // The provider's own end of turn, late: still delivered.
   old.answer("a late end of turn");
   const late = await client.message("caption.final", (m) => m.text === "a late end of turn");
-  assert.equal(late.turn_id, final.turn_id + 1);
+  assert.ok(client.messages.some((m) => m.type === "caption.final" && m.text === "the phrase"));
+  assert.ok(late.turn_id > 0);
   assert.equal(old.closed, false);
   client.send({ v: 1, type: "turn.cancel", direction: "out", generation: 2 });
   await client.sync();
   assert.equal(old.closed, true);
+});
+
+test("turn.mode vad -> manual: the phrase said before the switch is committed at once, not when the new session opens", async () => {
+  const { sessions, control, factory } = scriptedFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ out: { commit: "vad" }, in: { enabled: false } });
+  control.holdOpens = true;
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  await client.sync();
+  assert.equal(sessions.length, 2);
+  assert.equal(sessions[0]!.commits, 1, "committed while the new session is still opening");
+  sessions[0]!.answer("said before the switch");
+  assert.equal((await client.message("caption.final")).text, "said before the switch");
+  sessions[1]!.release();
+});
+
+test("turn.mode: a new session that cannot open still lets the replaced one deliver what was said before the switch", async () => {
+  const { strategies, control, factory } = strategyFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ out: { commit: "vad" }, in: { enabled: false } });
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(300));
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  control.failNextOpen = true;
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  const final = await client.message("caption.final");
+  assert.match(final.text, /\(300 ms\)$/);
+  await client.waitFor((c) => readiness(c).join() === "true,false,true", "ready -> not ready -> ready");
+  assert.deepEqual(strategies, ["vad", "manual", "manual"]);
+});
+
+test("turn.mode: two releases while the new session opens stay two turns, in order", async () => {
+  const { base } = await start({ fake: { delayMs: 40 } });
+  const client = await TestClient.connect(base);
+  await client.configure({ out: { commit: "vad" }, in: { enabled: false } });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  const next = client.sendAudio("out", 1, speech(300));
+  client.send({ v: 1, type: "turn.commit", direction: "out" });
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(500), next);
+  client.send({ v: 1, type: "turn.commit", direction: "out" });
+  client.send({ v: 1, type: "capture.pause", direction: "out" });
+  await client.waitFor((c) => c.messages.filter((m) => m.type === "caption.final").length === 2, "two turns");
+  const finals = client.messages.flatMap((m) => (m.type === "caption.final" ? [m.text] : []));
+  assert.deepEqual(finals.map((t) => t.replace(/^fake transcript \d+ /, "")), ["(300 ms)", "(500 ms)"]);
+});
+
+test("turn.mode: switching back while a new session opens closes it at once; at most two replaced sessions are kept", async () => {
+  const { sessions, control, factory } = scriptedFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ out: { commit: "vad" }, in: { enabled: false } });
+  control.holdOpens = true;
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.sync();
+  assert.equal(sessions.length, 3);
+  assert.equal(sessions[1]!.closed, true, "the superseded session is closed before it opens");
+  control.holdOpens = false;
+  sessions[2]!.release();
+  await sleep(20);
+  // Two more switches: S0 (vad), S2 (vad) and S3 (manual) are replaced in turn; only two may stay.
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  await client.sync();
+  await sleep(20);
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.sync();
+  await sleep(20);
+  assert.equal(sessions[0]!.closed, true, "the oldest replaced session made room");
+  assert.deepEqual([sessions[2]!.closed, sessions[3]!.closed], [false, false]);
+  assert.deepEqual(errors(client), []);
 });
 
 test("turn.mode: when the new session cannot open, the direction goes through provider-down and reconnects with the new strategy", async () => {

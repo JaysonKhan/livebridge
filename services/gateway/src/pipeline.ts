@@ -66,6 +66,8 @@ const CONGESTION_AUDIO_SECONDS = 2;
 const OVERFLOW_WARNING_INTERVAL_MS = 1_000;
 /** A replaced speech-to-text session still delivers what it says for this long, then it is closed. */
 const RETIRE_TIMEOUT_MS = 15_000;
+/** Replaced sessions kept at once: switching back and forth must not pile up provider connections. */
+const MAX_RETIRING = 2;
 /**
  * Captured audio that may wait for a swapped-in speech-to-text session to open: 10 s. Opening usually takes under
  * half a second, but the provider has been seen to take almost 8 s; speech said meanwhile is sent late rather than
@@ -105,21 +107,31 @@ export class DirectionPipeline {
    * value is stale and closed.
    */
   private sttEpoch = 0;
+  /** The strategy the current session (`stt`) was opened with. */
+  private sttCommit: CommitStrategy;
+  /** Commits sent to the current session and not answered yet. */
+  private owed = 0;
+  /** A session swapped in by `turn.mode` that is still opening. */
+  private pendingNext: StreamingSTT | null = null;
   /**
-   * While a session swapped in by `turn.mode` opens: the audio captured and the commit asked for since, which belong
-   * to it, not to the session it replaces.
+   * While it opens: what was captured and committed since `turn.mode`, in order — audio, or the time a commit was
+   * asked for. It belongs to the new session, not to the one it replaces.
    */
-  private opening: { audio: Uint8Array[]; bytes: number; commitAt: number | null } | null = null;
-  /** Replaced speech-to-text sessions, until they are closed, and when their last commit was asked for. */
+  private opening: { items: (Uint8Array | number)[]; bytes: number } | null = null;
+  /**
+   * Replaced speech-to-text sessions until they are closed: when their last commit was asked for, and how many
+   * answers they still owe (counted under `manual` only).
+   */
   private readonly retiring = new Map<
     StreamingSTT,
-    { commitRequestedAt: number | null; timer: NodeJS.Timeout }
+    { commitRequestedAt: number | null; owed: number | null; timer: NodeJS.Timeout }
   >();
 
   constructor(deps: PipelineDeps) {
     this.deps = deps;
     this.translator = deps.factory.translator();
     this.commitStrategy = deps.config.commit;
+    this.sttCommit = deps.config.commit;
   }
 
   get speaks() {
@@ -149,15 +161,21 @@ export class DirectionPipeline {
   captureStop() {
     this.capturing = false;
     this.stt?.discardPending();
+    if (this.opening) {
+      this.opening.items = this.opening.items.filter((item) => typeof item === "number");
+      this.opening.bytes = 0;
+    }
   }
 
   commit() {
     if (this.opening) {
-      this.opening.commitAt = nowMs();
+      this.opening.items.push(nowMs());
       return;
     }
     this.commitRequestedAt = nowMs();
-    this.stt?.commit();
+    if (!this.stt) return;
+    this.owed++;
+    this.stt.commit();
   }
 
   /** The direction commits with this strategy from now on. The same strategy again does nothing. */
@@ -165,7 +183,7 @@ export class DirectionPipeline {
     if (commit === this.commitStrategy) return;
     this.commitStrategy = commit;
     // Not connected right now: the next connect opens with it.
-    if (this.stt) void this.swap();
+    if (this.stt || this.opening) void this.swap();
   }
 
   cancelTo(generation: number): string | null {
@@ -188,10 +206,11 @@ export class DirectionPipeline {
     this.lastSequence = frame.sequence;
     const opening = this.opening;
     if (!opening) return this.feed(frame.payload);
-    opening.audio.push(frame.payload);
+    opening.items.push(frame.payload);
     opening.bytes += frame.payload.byteLength;
     while (opening.bytes > MAX_OPENING_AUDIO_BYTES) {
-      opening.bytes -= opening.audio.shift()!.byteLength;
+      const oldest = opening.items.findIndex((item) => typeof item !== "number");
+      opening.bytes -= (opening.items.splice(oldest, 1)[0] as Uint8Array).byteLength;
       this.overflowed();
     }
   }
@@ -225,6 +244,8 @@ export class DirectionPipeline {
     this.stt = null;
     this.tts = null;
     this.opening = null;
+    this.pendingNext?.close();
+    this.pendingNext = null;
     for (const session of this.retiring.keys()) this.dropRetired(session);
   }
 
@@ -249,6 +270,8 @@ export class DirectionPipeline {
       await session.open();
       if (this.closed || epoch !== this.sttEpoch) return session.close();
       this.stt = session;
+      this.sttCommit = commit;
+      this.owed = 0;
       this.setReady(true);
       this.translator.warm?.(this.deps.translationModel);
       // `turn.mode` arrived while this session was opening.
@@ -277,53 +300,69 @@ export class DirectionPipeline {
   }
 
   /**
-   * Make before break: the new session opens while the old one finishes what was said before `turn.mode`; what is
-   * captured after it waits for the new one. Nothing said around the switch is lost or split, and the direction never
-   * stops being ready.
+   * Make before break, without a wait in any turn. What was said before `turn.mode` is finished at once by the session
+   * it was said to — nothing after `turn.mode` reaches that session, so its turn never waits for the new one, and it
+   * keeps delivering its answers even if the new one fails to open. What is captured and committed after `turn.mode`
+   * waits for the new session, in order. The direction stays ready throughout.
    */
   private async swap() {
     const epoch = ++this.sttEpoch;
     const started = nowMs();
-    // A swap that replaces one still opening keeps what is already waiting.
-    this.opening ??= { audio: [], bytes: 0, commitAt: null };
-    const next = this.createStt(this.commitStrategy);
+    const commit = this.commitStrategy;
+    if (this.stt) this.retire(this.stt);
+    this.stt = null;
+    // A swap that replaces one still opening keeps what is already waiting, and closes that session now.
+    this.opening ??= { items: [], bytes: 0 };
+    this.pendingNext?.close();
+    const next = this.createStt(commit);
+    this.pendingNext = next;
     try {
       await next.open();
     } catch (error) {
       next.close();
       // A newer swap, an outage or a close owns the outcome now.
       if (this.closed || epoch !== this.sttEpoch) return;
+      this.pendingNext = null;
+      // An outage from here: the replaced session still delivers what was said before the switch.
       return this.providerDown(error, 0);
     }
     if (this.closed || epoch !== this.sttEpoch) return next.close();
-    const old = this.stt;
-    const waiting = this.opening;
+    this.pendingNext = null;
+    const waiting = this.opening?.items ?? [];
     this.opening = null;
     this.stt = next;
-    if (old) this.retire(old);
+    this.sttCommit = commit;
+    this.owed = 0;
     this.deps.log.info("stt.swapped", {
       direction: this.deps.direction,
-      commit: this.commitStrategy,
+      commit,
       ms: Math.round(nowMs() - started),
     });
-    for (const pcm of waiting?.audio ?? []) this.feed(pcm);
-    if (waiting?.commitAt != null) {
-      this.commitRequestedAt = waiting.commitAt;
+    for (const item of waiting) {
+      if (typeof item !== "number") {
+        this.feed(item);
+        continue;
+      }
+      this.commitRequestedAt = item;
+      this.owed++;
       next.commit();
     }
   }
 
   /**
-   * Whatever was said under the old strategy becomes a turn: the old session is committed, and every answer it still
-   * gives is delivered until it is closed — after RETIRE_TIMEOUT_MS, or at a cancel. Its answers are not counted: under
-   * `vad` the provider's own end of turn may arrive too, and nothing tells it from the answer to this commit.
+   * Whatever was said under the old strategy becomes a turn: the old session is committed, and its answers are
+   * delivered until it is closed. Under `manual` every commit gets exactly one answer, so it goes once it owes none;
+   * under `vad` the provider's own end of turn may come too, so it stays for RETIRE_TIMEOUT_MS. A cancel closes it.
    */
   private retire(old: StreamingSTT) {
+    if (this.retiring.size >= MAX_RETIRING) this.dropRetired(this.retiring.keys().next().value!);
     this.retiring.set(old, {
       commitRequestedAt: this.commitRequestedAt,
+      owed: this.sttCommit === "manual" ? this.owed + 1 : null,
       timer: setTimeout(() => this.dropRetired(old), RETIRE_TIMEOUT_MS),
     });
     this.commitRequestedAt = null;
+    this.owed = 0;
     old.commit();
   }
 
@@ -340,6 +379,8 @@ export class DirectionPipeline {
     // A swap still opening is superseded: the reconnect opens with the current strategy.
     this.sttEpoch++;
     this.opening = null;
+    this.pendingNext?.close();
+    this.pendingNext = null;
     const code = error instanceof ProviderError ? error.code : "unknown";
     const permanent = error instanceof ProviderError && error.permanent;
     this.stt?.close();
@@ -386,7 +427,7 @@ export class DirectionPipeline {
     this.stt?.fence();
     // A replaced session's answers belong to the old generation, and so does what waits for a session still opening.
     for (const session of this.retiring.keys()) this.dropRetired(session);
-    if (this.opening) this.opening = { audio: [], bytes: 0, commitAt: null };
+    if (this.opening) this.opening = { items: [], bytes: 0 };
   }
 
   private onPartial(source: StreamingSTT, text: string) {
@@ -411,9 +452,11 @@ export class DirectionPipeline {
     if (retired) {
       requestedAt = retired.commitRequestedAt;
       retired.commitRequestedAt = null;
+      if (retired.owed !== null && --retired.owed <= 0) this.dropRetired(source);
     } else if (source === this.stt) {
       requestedAt = this.commitRequestedAt;
       this.commitRequestedAt = null;
+      if (this.owed > 0) this.owed--;
     } else return;
     const { direction, emit, config } = this.deps;
     const sttCommitMs =
