@@ -238,5 +238,8 @@ class FakeLiveBridge implements LiveBridge {
   Future<void> setBypass(bool enabled) async => calls.add('setBypass($enabled)');
 
   @override
+  Future<void> setOutCommit(OutCommit commit) async => calls.add('setOutCommit(${commit.wire})');
+
+  @override
   Future<void> panic() async => calls.add('panic');
 }

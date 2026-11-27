@@ -20,6 +20,14 @@ void main() {
       expect(s.outReady, isTrue);
       expect(s.inReady, isFalse);
       expect(s.mock, isTrue);
+      expect(s.outCommit, isNull);
+    });
+
+    test('a state event carries the outgoing turn mode in force', () {
+      final e = BridgeEvent.fromMap({'type': 'state', 'state': 'active', 'outCommit': 'turn_prediction'});
+      expect((e as StateEvent).outCommit, OutCommit.turnPrediction);
+      final odd = BridgeEvent.fromMap({'type': 'state', 'state': 'active', 'outCommit': 'sometimes'});
+      expect((odd as StateEvent).outCommit, isNull);
     });
 
     test('parses caption, metrics and error events', () {

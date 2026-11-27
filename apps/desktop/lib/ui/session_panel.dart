@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,7 +48,7 @@ class _SessionContent extends StatelessWidget {
           SizedBox(height: 8),
           _Controls(),
           SizedBox(height: 8),
-          PttButton(),
+          TalkArea(),
           SizedBox(height: 8),
           _CaptionOptions(),
           SizedBox(height: 4),
@@ -252,92 +254,274 @@ class _LabeledSwitch extends StatelessWidget {
   }
 }
 
-/// Press-and-hold push-to-talk. The Space key does the same through the same notifier.
+/// The outgoing speech controls: the turn-mode switch above the talk panel.
+class TalkArea extends StatelessWidget {
+  const TalkArea({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(alignment: AlignmentDirectional.centerStart, child: TurnModeSwitch()),
+        SizedBox(height: 8),
+        PttButton(),
+      ],
+    );
+  }
+}
+
+/// Hold to talk or automatic, during a session too: the setting is the setup's turn mode, and a running session
+/// takes a change at once.
+class TurnModeSwitch extends ConsumerWidget {
+  const TurnModeSwitch({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final automatic = ref.watch(setupProvider.select((s) => s.outCommit != OutCommit.manual));
+    final notifier = ref.read(setupProvider.notifier);
+    final l = context.l10n;
+    final t = context.tokens;
+    final style = Theme.of(context).textTheme.labelLarge;
+    Widget label(Key key, IconData icon, String text) => Row(
+      key: key,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16),
+        const SizedBox(width: 6),
+        Flexible(child: Text(text, style: style)),
+      ],
+    );
+    final hold = label(const Key('mode-hold'), Icons.touch_app_outlined, l.turnModeHold);
+    final auto = label(const Key('mode-auto'), Icons.hearing, l.turnModeAuto);
+    return Semantics(
+      container: true,
+      label: l.turnModeLabel,
+      child: t.isWindows
+          ? _WindowsSegments(automatic: automatic, hold: hold, auto: auto, onChanged: notifier.setAutomatic)
+          : CupertinoSlidingSegmentedControl<bool>(
+              groupValue: automatic,
+              padding: const EdgeInsets.all(2),
+              children: {
+                false: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), child: hold),
+                true: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), child: auto),
+              },
+              onValueChanged: (v) => v == null ? null : notifier.setAutomatic(v),
+            ),
+    );
+  }
+}
+
+/// Windows: two toggle buttons side by side; the chosen one has the accent fill and a check mark, so the choice is not
+/// shown by colour alone (as [PlatformToggle]).
+class _WindowsSegments extends StatelessWidget {
+  const _WindowsSegments({required this.automatic, required this.hold, required this.auto, required this.onChanged});
+
+  final bool automatic;
+  final Widget hold;
+  final Widget auto;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget segment(bool value, Widget child) {
+      final selected = value == automatic;
+      return Semantics(
+        selected: selected,
+        child: OutlinedButton(
+          style: selected ? FilledButtonTheme.of(context).style : null,
+          onPressed: () => onChanged(value),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[const Icon(Icons.check, size: 16), const SizedBox(width: 6)],
+              Flexible(child: child),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Wrap(spacing: 4, runSpacing: 4, children: [segment(false, hold), segment(true, auto)]);
+  }
+}
+
+/// The talk panel. Hold to talk: press and hold (the Space key does the same through the same notifier). Automatic:
+/// it shows that the microphone is listening. The bars follow the real microphone level only while the microphone is
+/// being sent.
 class PttButton extends ConsumerWidget {
   const PttButton({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(pttEnabledProvider);
-    final held = ref.watch(sessionProvider.select((s) => s.pttHeld));
-    final manual = ref.watch(setupProvider.select((s) => s.outCommit == OutCommit.manual));
+    final talk = ref.watch(talkStateProvider);
     final notifier = ref.read(sessionProvider.notifier);
     final l = context.l10n;
     final t = context.tokens;
-    final hint = held
-        ? l.pttHintHeld
-        : enabled
-        ? l.pttHintReady
-        : manual
-        ? l.pttHintWaiting
-        : l.pttHintOff;
+    final holdMode = talk == TalkState.holdReady || talk == TalkState.holdHeld;
+    final sending = talk.sending;
+    final (text, icon) = switch (talk) {
+      TalkState.noSession => (l.talkNoSession, Icons.mic_none),
+      TalkState.connecting => (l.talkConnecting, Icons.sync),
+      TalkState.holdReady => (l.talkHoldReady, Icons.mic_none),
+      TalkState.holdHeld => (l.talkHoldHeld, Icons.mic),
+      TalkState.listening => (l.talkListening, Icons.mic),
+      TalkState.muted => (l.talkMuted, Icons.mic_off),
+      TalkState.bypass => (l.talkBypass, Icons.call_split),
+    };
+    final waiting = talk == TalkState.noSession || talk == TalkState.connecting;
+    final fill = sending
+        ? t.accent
+        : talk == TalkState.holdReady
+        ? t.pttIdleFill
+        : waiting
+        ? Color.alphaBlend(t.controlFillDisabled, t.card)
+        : t.card;
+    final border = sending
+        ? t.accent
+        : talk == TalkState.holdReady
+        ? t.pttIdleBorder
+        : talk == TalkState.bypass
+        ? t.caution.foreground
+        : t.controlStroke;
+    final iconColor = switch (talk) {
+      _ when sending => t.onAccent,
+      TalkState.holdReady => t.accentText,
+      TalkState.muted => t.critical.foreground,
+      TalkState.bypass => t.caution.foreground,
+      _ => t.textSecondary,
+    };
+    final textColor = sending
+        ? t.onAccent
+        : waiting
+        ? t.textSecondary
+        : t.textPrimary;
     return Semantics(
-      button: true,
-      enabled: enabled,
-      label: l.pttSemantics,
+      button: holdMode,
+      enabled: holdMode,
+      label: text,
+      hint: holdMode ? l.pttSemantics : null,
+      liveRegion: true,
       child: ExcludeSemantics(
         child: Listener(
-          onPointerDown: enabled ? (_) => notifier.pttDown() : null,
+          onPointerDown: holdMode ? (_) => notifier.pttDown() : null,
           onPointerUp: (_) => notifier.pttUp(),
           onPointerCancel: (_) => notifier.pttUp(),
           child: AnimatedContainer(
             key: const Key('ptt-button'),
-            // Only the press animates; reduced motion switches at once.
+            // Only the colour change animates; reduced motion switches at once.
             duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 120),
             curve: Curves.easeOut,
             height: 64,
-            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: !enabled
-                  ? Color.alphaBlend(t.controlFillDisabled, t.card)
-                  : held
-                  ? t.accent
-                  : t.pttIdleFill,
+              color: fill,
               borderRadius: BorderRadius.circular(t.pttRadius),
-              border: Border.all(
-                color: !enabled
-                    ? t.controlStroke
-                    : held
-                    ? t.accent
-                    : t.pttIdleBorder,
-              ),
-              // The one glow in the app: soft mint under the held control.
-              boxShadow: [BoxShadow(color: held ? t.pttGlow : t.pttGlow.withValues(alpha: 0), blurRadius: 24)],
+              border: Border.all(color: border, width: talk == TalkState.bypass ? 1.5 : 1),
+              // The one glow in the app: soft mint under the control while the microphone is sent.
+              boxShadow: [BoxShadow(color: sending ? t.pttGlow : t.pttGlow.withValues(alpha: 0), blurRadius: 24)],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  held ? Icons.mic : Icons.mic_none,
-                  size: 24,
-                  color: !enabled
-                      ? t.textDisabled
-                      : held
-                      ? t.onAccent
-                      : t.accentText,
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    hint,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                      color: !enabled
-                          ? t.textDisabled
-                          : held
-                          ? t.onAccent
-                          : t.textPrimary,
+            child: LayoutBuilder(
+              builder: (context, box) => Row(
+                children: [
+                  Icon(icon, size: 24, color: iconColor),
+                  const SizedBox(width: 10),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: box.maxWidth * 0.55),
+                    child: Text(
+                      text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium!.copyWith(color: textColor),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Waveform(live: sending, color: sending ? t.onAccent : t.textDisabled),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Microphone level bars, newest on the right: one bar per `meters` event (about ten a second) while [live]; flat
+/// otherwise.
+class Waveform extends ConsumerStatefulWidget {
+  const Waveform({super.key, required this.live, required this.color});
+
+  final bool live;
+  final Color color;
+
+  @override
+  ConsumerState<Waveform> createState() => _WaveformState();
+}
+
+class _WaveformState extends ConsumerState<Waveform> {
+  /// Enough bars for the widest panel.
+  static const _history = 160;
+  final _levels = List<double>.filled(_history, 0);
+
+  /// dBFS to bar height: speech sits between about -55 and -10 dB.
+  static double _level(double db) => ((db + 55) / 45).clamp(0.0, 1.0);
+
+  @override
+  void didUpdateWidget(Waveform old) {
+    super.didUpdateWidget(old);
+    if (old.live && !widget.live) _levels.fillRange(0, _history, 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(sessionProvider.select((s) => s.meters), (_, meters) {
+      if (!widget.live || meters == null) return;
+      setState(() {
+        _levels.setRange(0, _history - 1, _levels, 1);
+        _levels[_history - 1] = _level(meters.mic);
+      });
+    });
+    return SizedBox(
+      height: 36,
+      child: CustomPaint(
+        key: const Key('talk-waveform'),
+        size: Size.infinite,
+        painter: WaveformPainter(levels: List.unmodifiable(_levels), live: widget.live, color: widget.color),
+      ),
+    );
+  }
+}
+
+class WaveformPainter extends CustomPainter {
+  WaveformPainter({required this.levels, required this.live, required this.color});
+
+  /// 0–1 per bar, oldest first.
+  final List<double> levels;
+  final bool live;
+  final Color color;
+
+  static const _bar = 3.0;
+  static const _gap = 3.0;
+  static const _minHeight = 3.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final count = ((size.width + _gap) / (_bar + _gap)).floor().clamp(0, levels.length);
+    final paint = Paint()..color = color;
+    var x = size.width - count * (_bar + _gap) + _gap;
+    for (var i = levels.length - count; i < levels.length; i++) {
+      final h = _minHeight + (size.height - _minHeight) * levels[i];
+      final rect = Rect.fromLTWH(x, (size.height - h) / 2, _bar, h);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(_bar / 2)), paint);
+      x += _bar + _gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(WaveformPainter old) => old.live != live || old.color != color || !listEquals(old.levels, levels);
 }
 
 class _CaptionOptions extends ConsumerWidget {

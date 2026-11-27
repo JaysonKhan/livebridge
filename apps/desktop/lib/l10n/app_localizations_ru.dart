@@ -594,19 +594,41 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bypassTurnOn => 'Включить передачу';
 
   @override
-  String get pttHintHeld => 'Говорите… отпустите, чтобы отправить';
-
-  @override
-  String get pttHintReady => 'Удерживайте, чтобы говорить (или пробел)';
-
-  @override
-  String get pttHintWaiting => 'Нажми и говори — доступно, когда сессия готова';
-
-  @override
-  String get pttHintOff => 'Режим «нажми и говори» выключен — фразы отправляются автоматически';
-
-  @override
   String get pttSemantics => 'Нажми и говори. Удерживайте, пока говорите.';
+
+  @override
+  String get turnModeLabel => 'Режим исходящей речи';
+
+  @override
+  String get turnModeHold => 'Нажми и говори';
+
+  @override
+  String get turnModeAuto => 'Автоматически';
+
+  @override
+  String get talkNoSession => 'Заработает после начала сессии';
+
+  @override
+  String get talkConnecting => 'Подключение…';
+
+  @override
+  String get talkHoldReady => 'Удерживайте кнопку или пробел';
+
+  @override
+  String get talkHoldHeld => 'Говорите… отпустите — и фраза уйдёт';
+
+  @override
+  String get talkListening => 'Слушаю — отправляю на каждой паузе';
+
+  @override
+  String get talkMuted => 'Микрофон выключен — ничего не отправляется';
+
+  @override
+  String get talkBypass => 'Без перевода — микрофон идёт прямо в звонок';
+
+  @override
+  String get errModeSwitchUnsupported =>
+      'Этот шлюз не умеет менять режим во время сессии. Чтобы сменить режим, остановите сессию и начните заново.';
 
   @override
   String get showOriginal => 'Показывать оригинал';

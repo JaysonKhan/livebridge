@@ -596,19 +596,41 @@ class AppLocalizationsTr extends AppLocalizations {
   String get bypassTurnOn => 'Bypass\'ı aç';
 
   @override
-  String get pttHintHeld => 'Konuşuyorsunuz… göndermek için bırakın';
-
-  @override
-  String get pttHintReady => 'Konuşmak için basılı tutun (veya Boşluk)';
-
-  @override
-  String get pttHintWaiting => 'Bas-konuş — oturum hazır olduğunda kullanılabilir';
-
-  @override
-  String get pttHintOff => 'Bas-konuş kapalı — konuşmalar otomatik gönderiliyor';
-
-  @override
   String get pttSemantics => 'Bas-konuş. Konuşurken basılı tutun.';
+
+  @override
+  String get turnModeLabel => 'Giden konuşma modu';
+
+  @override
+  String get turnModeHold => 'Bas-konuş';
+
+  @override
+  String get turnModeAuto => 'Otomatik';
+
+  @override
+  String get talkNoSession => 'Oturum başlayınca çalışır';
+
+  @override
+  String get talkConnecting => 'Bağlanıyor…';
+
+  @override
+  String get talkHoldReady => 'Basılı tutun veya Boşluk';
+
+  @override
+  String get talkHoldHeld => 'Konuşun… bırakınca gönderilir';
+
+  @override
+  String get talkListening => 'Dinliyorum — duraklayınca kendisi gönderir';
+
+  @override
+  String get talkMuted => 'Mikrofon kapalı — hiçbir şey gönderilmiyor';
+
+  @override
+  String get talkBypass => 'Çevirisiz — mikrofon doğrudan görüşmeye gidiyor';
+
+  @override
+  String get errModeSwitchUnsupported =>
+      'Bu gateway oturum sırasında modu değiştiremiyor. Modu değiştirmek için oturumu durdurup yeniden başlatın.';
 
   @override
   String get showOriginal => 'Orijinali göster';

@@ -1144,35 +1144,77 @@ abstract class AppLocalizations {
   /// **'Turn on bypass'**
   String get bypassTurnOn;
 
-  /// No description provided for @pttHintHeld.
-  ///
-  /// In en, this message translates to:
-  /// **'Talking… release to send'**
-  String get pttHintHeld;
-
-  /// No description provided for @pttHintReady.
-  ///
-  /// In en, this message translates to:
-  /// **'Hold to talk (or hold Space)'**
-  String get pttHintReady;
-
-  /// No description provided for @pttHintWaiting.
-  ///
-  /// In en, this message translates to:
-  /// **'Hold to talk — available when the session is ready'**
-  String get pttHintWaiting;
-
-  /// No description provided for @pttHintOff.
-  ///
-  /// In en, this message translates to:
-  /// **'Push-to-talk is off — outgoing turns are automatic'**
-  String get pttHintOff;
-
   /// No description provided for @pttSemantics.
   ///
   /// In en, this message translates to:
   /// **'Push to talk. Press and hold while you speak.'**
   String get pttSemantics;
+
+  /// No description provided for @turnModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Outgoing speech mode'**
+  String get turnModeLabel;
+
+  /// No description provided for @turnModeHold.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to talk'**
+  String get turnModeHold;
+
+  /// No description provided for @turnModeAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get turnModeAuto;
+
+  /// No description provided for @talkNoSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Works once the session starts'**
+  String get talkNoSession;
+
+  /// No description provided for @talkConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get talkConnecting;
+
+  /// No description provided for @talkHoldReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Press and hold, or hold Space'**
+  String get talkHoldReady;
+
+  /// No description provided for @talkHoldHeld.
+  ///
+  /// In en, this message translates to:
+  /// **'Speak… release to send'**
+  String get talkHoldHeld;
+
+  /// No description provided for @talkListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening — sends on each pause'**
+  String get talkListening;
+
+  /// No description provided for @talkMuted.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone muted — nothing is sent'**
+  String get talkMuted;
+
+  /// No description provided for @talkBypass.
+  ///
+  /// In en, this message translates to:
+  /// **'No translation — your microphone goes straight to the call'**
+  String get talkBypass;
+
+  /// No description provided for @errModeSwitchUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This gateway can\'t change the mode during a session. Stop and start again to use the other mode.'**
+  String get errModeSwitchUnsupported;
 
   /// No description provided for @showOriginal.
   ///

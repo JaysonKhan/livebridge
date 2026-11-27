@@ -94,6 +94,7 @@ extension AppLocalizationsLabels on AppLocalizations {
     'no_headphones' => errNoHeadphones,
     'no_microphone' => errNoMicrophone,
     'unsafe_route' => errUnsafeRoute,
+    'mode_switch_unsupported' => errModeSwitchUnsupported,
     _ => null,
   };
 }

@@ -59,6 +59,7 @@ class SetupState {
     this.targetLang = kDefaultTargetLang,
     this.mode = SessionMode.captions,
     this.outCommit = OutCommit.manual,
+    this.outAutoCommit = OutCommit.vad,
     this.gatewayUrl = 'http://127.0.0.1:8201',
     this.accessToken = '',
     this.translationModel = '',
@@ -82,7 +83,12 @@ class SetupState {
   final String myLang;
   final String targetLang;
   final SessionMode mode;
+
+  /// The outgoing turn mode: hold to talk ([OutCommit.manual]) or one of the automatic ones.
   final OutCommit outCommit;
+
+  /// The automatic mode "Automatic" stands for: [OutCommit.vad] or [OutCommit.turnPrediction], never manual.
+  final OutCommit outAutoCommit;
   final String gatewayUrl;
   final String accessToken;
   final String translationModel;
@@ -115,6 +121,7 @@ class SetupState {
     String? targetLang,
     SessionMode? mode,
     OutCommit? outCommit,
+    OutCommit? outAutoCommit,
     String? gatewayUrl,
     String? accessToken,
     String? translationModel,
@@ -136,6 +143,7 @@ class SetupState {
     targetLang: targetLang ?? this.targetLang,
     mode: mode ?? this.mode,
     outCommit: outCommit ?? this.outCommit,
+    outAutoCommit: outAutoCommit ?? this.outAutoCommit,
     gatewayUrl: gatewayUrl ?? this.gatewayUrl,
     accessToken: accessToken ?? this.accessToken,
     translationModel: translationModel ?? this.translationModel,
@@ -187,6 +195,9 @@ class SetupState {
   );
 }
 
+/// [commit] when it is an automatic mode, otherwise null.
+OutCommit? _automatic(OutCommit? commit) => commit == OutCommit.manual ? null : commit;
+
 /// A saved voice id or name, or null when nothing usable is saved.
 String? _savedVoice(Object? value) => value is String && value.isNotEmpty ? value : null;
 
@@ -217,6 +228,7 @@ class SetupNotifier extends Notifier<SetupState> {
           base.outputDevices.where((d) => d.isDefaultOutput).firstOrNull;
       final livePids = processes.map((p) => p.pid).toSet();
       final savedPids = (saved['sourcePids'] as List?)?.whereType<int>() ?? const <int>[];
+      final savedCommit = parseWire(OutCommit.values, saved['outCommit']);
       state = base.copyWith(
         micUid: mic?.uid,
         headphonesUid: phones?.uid,
@@ -236,7 +248,8 @@ class SetupNotifier extends Notifier<SetupState> {
         myLang: kLanguages.containsKey(saved['myLang']) ? saved['myLang'] as String : null,
         targetLang: kLanguages.containsKey(saved['targetLang']) ? saved['targetLang'] as String : null,
         mode: parseWire(SessionMode.values, saved['mode']),
-        outCommit: parseWire(OutCommit.values, saved['outCommit']),
+        outCommit: savedCommit,
+        outAutoCommit: _automatic(parseWire(OutCommit.values, saved['outAutoCommit'])) ?? _automatic(savedCommit),
         captionFontSize: (saved['captionFontSize'] as num?)?.clamp(12, 40).toDouble(),
         showOriginal: saved['showOriginal'] as bool?,
         showTranslated: saved['showTranslated'] as bool?,
@@ -306,7 +319,17 @@ class SetupNotifier extends Notifier<SetupState> {
   void setMyLang(String v) => state = state.copyWith(myLang: v);
   void setTargetLang(String v) => state = state.copyWith(targetLang: v);
   void setMode(SessionMode v) => state = state.copyWith(mode: v);
-  void setOutCommit(OutCommit v) => state = state.copyWith(outCommit: v);
+
+  /// Sets the outgoing turn mode and saves it at once (the session switch changes it while the setup is locked). An
+  /// automatic mode also becomes the one [setAutomatic] goes back to.
+  void setOutCommit(OutCommit v) {
+    state = state.copyWith(outCommit: v, outAutoCommit: _automatic(v));
+    _persist({'outCommit': v.wire, 'outAutoCommit': state.outAutoCommit.wire});
+    ref.read(sessionProvider.notifier).outCommitChanged(v);
+  }
+
+  /// The session switch: hold to talk, or the last automatic mode.
+  void setAutomatic(bool automatic) => setOutCommit(automatic ? state.outAutoCommit : OutCommit.manual);
   void setGatewayUrl(String v) => state = state.copyWith(gatewayUrl: v);
   void setAccessToken(String v) => state = state.copyWith(accessToken: v);
   void setTranslationModel(String v) => state = state.copyWith(translationModel: v);

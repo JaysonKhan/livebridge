@@ -374,6 +374,7 @@ sealed class BridgeEvent {
           outgoingMuted: m['outgoingMuted'] as bool? ?? false,
           incomingAudioMuted: m['incomingAudioMuted'] as bool? ?? false,
           message: m['message'] as String?,
+          outCommit: parseWire(OutCommit.values, m['outCommit']),
         );
       case 'caption':
         final direction = parseWire(Direction.values, m['direction']);
@@ -438,6 +439,7 @@ final class StateEvent extends BridgeEvent {
     this.outgoingMuted = false,
     this.incomingAudioMuted = false,
     this.message,
+    this.outCommit,
   });
 
   final EngineState state;
@@ -449,6 +451,9 @@ final class StateEvent extends BridgeEvent {
   final bool outgoingMuted;
   final bool incomingAudioMuted;
   final String? message;
+
+  /// The outgoing turn mode in force in the running session; null when no session is configured.
+  final OutCommit? outCommit;
 }
 
 final class CaptionEvent extends BridgeEvent {

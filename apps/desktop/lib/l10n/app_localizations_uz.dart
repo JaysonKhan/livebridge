@@ -595,19 +595,41 @@ class AppLocalizationsUz extends AppLocalizations {
   String get bypassTurnOn => 'Bypassni yoqish';
 
   @override
-  String get pttHintHeld => 'Gapiryapsiz… yuborish uchun qo\'yib yuboring';
-
-  @override
-  String get pttHintReady => 'Gapirish uchun bosib turing (yoki Probelni)';
-
-  @override
-  String get pttHintWaiting => 'Bosib turib gapirish — sessiya tayyor bo\'lganda ishlaydi';
-
-  @override
-  String get pttHintOff => 'Bosib turib gapirish o\'chiq — gaplar avtomatik yuboriladi';
-
-  @override
   String get pttSemantics => 'Bosib turib gapirish. Gapirayotganda bosib turing.';
+
+  @override
+  String get turnModeLabel => 'Chiquvchi nutq rejimi';
+
+  @override
+  String get turnModeHold => 'Bosib turib';
+
+  @override
+  String get turnModeAuto => 'Avtomatik';
+
+  @override
+  String get talkNoSession => 'Sessiya boshlanganda ishlaydi';
+
+  @override
+  String get talkConnecting => 'Ulanmoqda…';
+
+  @override
+  String get talkHoldReady => 'Bosib turing yoki Probel';
+
+  @override
+  String get talkHoldHeld => 'Gapiring… qo\'yib yuborsangiz yuboriladi';
+
+  @override
+  String get talkListening => 'Tinglayapman — pauzada o\'zi yuboradi';
+
+  @override
+  String get talkMuted => 'Mikrofon o\'chiq — hech narsa yuborilmaydi';
+
+  @override
+  String get talkBypass => 'Tarjimasiz — mikrofon to\'g\'ridan-to\'g\'ri qo\'ng\'iroqda';
+
+  @override
+  String get errModeSwitchUnsupported =>
+      'Bu gateway sessiya davomida rejimni almashtira olmaydi. Boshqa rejim uchun sessiyani to\'xtatib, qayta boshlang.';
 
   @override
   String get showOriginal => 'Asl matnni ko\'rsatish';

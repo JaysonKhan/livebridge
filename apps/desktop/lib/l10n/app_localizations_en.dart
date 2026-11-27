@@ -591,19 +591,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bypassTurnOn => 'Turn on bypass';
 
   @override
-  String get pttHintHeld => 'Talking… release to send';
-
-  @override
-  String get pttHintReady => 'Hold to talk (or hold Space)';
-
-  @override
-  String get pttHintWaiting => 'Hold to talk — available when the session is ready';
-
-  @override
-  String get pttHintOff => 'Push-to-talk is off — outgoing turns are automatic';
-
-  @override
   String get pttSemantics => 'Push to talk. Press and hold while you speak.';
+
+  @override
+  String get turnModeLabel => 'Outgoing speech mode';
+
+  @override
+  String get turnModeHold => 'Hold to talk';
+
+  @override
+  String get turnModeAuto => 'Automatic';
+
+  @override
+  String get talkNoSession => 'Works once the session starts';
+
+  @override
+  String get talkConnecting => 'Connecting…';
+
+  @override
+  String get talkHoldReady => 'Press and hold, or hold Space';
+
+  @override
+  String get talkHoldHeld => 'Speak… release to send';
+
+  @override
+  String get talkListening => 'Listening — sends on each pause';
+
+  @override
+  String get talkMuted => 'Microphone muted — nothing is sent';
+
+  @override
+  String get talkBypass => 'No translation — your microphone goes straight to the call';
+
+  @override
+  String get errModeSwitchUnsupported =>
+      'This gateway can\'t change the mode during a session. Stop and start again to use the other mode.';
 
   @override
   String get showOriginal => 'Show original';

@@ -94,6 +94,7 @@ class SessionState {
     this.incomingAudioMuted = false,
     this.message,
     this.pttHeld = false,
+    this.outCommit,
     this.outTurns = const [],
     this.inTurns = const [],
     this.metrics,
@@ -111,6 +112,9 @@ class SessionState {
   final bool incomingAudioMuted;
   final String? message;
   final bool pttHeld;
+
+  /// The outgoing turn mode in force in the running session, as the host last reported it.
+  final OutCommit? outCommit;
   final List<CaptionTurn> outTurns;
   final List<CaptionTurn> inTurns;
   final MetricsEvent? metrics;
@@ -123,6 +127,9 @@ class SessionState {
   /// The engine accepts push-to-talk.
   bool get canPtt => engine == EngineState.ready || engine == EngineState.active;
 
+  /// A press of the talk button would send the microphone: the outgoing direction is ready, not muted, no bypass.
+  bool get canHold => canPtt && outReady && !outgoingMuted && !bypass;
+
   SessionState copyWith({
     EngineState? engine,
     bool? outReady,
@@ -134,6 +141,7 @@ class SessionState {
     bool? incomingAudioMuted,
     Object? message = _keep,
     bool? pttHeld,
+    OutCommit? outCommit,
     List<CaptionTurn>? outTurns,
     List<CaptionTurn>? inTurns,
     Object? metrics = _keep,
@@ -150,6 +158,7 @@ class SessionState {
     incomingAudioMuted: incomingAudioMuted ?? this.incomingAudioMuted,
     message: identical(message, _keep) ? this.message : message as String?,
     pttHeld: pttHeld ?? this.pttHeld,
+    outCommit: outCommit ?? this.outCommit,
     outTurns: outTurns ?? this.outTurns,
     inTurns: inTurns ?? this.inTurns,
     metrics: identical(metrics, _keep) ? this.metrics : metrics as MetricsEvent?,
@@ -168,6 +177,15 @@ class SessionNotifier extends Notifier<SessionState> {
     return const SessionState();
   }
 
+  /// The outgoing turn mode setting changed. The setup is locked during a session, so a change then comes from the
+  /// session switch: the running session takes it at once. Leaving hold to talk while the button is held is a release,
+  /// which the host does itself.
+  void outCommitChanged(OutCommit next) {
+    if (!state.running) return;
+    if (next != OutCommit.manual && state.pttHeld) state = state.copyWith(pttHeld: false);
+    unawaited(guard('setOutCommit', () => _bridge.setOutCommit(next)));
+  }
+
   void _onEvent(BridgeEvent e) {
     switch (e) {
       case final StateEvent s:
@@ -182,6 +200,7 @@ class SessionNotifier extends Notifier<SessionState> {
           incomingAudioMuted: s.incomingAudioMuted,
           message: s.message,
           pttHeld: s.state == EngineState.ready || s.state == EngineState.active ? state.pttHeld : false,
+          outCommit: s.outCommit,
         );
       case final CaptionEvent c:
         state = c.direction == Direction.out
@@ -193,6 +212,11 @@ class SessionNotifier extends Notifier<SessionState> {
         state = state.copyWith(metrics: m);
       case final ErrorEvent err:
         state = err.fatal ? _idleWith(error: err) : state.copyWith(error: err);
+        // An older gateway keeps the mode the session started with; so does the setting.
+        final inForce = state.outCommit;
+        if (err.code == 'mode_switch_unsupported' && inForce != null) {
+          ref.read(setupProvider.notifier).setOutCommit(inForce);
+        }
       case DevicesChangedEvent():
         unawaited(ref.read(setupProvider.notifier).refreshDevices());
       case BalanceEvent():
@@ -250,7 +274,7 @@ class SessionNotifier extends Notifier<SessionState> {
   Future<void> panic() => guard('panic', _bridge.panic);
 
   Future<void> pttDown() async {
-    if (state.pttHeld || !state.canPtt || ref.read(setupProvider).outCommit != OutCommit.manual) return;
+    if (state.pttHeld || !state.canHold || ref.read(setupProvider).outCommit != OutCommit.manual) return;
     state = state.copyWith(pttHeld: true);
     await guard('pttDown', _bridge.pttDown);
   }
@@ -292,9 +316,39 @@ class SessionNotifier extends Notifier<SessionState> {
 
 final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);
 
-/// Push-to-talk works only when the engine is ready/active and the outgoing turn mode is push-to-talk.
+/// Push-to-talk works only when a press would send the microphone and the outgoing turn mode is push-to-talk.
 final pttEnabledProvider = Provider<bool>((ref) {
-  final canPtt = ref.watch(sessionProvider.select((s) => s.canPtt));
+  final canHold = ref.watch(sessionProvider.select((s) => s.canHold));
   final manual = ref.watch(setupProvider.select((s) => s.outCommit == OutCommit.manual));
-  return canPtt && manual;
+  return canHold && manual;
+});
+
+/// What the talk panel shows: whether the microphone is being sent and, when it is not, why.
+enum TalkState {
+  noSession,
+  connecting,
+  holdReady,
+  holdHeld,
+  listening,
+  muted,
+  bypass;
+
+  /// The microphone goes to the gateway.
+  bool get sending => this == holdHeld || this == listening;
+}
+
+final talkStateProvider = Provider<TalkState>((ref) {
+  final (running, stopping, bypass, muted, ready, held) = ref.watch(
+    sessionProvider.select(
+      (s) =>
+          (s.running, s.engine == EngineState.stopping, s.bypass, s.outgoingMuted, s.canPtt && s.outReady, s.pttHeld),
+    ),
+  );
+  final manual = ref.watch(setupProvider.select((s) => s.outCommit == OutCommit.manual));
+  if (!running || stopping) return TalkState.noSession;
+  if (bypass) return TalkState.bypass;
+  if (muted) return TalkState.muted;
+  if (!ready) return TalkState.connecting;
+  if (!manual) return TalkState.listening;
+  return held ? TalkState.holdHeld : TalkState.holdReady;
 });

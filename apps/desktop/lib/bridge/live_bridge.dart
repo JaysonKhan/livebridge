@@ -45,6 +45,9 @@ abstract class LiveBridge {
   Future<void> setOutgoingMuted(bool muted);
   Future<void> setIncomingAudioMuted(bool muted);
   Future<void> setBypass(bool enabled);
+
+  /// Changes the outgoing turn mode of the running session (and of its reconnects); nothing happens without one.
+  Future<void> setOutCommit(OutCommit commit);
   Future<void> panic();
 }
 
@@ -166,6 +169,9 @@ class MethodChannelLiveBridge implements LiveBridge {
 
   @override
   Future<void> setBypass(bool enabled) => _control.invokeMethod<void>('setBypass', {'enabled': enabled});
+
+  @override
+  Future<void> setOutCommit(OutCommit commit) => _control.invokeMethod<void>('setOutCommit', {'commit': commit.wire});
 
   @override
   Future<void> panic() => _control.invokeMethod<void>('panic');

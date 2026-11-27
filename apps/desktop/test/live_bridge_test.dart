@@ -128,5 +128,16 @@ void main() {
       expect(calls.last.method, 'updateAccessToken');
       expect(calls.last.arguments, {'accessToken': 'access-2'});
     });
+
+    test('setOutCommit sends the wire name of the turn mode', () async {
+      final bridge = MethodChannelLiveBridge(control: channel);
+      await bridge.setOutCommit(OutCommit.turnPrediction);
+      await bridge.setOutCommit(OutCommit.manual);
+      expect(calls.map((c) => c.method), ['setOutCommit', 'setOutCommit']);
+      expect(calls.map((c) => c.arguments), [
+        {'commit': 'turn_prediction'},
+        {'commit': 'manual'},
+      ]);
+    });
   });
 }
