@@ -50,7 +50,7 @@ void main() {
     test('one line per entry, capped', () {
       final out = redact('line one\nline two\ttab "quoted" 🎧\r\n');
       expect(out, 'line one line two tab "quoted" 🎧');
-      expect(redact('x' * 20 + ' ' + 'y ' * 400).runes.length, lessThanOrEqualTo(401));
+      expect(redact('${'x' * 20} ${'y ' * 400}').runes.length, lessThanOrEqualTo(401));
     });
   });
 
