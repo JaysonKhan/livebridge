@@ -286,11 +286,25 @@ struct Session {
     text(message);
   }
 
-  /// Start, connect and get ready; then forget all of it.
-  void go(const Json& map) {
+  /// `ready(true, in_ready)` from a gateway that announces `features` in it, a JSON array such as `["turn.mode"]`.
+  void ready_with(const char* features, bool in_ready = true) {
+    const char* in = in_ready ? "true" : "false";
+    char message[600];
+    std::snprintf(message, sizeof(message),
+                  R"({"v":1,"type":"session.ready","session_id":"s1","features":%s,"providers":{"mock":false},)"
+                  R"("directions":{"out":{"enabled":true,"ready":true},"in":{"enabled":%s,"ready":%s}}})",
+                  features, in, in);
+    text(message);
+  }
+
+  /// Start, connect and get ready; then forget all of it. `features`: what the gateway announces in its
+  /// `session.ready` (a JSON array); by default nothing, as gateways did before the member existed.
+  void go(const Json& map, const char* features = nullptr) {
     CHECK(engine.start(map));
     engine.on_transport_open();
-    ready(true, !at(map, {"sourcePids"}).as_array().empty());
+    const bool in_ready = !at(map, {"sourcePids"}).as_array().empty();
+    if (features) ready_with(features, in_ready);
+    else ready(true, in_ready);
     forget();
   }
 
@@ -908,6 +922,237 @@ static void test_push_to_talk_turn() {
   s.mic(kFrame);
   CHECK(same(s.host.sent[3], R"({"v":1,"type":"capture.start","direction":"out","generation":1})"));
   CHECK(s.host.frames.size() == 4 && s.host.frames[3].generation == 1 && s.host.frames[3].sequence == 3);
+}
+
+// ── Switching the turn mode during a session ──
+
+/// The `features` of a gateway that can change a direction's turn mode during a session.
+static const char* const kSwitchable = R"(["turn.mode"])";
+
+static void test_switching_to_an_automatic_turn_mode() {
+  {  // the gateway is told, and the outgoing lane opens as it does when a session starts in that mode
+    Session s;
+    s.go(settings("captions", "manual", false), kSwitchable);
+    s.engine.set_out_commit("vad");
+    CHECK(s.host.sent.size() == 2);
+    CHECK(same(s.host.sent[0], R"({"v":1,"type":"turn.mode","direction":"out","commit":"vad"})"));
+    CHECK(same(s.host.sent[1], R"({"v":1,"type":"capture.start","direction":"out","generation":1})"));
+    CHECK(s.events.size() == 1);
+    CHECK(same(s.events[0],
+               R"({"type":"state","state":"active","outReady":true,"inReady":false,"capturing":true,"mock":false,)"
+               R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+               R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"vad"})"));
+    s.mic(kFrame);
+    CHECK(s.host.frames.size() == 1 && s.host.frames[0].direction == kOut);
+    // The talk button means nothing any more.
+    s.forget();
+    s.engine.ptt_down();
+    s.engine.ptt_up();
+    CHECK(s.events.empty() && s.host.sent.empty());
+
+    // From one automatic mode to the other the lane is open already: only the gateway is told.
+    s.engine.set_out_commit("turn_prediction");
+    CHECK(s.host.sent.size() == 1);
+    CHECK(same(s.host.sent[0], R"({"v":1,"type":"turn.mode","direction":"out","commit":"turn_prediction"})"));
+    CHECK(s.events.size() == 1 && str(s.events[0], "outCommit") == "turn_prediction");
+  }
+  {  // a muted microphone stays shut; the lane opens when it is unmuted
+    Session s;
+    s.go(settings("captions", "manual", false), kSwitchable);
+    s.engine.set_outgoing_muted(true);
+    s.forget();
+    s.engine.set_out_commit("vad");
+    CHECK(s.host.sent.size() == 1 && str(s.host.sent[0], "type") == "turn.mode");
+    CHECK(s.events.size() == 1 && str(s.events[0], "state") == "ready" && !yes(s.events[0], "capturing"));
+    s.engine.set_outgoing_muted(false);
+    CHECK(s.host.sent.size() == 2);
+    CHECK(same(s.host.sent[1], R"({"v":1,"type":"capture.start","direction":"out","generation":2})"));
+  }
+}
+
+static void test_switching_to_push_to_talk() {
+  Session s;
+  s.go(settings("captions", "vad", false), kSwitchable);
+  s.mic(kFrame);
+  CHECK(s.host.frames.size() == 1);
+  s.forget();
+
+  // The lane closes before the gateway is told; what was being said, the gateway commits.
+  s.engine.set_out_commit("manual");
+  CHECK(logged(s.host, {"capture.pause", "turn.mode"}));
+  CHECK(same(s.host.sent[0], R"({"v":1,"type":"capture.pause","direction":"out"})"));
+  CHECK(same(s.host.sent[1], R"({"v":1,"type":"turn.mode","direction":"out","commit":"manual"})"));
+  CHECK(s.events.size() == 1);
+  CHECK(same(s.events[0],
+             R"({"type":"state","state":"ready","outReady":true,"inReady":false,"capturing":false,"mock":false,)"
+             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+             R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})"));
+  s.mic(kFrame);
+  CHECK(s.host.frames.empty());
+
+  // From here the talk button opens the lane.
+  s.engine.ptt_down();
+  s.mic(kFrame);
+  CHECK(same(s.host.sent[2], R"({"v":1,"type":"capture.start","direction":"out","generation":1})"));
+  CHECK(s.host.frames.size() == 1 && s.host.frames[0].sequence == 1);
+}
+
+static void test_switching_while_the_talk_button_is_held() {
+  // Leaving push-to-talk while the button is held is a release: the phrase is committed before the switch.
+  Session s;
+  s.go(settings("bidirectional", "manual", false), kSwitchable);
+  s.engine.ptt_down();
+  s.mic(kFrame);
+  s.forget();
+  s.host.now += 1'000'000;
+  s.engine.set_out_commit("vad");
+  CHECK(logged(s.host, {"turn.commit", "capture.pause", "turn.mode", "capture.start"}));
+  CHECK(same(s.host.sent[0], R"({"v":1,"type":"turn.commit","direction":"out"})"));
+  CHECK(same(s.host.sent[1], R"({"v":1,"type":"capture.pause","direction":"out"})"));
+  CHECK(same(s.host.sent[2], R"({"v":1,"type":"turn.mode","direction":"out","commit":"vad"})"));
+  CHECK(s.events.size() == 1 && yes(s.events[0], "capturing") && str(s.events[0], "outCommit") == "vad");
+  s.engine.ptt_up();  // letting go after the switch means nothing
+  CHECK(s.host.sent.size() == 4 && s.events.size() == 1);
+
+  // The end-to-end clock started at the switch, as it does at a release.
+  s.forget();
+  s.host.now += 350'000;
+  s.synthesized(kOut, 1, 1, 960, true);
+  s.host.sinks[0].consumed = 1;
+  s.engine.tick();
+  CHECK(s.events.size() == 1 && same(s.events[0], R"({"type":"metrics","direction":"out","turnId":1,"e2eMs":350})"));
+}
+
+static void test_a_switch_that_changes_nothing() {
+  Session s;
+  s.go(settings("captions", "manual"), kSwitchable);
+  s.engine.set_out_commit("manual");  // the mode in force
+  s.engine.set_out_commit("push");    // not a turn mode
+  s.engine.set_out_commit("");
+  CHECK(s.events.empty() && s.host.log.empty());
+
+  // With no session nothing happens, and nothing is kept for the next one.
+  Session t;
+  t.engine.set_out_commit("vad");
+  CHECK(t.events.empty() && t.host.log.empty());
+  CHECK(t.engine.start(settings("captions", "manual")));
+  t.engine.on_transport_open();
+  CHECK(at(t.host.sent[0], {"directions", "out", "commit"}).as_string() == "manual");
+}
+
+static void test_a_switch_before_the_gateway_is_ready() {
+  {  // before the connection opens: the configuration carries the new mode, nothing else is needed
+    Session s;
+    CHECK(s.engine.start(settings("captions", "manual", false)));
+    s.engine.set_out_commit("vad");
+    CHECK(s.host.sent.empty() && s.events.size() == 2 && str(s.events[1], "outCommit") == "vad");
+    s.engine.on_transport_open();
+    CHECK(at(s.host.sent[0], {"directions", "out", "commit"}).as_string() == "vad");
+    s.forget();
+    s.ready_with(kSwitchable, false);
+    CHECK(s.host.sent.size() == 1);
+    CHECK(same(s.host.sent[0], R"({"v":1,"type":"capture.start","direction":"out","generation":1})"));
+  }
+  {  // after the configuration went out: the gateway is told once it is ready, before the lane opens
+    Session s;
+    CHECK(s.engine.start(settings("captions", "manual", false)));
+    s.engine.on_transport_open();
+    s.forget();
+    s.engine.set_out_commit("vad");
+    CHECK(s.host.sent.empty() && s.events.size() == 1 && str(s.events[0], "outCommit") == "vad");
+    s.forget();
+    s.ready_with(kSwitchable, false);
+    CHECK(logged(s.host, {"turn.mode", "capture.start"}));
+    CHECK(same(s.host.sent[0], R"({"v":1,"type":"turn.mode","direction":"out","commit":"vad"})"));
+    CHECK(s.events.size() == 1 && str(s.events[0], "state") == "active" && str(s.events[0], "outCommit") == "vad");
+  }
+  {  // there and back before it is ready: the gateway runs that mode already
+    Session s;
+    CHECK(s.engine.start(settings("captions", "manual", false)));
+    s.engine.on_transport_open();
+    s.engine.set_out_commit("vad");
+    s.engine.set_out_commit("manual");
+    s.forget();
+    s.ready_with(kSwitchable, false);
+    CHECK(s.host.sent.empty() && s.events.size() == 1 && str(s.events[0], "state") == "ready");
+  }
+}
+
+static void test_a_gateway_that_cannot_switch_keeps_the_mode() {
+  static const char* const kManualActive =
+      R"({"type":"state","state":"active","outReady":true,"inReady":true,"capturing":true,"mock":false,)"
+      R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+      R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})";
+  static const char* const kUnsupported =
+      R"({"type":"error","code":"mode_switch_unsupported","direction":"out","fatal":false,"message":)"
+      R"("This gateway cannot change the turn mode during a session; stop and start again to use the new mode"})";
+  {  // a running session: first the state shows the mode in force, then the error says why
+    Session s;
+    s.go(settings("captions", "manual"));  // a gateway that announces no features at all
+    s.engine.set_out_commit("vad");
+    CHECK(s.host.log.empty());
+    CHECK(s.events.size() == 3);
+    CHECK(same(s.events[0], kManualActive));
+    CHECK(same(s.events[1], kUnsupported));
+    CHECK(same(s.events[2], kManualActive));
+    // Push-to-talk goes on as before.
+    s.engine.ptt_down();
+    CHECK(s.host.sent.size() == 1 && str(s.host.sent[0], "type") == "capture.start");
+  }
+  {  // an automatic lane stays open
+    Session s;
+    s.go(settings("captions", "vad", false));
+    s.engine.set_out_commit("manual");
+    CHECK(s.host.log.empty() && s.events.size() == 3 && str(s.events[1], "code") == "mode_switch_unsupported");
+    CHECK(str(s.events[0], "outCommit") == "vad" && str(s.events[2], "outCommit") == "vad");
+    s.mic(kFrame);
+    CHECK(s.host.frames.size() == 1);
+  }
+  {  // a switch made before such a gateway was ready is undone before the lane could open
+    Session s;
+    CHECK(s.engine.start(settings("captions", "manual")));
+    s.engine.on_transport_open();
+    s.engine.set_out_commit("vad");
+    s.forget();
+    s.ready_with(R"(["something.else"])");
+    CHECK(s.host.sent.size() == 1);
+    CHECK(same(s.host.sent[0], R"({"v":1,"type":"capture.start","direction":"in","generation":1})"));
+    CHECK(s.events.size() == 3);
+    CHECK(str(s.events[0], "type") == "state" && str(s.events[0], "outCommit") == "manual");
+    CHECK(same(s.events[1], kUnsupported));
+    CHECK(same(s.events[2], kManualActive));
+  }
+}
+
+static void test_the_new_mode_survives_a_reconnect() {
+  Session s;
+  s.go(settings("captions", "manual", false), kSwitchable);
+  s.engine.set_out_commit("vad");
+  s.engine.on_transport_closed("gateway_unreachable", "reset");
+  s.host.now += 500'000;
+  s.engine.tick();
+  s.forget();
+  s.engine.on_transport_open();
+  CHECK(at(s.host.sent[0], {"directions", "out", "commit"}).as_string() == "vad");
+  // The new connection runs the mode from its start: nothing to switch, the lane opens as usual.
+  s.ready_with(kSwitchable, false);
+  CHECK(logged(s.host, {"session.configure", "capture.start"}));
+  CHECK(same(s.host.sent[1], R"({"v":1,"type":"capture.start","direction":"out","generation":2})"));
+
+  // A switch while the connection is down goes out with the next configuration, which even a gateway that cannot
+  // switch during a session follows.
+  s.engine.on_transport_closed("gateway_unreachable", "reset");
+  s.forget();
+  s.engine.set_out_commit("manual");
+  CHECK(s.host.log.empty() && s.events.size() == 1 && str(s.events[0], "outCommit") == "manual");
+  s.host.now += 500'000;
+  s.engine.tick();
+  s.engine.on_transport_open();
+  CHECK(at(s.host.sent[0], {"directions", "out", "commit"}).as_string() == "manual");
+  s.forget();
+  s.ready(true, false);
+  CHECK(s.host.sent.empty() && s.events.size() == 1);
+  CHECK(str(s.events[0], "state") == "ready" && str(s.events[0], "outCommit") == "manual");
 }
 
 // ── Gateway messages -> bridge events ──
@@ -1722,6 +1967,13 @@ int main() {
   test_first_connection_failure_ends_the_session();
   test_ready_reports_state_and_opens_capture();
   test_push_to_talk_turn();
+  test_switching_to_an_automatic_turn_mode();
+  test_switching_to_push_to_talk();
+  test_switching_while_the_talk_button_is_held();
+  test_a_switch_that_changes_nothing();
+  test_a_switch_before_the_gateway_is_ready();
+  test_a_gateway_that_cannot_switch_keeps_the_mode();
+  test_the_new_mode_survives_a_reconnect();
   test_gateway_messages_become_bridge_events();
   test_account_balance_becomes_a_balance_event();
   test_synthesized_speech_is_played_and_reported();

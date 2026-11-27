@@ -196,6 +196,11 @@ class Engine {
   void update_access_token(const std::string& token);
   void ptt_down();
   void ptt_up();
+  /// The outgoing turn mode of the running session and its reconnects: "manual", "vad" or "turn_prediction".
+  /// Anything else, the mode already in force, or no session changes nothing. The gateway is told at once when it
+  /// can be, otherwise as soon as it can; one that cannot switch during a session keeps the mode in force, which a
+  /// `state` event shows before a `mode_switch_unsupported` error.
+  void set_out_commit(const std::string& commit);
   void set_outgoing_muted(bool muted);
   void set_incoming_audio_muted(bool muted);
   /// The physical microphone straight into the virtual microphone, with no server.
@@ -247,6 +252,8 @@ class Engine {
   void release_audio();
   void fence_all();
   void cancel(Direction direction);
+  void release_push_to_talk();
+  void sync_out_commit();
   void open_hands_free_capture_if_needed();
   long long display_turn(Direction direction, long long gateway_turn);
   void capture_frame(Direction direction, const std::uint8_t* pcm);
@@ -266,6 +273,12 @@ class Engine {
   /// `connect` was asked for and `close` has not been yet / that connection is open.
   bool transport_active_ = false;
   bool transport_open_ = false;
+  /// This connection's `session.ready` has arrived, and the `features` it announced.
+  bool session_ready_ = false;
+  std::vector<std::string> gateway_features_;
+  /// The turn mode the gateway's outgoing direction runs on this connection: what `session.configure` or the last
+  /// `turn.mode` said. Absent while there is no connection.
+  std::optional<std::string> gateway_out_commit_;
   bool mic_open_ = false;
   bool source_open_ = false;
 

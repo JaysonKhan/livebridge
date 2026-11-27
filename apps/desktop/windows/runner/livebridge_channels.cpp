@@ -279,6 +279,16 @@ void LiveBridgeChannels::HandleMethodCall(const flutter::MethodCall<EncodableVal
     const bool enabled = Flag(arguments, "enabled");
     host_->Post([enabled](Engine& engine) { engine.set_bypass(enabled); });
     result->Success();
+  } else if (method == "setOutCommit") {
+    const Json* commit = arguments.find("commit");
+    const std::string value = commit != nullptr ? commit->as_string() : std::string();
+    if (value == "manual" || value == "vad" || value == "turn_prediction") {
+      // The running session and its reconnects use it; with no session nothing happens.
+      host_->Post([value](Engine& engine) { engine.set_out_commit(value); });
+      result->Success();
+    } else {
+      result->Error("bad_arguments", "missing or invalid arguments");
+    }
   } else if (method == "startMeters") {
     const Json* microphone = arguments.find("micUid");
     std::vector<int> source_pids;

@@ -237,11 +237,16 @@ void Engine::ptt_down() {
 
 void Engine::ptt_up() {
   if (!config_ || config_->out_commit != "manual" || !ptt_held_) return;
-  ptt_held_ = false;
-  // Frames are sent in order on the same socket, so the commit always follows the last captured frame.
-  send("turn.commit", {{"direction", "out"}});
-  send("capture.pause", {{"direction", "out"}});
-  released_at_us_ = host_.now_us();
+  release_push_to_talk();
+  emit_state();
+}
+
+void Engine::set_out_commit(const std::string& commit) {
+  if (commit != "manual" && commit != "vad" && commit != "turn_prediction") return;
+  if (!config_ || commit == config_->out_commit) return;
+  // Reconnects send it in `session.configure`; the open connection is told by `sync_out_commit`.
+  config_->out_commit = commit;
+  sync_out_commit();
   emit_state();
 }
 
@@ -375,6 +380,10 @@ void Engine::close_transport() {
   if (!transport_active_) return;
   transport_active_ = false;
   transport_open_ = false;
+  // What the gateway announced and runs belongs to that connection.
+  session_ready_ = false;
+  gateway_features_.clear();
+  gateway_out_commit_.reset();
   host_.close();
 }
 
@@ -469,6 +478,42 @@ void Engine::cancel(Direction direction) {
   }
   send("turn.cancel",
        {{"direction", direction_name(direction)}, {"generation", static_cast<long long>(generation_[i])}});
+}
+
+/// The talk button let go: the phrase is committed and the outgoing lane paused.
+void Engine::release_push_to_talk() {
+  ptt_held_ = false;
+  // Frames are sent in order on the same socket, so the commit always follows the last captured frame.
+  send("turn.commit", {{"direction", "out"}});
+  send("capture.pause", {{"direction", "out"}});
+  released_at_us_ = host_.now_us();
+}
+
+/// Tells a ready gateway the session's outgoing turn mode when the mode it runs is a different one. A gateway that
+/// cannot switch during a session keeps its mode, and so does the session.
+void Engine::sync_out_commit() {
+  if (!config_ || !session_ready_ || !gateway_out_commit_ || *gateway_out_commit_ == config_->out_commit) return;
+  if (std::find(gateway_features_.begin(), gateway_features_.end(), "turn.mode") == gateway_features_.end()) {
+    config_->out_commit = *gateway_out_commit_;
+    // The state showing the mode in force comes first, so that the app can go back to it when the error arrives.
+    emit_state();
+    emit_error("mode_switch_unsupported",
+               "This gateway cannot change the turn mode during a session; stop and start again to use the new mode",
+               false, "out");
+    return;
+  }
+  // Leaving push-to-talk while the button is held is a release.
+  if (*gateway_out_commit_ == "manual" && ptt_held_) release_push_to_talk();
+  // Entering push-to-talk closes the hands-free lane; what was being said, the gateway commits.
+  if (config_->out_commit == "manual" && out_capture_open_) {
+    out_capture_open_ = false;
+    send("capture.pause", {{"direction", "out"}});
+  }
+  send("turn.mode", {{"direction", "out"}, {"commit", config_->out_commit}});
+  gateway_out_commit_ = config_->out_commit;
+  open_hands_free_capture_if_needed();
+  if (phase_ == Phase::ready || phase_ == Phase::active)
+    phase_ = in_capture_started_ || out_capture_open_ ? Phase::active : Phase::ready;
 }
 
 /// In the automatic turn modes the outgoing capture window is open whenever it is allowed to be.
@@ -567,6 +612,7 @@ void Engine::on_transport_open() {
   if (!config.in_voice_id.empty()) voices.emplace_back("in", config.in_voice_id);
   if (!voices.empty()) configure.emplace_back("voices", Json(std::move(voices)));
   host_.send_text(Json(std::move(configure)).dump());
+  gateway_out_commit_ = config.out_commit;
 }
 
 void Engine::on_transport_closed(std::string_view code, std::string_view reason) {
@@ -611,12 +657,20 @@ void Engine::received(const Json& message) {
         synth_rate_[slot(each)] = static_cast<int>(rate);
     }
     mock_ = flag(message.find("providers"), "mock");
+    session_ready_ = true;
+    gateway_features_.clear();
+    if (const Json* features = message.find("features")) {
+      for (const Json& feature : features->as_array())
+        if (feature.is_string()) gateway_features_.push_back(feature.as_string());
+    }
     reconnect_attempt_ = 0;
     status_message_.reset();
     if (direction_ready_[1] && !in_capture_started_) {
       in_capture_started_ = true;
       send("capture.start", {{"direction", "in"}, {"generation", static_cast<long long>(generation_[1])}});
     }
+    // A switch the gateway cannot make is undone before the outgoing lane opens in the wrong mode.
+    sync_out_commit();
     open_hands_free_capture_if_needed();
     phase_ = in_capture_started_ || out_capture_open_ ? Phase::active : Phase::ready;
     emit_state();
