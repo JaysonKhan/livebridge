@@ -4,6 +4,13 @@ import 'package:livebridge/state/session_state.dart';
 import 'package:livebridge/state/setup_state.dart';
 
 void main() {
+  test('TelemetryStatus reads the app and OS version', () {
+    final status = TelemetryStatus.fromMap({'appVersion': '1.2.1+4', 'osVersion': 'Windows 11 (build 26100)'});
+    expect(status.appVersion, '1.2.1+4');
+    expect(status.osVersion, 'Windows 11 (build 26100)');
+    expect(TelemetryStatus.fromMap(const {}).appVersion, isNull);
+  });
+
   group('BridgeEvent.fromMap', () {
     test('parses a state event', () {
       final e = BridgeEvent.fromMap({'type': 'state', 'state': 'ready', 'outReady': true, 'mock': true});

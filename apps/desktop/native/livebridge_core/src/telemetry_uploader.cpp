@@ -101,7 +101,9 @@ Json TelemetryUploader::status() const {
   const std::lock_guard<std::mutex> lock(mutex_);
   Json::Object fields{{"enabled", enabled_},
                       {"endpoint", endpoint_},
-                      {"pendingRecords", static_cast<long long>(pending(0).count)}};
+                      {"pendingRecords", static_cast<long long>(pending(0).count)},
+                      {"appVersion", app_version_},
+                      {"osVersion", os_version_}};
   const std::string install_id = store_->get(kInstallIdKey);
   if (!install_id.empty()) fields.emplace_back("installId", install_id);
   const std::string uploaded_at = store_->get(kLastUploadAtKey);

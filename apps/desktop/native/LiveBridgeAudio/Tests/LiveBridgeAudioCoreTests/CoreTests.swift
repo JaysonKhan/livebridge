@@ -654,6 +654,13 @@ final class TelemetryUploaderTests: XCTestCase {
         return accepted
     }
 
+    func testStatusCarriesAppAndOsVersion() {
+        let status = uploader().status()
+        XCTAssertEqual(status["appVersion"] as? String, "1.2.3+4")
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        XCTAssertEqual(status["osVersion"] as? String, "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)")
+    }
+
     func testNothingIsSentUntilTheUserOptsIn() {
         logSession(AnalyticsLog(fileURL: logURL), turns: 2)
         let uploader = uploader()

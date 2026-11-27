@@ -93,7 +93,8 @@ class TelemetryUploader {
   /// Interface language reported with uploads and feedback (`uz`, `ru`, `tr`, `en`); "" leaves it out.
   void set_ui_language(std::string language);
 
-  /// The bridge's `telemetryStatus` map (docs/bridge-contract.md): `enabled`, `endpoint`, `pendingRecords`, and,
+  /// The bridge's `telemetryStatus` map (docs/bridge-contract.md): `enabled`, `endpoint`, `pendingRecords`,
+  /// `appVersion`, `osVersion`, and,
   /// when known, `installId`, `lastUploadAt` (ISO-8601 UTC, whole seconds) and `lastError`.
   Json status() const;
 

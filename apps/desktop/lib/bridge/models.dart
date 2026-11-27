@@ -619,6 +619,8 @@ class TelemetryStatus {
     this.pendingRecords = 0,
     this.lastUploadAt,
     this.lastError,
+    this.appVersion,
+    this.osVersion,
   });
 
   factory TelemetryStatus.fromMap(Map<Object?, Object?> m) => TelemetryStatus(
@@ -628,6 +630,8 @@ class TelemetryStatus {
     pendingRecords: (m['pendingRecords'] as num?)?.toInt() ?? 0,
     lastUploadAt: m['lastUploadAt'] as String?,
     lastError: m['lastError'] as String?,
+    appVersion: m['appVersion'] as String?,
+    osVersion: m['osVersion'] as String?,
   );
 
   final bool enabled;
@@ -636,4 +640,8 @@ class TelemetryStatus {
   final int pendingRecords;
   final String? lastUploadAt;
   final String? lastError;
+
+  /// The app's version (`1.2.0+3`) and the OS (`macOS 26.6.2`), as the statistics report them.
+  final String? appVersion;
+  final String? osVersion;
 }

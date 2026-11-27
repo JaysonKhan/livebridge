@@ -157,6 +157,13 @@ static std::size_t records_in(const Collector::Request& request) {
 
 // ── The Swift TelemetryUploaderTests ──
 
+static void test_status_has_app_and_os_version() {
+  Fixture fixture;
+  TelemetryUploader uploader(fixture.options());
+  CHECK(text_of(uploader.status(), "appVersion") == "1.2.3+4");
+  CHECK(text_of(uploader.status(), "osVersion") == "Windows 11 (build 26100)");
+}
+
 static void test_nothing_is_sent_until_the_user_opts_in() {
   Fixture fixture;
   AnalyticsLog log(fixture.scratch.file);
@@ -347,7 +354,8 @@ static void test_status_endpoint_and_the_kept_install_id() {
     TelemetryUploader uploader(fixture.options(""));
     const Json status = uploader.status();
     CHECK(status.dump() ==
-          R"({"enabled":false,"endpoint":"https://jaysonkhan.com/api/services/v1","pendingRecords":0})");
+          R"json({"enabled":false,"endpoint":"https://jaysonkhan.com/api/services/v1","pendingRecords":0,)json"
+          R"json("appVersion":"1.2.3+4","osVersion":"Windows 11 (build 26100)"})json");
     CHECK(std::string(TelemetryUploader::kDefaultEndpoint) == "https://jaysonkhan.com/api/services/v1");
     uploader.set_enabled(true);
     uploader.set_enabled(false);
@@ -489,6 +497,7 @@ static void test_the_feedback_message_check() {
 }
 
 int main() {
+  test_status_has_app_and_os_version();
   test_nothing_is_sent_until_the_user_opts_in();
   test_uploads_numbers_only_once_and_resumes_where_it_stopped();
   test_mock_sessions_are_never_uploaded();

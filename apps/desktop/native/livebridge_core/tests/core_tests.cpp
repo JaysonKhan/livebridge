@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "check.h"
+#include "livebridge/device_transport.h"
 #include "livebridge/frame_codec.h"
 #include "livebridge/json.h"
 #include "livebridge/ring_buffer.h"
@@ -191,6 +192,17 @@ static void test_json_rejects_malformed_input() {
   CHECK(Json::parse(" \n[ ] ", value) && value.is_array());
 }
 
+// Windows: the driver an audio endpoint hangs off, read from its topology connector.
+static void test_transport_from_connector_id() {
+  CHECK(TransportFromConnectorId("{2}.\\\\?\\BTHENUM#{0000110b-0000-1000-8000-00805f9b34fb}_VID&0001004c") ==
+        "bluetooth");
+  CHECK(TransportFromConnectorId("{2}.\\\\?\\bthhfenum#bthhfpaudio#8&2a1f&0&97#{6994ad04}") == "bluetooth");
+  CHECK(TransportFromConnectorId("{2}.\\\\?\\BTHLEDevice#{0000184e}_Dev_VID") == "bluetooth");
+  CHECK(TransportFromConnectorId("{2}.\\\\?\\USB#VID_046D&PID_0A44&MI_00#7&1b2") == "usb");
+  CHECK(TransportFromConnectorId("{2}.\\\\?\\HDAUDIO#FUNC_01&VEN_10EC&DEV_0257") == "other");
+  CHECK(TransportFromConnectorId("") == "other");
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::printf("usage: core_tests <frames.json>\n");
@@ -203,5 +215,6 @@ int main(int argc, char** argv) {
   test_json_reads_and_writes_protocol_messages();
   test_json_handles_unicode_and_escapes();
   test_json_rejects_malformed_input();
+  test_transport_from_connector_id();
   return livebridge_test::finish();
 }

@@ -14,6 +14,11 @@ public final class TelemetryUploader: @unchecked Sendable {
     public enum FeedbackError: String, Error { case rateLimited = "rate_limited", rejected = "feedback_rejected", failed = "feedback_failed" }
 
     private static let batchSize = 500
+    /// `macOS 26.6.2`: reported with uploads and in `status()`.
+    static let osVersion: String = {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return "macOS \(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+    }()
     private let logURL: URL
     private let endpoint: URL
     private let store: UserDefaults
@@ -56,7 +61,10 @@ public final class TelemetryUploader: @unchecked Sendable {
 
     public func status() -> [String: Any] {
         queue.sync {
-            var status: [String: Any] = ["enabled": enabled, "endpoint": endpoint.absoluteString, "pendingRecords": pending().records.count]
+            var status: [String: Any] = [
+                "enabled": enabled, "endpoint": endpoint.absoluteString, "pendingRecords": pending().records.count,
+                "appVersion": appVersion, "osVersion": Self.osVersion,
+            ]
             if let id = store.string(forKey: Key.installId) { status["installId"] = id }
             if let at = store.string(forKey: Key.lastUploadAt) { status["lastUploadAt"] = at }
             if let lastError { status["lastError"] = lastError }
@@ -130,10 +138,9 @@ public final class TelemetryUploader: @unchecked Sendable {
             return completion(total)
         }
         let count = min(Self.batchSize, records.count)
-        let version = ProcessInfo.processInfo.operatingSystemVersion
         var body: [String: Any] = [
             "app": "livebridge", "schema": 1, "install_id": installId, "app_version": appVersion,
-            "os_version": "macOS \(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
+            "os_version": Self.osVersion,
             "records": Array(records.prefix(count)),
         ]
         if let uiLanguage { body["ui_language"] = uiLanguage }

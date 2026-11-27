@@ -9,6 +9,7 @@
 #include <objbase.h>
 
 #include <audioclient.h>
+#include <devicetopology.h>
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <propidl.h>
@@ -17,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "livebridge/device_transport.h"
 #include "utils.h"
 #include "win_util.h"
 
@@ -33,6 +35,8 @@ struct Device {
   int output_channels = 0;
   double sample_rate = 0;
   bool is_virtual = false;
+  // `virtual`, `bluetooth`, `usb` or `other` (docs/bridge-contract.md `transport`).
+  std::string transport = "other";
   bool is_default_input = false;
   bool is_default_output = false;
 };
@@ -70,6 +74,23 @@ std::string DefaultDeviceId(IMMDeviceEnumerator* enumerator, EDataFlow flow) {
   return DeviceId(device.Get());
 }
 
+// The driver an endpoint hangs off, from the device its topology connector is connected to (Bluetooth, USB);
+// "other" when that cannot be read.
+std::string Transport(IMMDevice* device) {
+  ComPtr<IDeviceTopology> topology;
+  ComPtr<IConnector> connector;
+  LPWSTR connected = nullptr;
+  std::string transport = "other";
+  if (SUCCEEDED(device->Activate(__uuidof(IDeviceTopology), CLSCTX_ALL, nullptr,
+                                 reinterpret_cast<void**>(topology.GetAddressOf()))) &&
+      SUCCEEDED(topology->GetConnector(0, connector.GetAddressOf())) &&
+      SUCCEEDED(connector->GetDeviceIdConnectedTo(&connected)) && connected != nullptr) {
+    transport = livebridge::TransportFromConnectorId(Utf8FromUtf16(connected));
+  }
+  ::CoTaskMemFree(connected);
+  return transport;
+}
+
 // Reads one endpoint. False when it has no id or does not say whether it captures or plays. An endpoint whose mix
 // format cannot be read is still described, with no channels: it exists, it just cannot be used.
 bool Describe(IMMDevice* device, Device& out) {
@@ -95,6 +116,7 @@ bool Describe(IMMDevice* device, Device& out) {
   }
   if (out.name.empty()) out.name = out.uid;
   out.is_virtual = LooksVirtual(out.name);
+  out.transport = out.is_virtual ? "virtual" : Transport(device);
 
   // The format the system mixes this endpoint in: its channel count and sample rate.
   int channels = 0;
@@ -195,7 +217,7 @@ Json ListForBridge() {
     map.emplace_back("inputChannels", device.input_channels);
     map.emplace_back("outputChannels", device.output_channels);
     map.emplace_back("sampleRate", device.sample_rate);
-    map.emplace_back("transport", device.is_virtual ? "virtual" : "other");
+    map.emplace_back("transport", device.transport);
     map.emplace_back("isDefaultInput", device.is_default_input);
     map.emplace_back("isDefaultOutput", device.is_default_output);
     list.push_back(Json(std::move(map)));
