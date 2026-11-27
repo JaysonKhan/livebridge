@@ -54,6 +54,16 @@ export const clientMessage = z.discriminatedUnion("type", [
   z.object({ v, type: z.literal("turn.commit"), direction }),
   /** Cancels everything in flight for the direction and moves it to `generation` (must be greater than the current). */
   z.object({ v, type: z.literal("turn.cancel"), direction, generation: u32 }),
+  /**
+   * The direction commits with this strategy for the rest of the session, reconnects included. The same strategy
+   * again does nothing. Accepted only when `session.ready` lists the `turn.mode` feature.
+   */
+  z.object({
+    v,
+    type: z.literal("turn.mode"),
+    direction,
+    commit: z.enum(COMMIT_STRATEGIES),
+  }),
   z.object({
     v,
     type: z.literal("playback.start"),
@@ -135,6 +145,8 @@ export type ServerMessage =
       };
       directions: { out: DirectionReady; in: DirectionReady };
       max_session_seconds: number;
+      /** Optional messages this gateway accepts, e.g. `turn.mode`. An older gateway sends none. */
+      features: string[];
     }
   | {
       v: 1;

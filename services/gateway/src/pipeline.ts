@@ -4,6 +4,7 @@ import {
   encodeFrame,
   FLAG_END_OF_TURN,
   type AudioFrame,
+  type CommitStrategy,
   type Direction,
   type DirectionConfig,
   type ServerMessage,
@@ -63,6 +64,8 @@ const MAX_RECONNECT_ATTEMPTS = 6;
 const CONGESTION_GRACE_MS = 1_500;
 const CONGESTION_AUDIO_SECONDS = 2;
 const OVERFLOW_WARNING_INTERVAL_MS = 1_000;
+/** A replaced speech-to-text session still delivers what it says for this long, then it is closed. */
+const RETIRE_TIMEOUT_MS = 8_000;
 
 const nowMs = () => performance.now();
 const jitteredBackoff = (attempt: number) =>
@@ -89,10 +92,23 @@ export class DirectionPipeline {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private closed = false;
   private fallbackAnnounced = false;
+  /** The strategy speech-to-text opens with, reconnects included; `turn.mode` changes it. */
+  private commitStrategy: CommitStrategy;
+  /**
+   * Moved on when a speech-to-text session starts opening and on an outage: an open that finishes under an older
+   * value is stale and closed.
+   */
+  private sttEpoch = 0;
+  /** Replaced speech-to-text sessions, until they are closed, and when their last commit was asked for. */
+  private readonly retiring = new Map<
+    StreamingSTT,
+    { commitRequestedAt: number | null; timer: NodeJS.Timeout }
+  >();
 
   constructor(deps: PipelineDeps) {
     this.deps = deps;
     this.translator = deps.factory.translator();
+    this.commitStrategy = deps.config.commit;
   }
 
   get speaks() {
@@ -127,6 +143,14 @@ export class DirectionPipeline {
   commit() {
     this.commitRequestedAt = nowMs();
     this.stt?.commit();
+  }
+
+  /** The direction commits with this strategy from now on. The same strategy again does nothing. */
+  setCommit(commit: CommitStrategy) {
+    if (commit === this.commitStrategy) return;
+    this.commitStrategy = commit;
+    // Not connected right now: the next connect opens with it.
+    if (this.stt) void this.swap();
   }
 
   cancelTo(generation: number): string | null {
@@ -174,10 +198,12 @@ export class DirectionPipeline {
     this.tts?.close();
     this.stt = null;
     this.tts = null;
+    for (const session of this.retiring.keys()) this.dropRetired(session);
   }
 
   private async connect(attempt: number) {
     const { config, factory, direction } = this.deps;
+    const epoch = ++this.sttEpoch;
     let stt: StreamingSTT | null = null;
     try {
       if (config.speak && !this.tts) {
@@ -190,31 +216,86 @@ export class DirectionPipeline {
         if (this.closed) return tts.close();
         this.tts = tts;
       }
-      const session = factory.stt({
-        language: config.source_lang,
-        commit: config.commit,
-        events: {
-          onPartial: (text) => this.onPartial(session, text),
-          onCommitted: (text) => this.onCommitted(session, text),
-          onDisconnected: (error) => {
-            if (this.stt === session) this.providerDown(error, 0);
-          },
-        },
-      });
+      const commit = this.commitStrategy;
+      const session = this.createStt(commit);
       stt = session;
       await session.open();
-      if (this.closed) return session.close();
+      if (this.closed || epoch !== this.sttEpoch) return session.close();
       this.stt = session;
       this.setReady(true);
       this.translator.warm?.(this.deps.translationModel);
+      // `turn.mode` arrived while this session was opening.
+      if (commit !== this.commitStrategy) void this.swap();
     } catch (error) {
       stt?.close();
       this.providerDown(error, attempt);
     }
   }
 
+  private createStt(commit: CommitStrategy): StreamingSTT {
+    const session = this.deps.factory.stt({
+      language: this.deps.config.source_lang,
+      commit,
+      events: {
+        onPartial: (text) => this.onPartial(session, text),
+        onCommitted: (text) => this.onCommitted(session, text),
+        onDisconnected: (error) => {
+          if (this.stt === session) this.providerDown(error, 0);
+          // A replaced session that drops owes nothing more.
+          else this.dropRetired(session);
+        },
+      },
+    });
+    return session;
+  }
+
+  /**
+   * Make before break: the new session opens while the old one keeps taking audio and commits, so nothing said around
+   * the switch is lost and the direction never stops being ready.
+   */
+  private async swap() {
+    const epoch = ++this.sttEpoch;
+    const next = this.createStt(this.commitStrategy);
+    try {
+      await next.open();
+    } catch (error) {
+      next.close();
+      // A newer swap, an outage or a close owns the outcome now.
+      if (this.closed || epoch !== this.sttEpoch) return;
+      return this.providerDown(error, 0);
+    }
+    if (this.closed || epoch !== this.sttEpoch) return next.close();
+    const old = this.stt;
+    this.stt = next;
+    if (old) this.retire(old);
+  }
+
+  /**
+   * Whatever was said under the old strategy becomes a turn: the old session is committed, and every answer it still
+   * gives is delivered until it is closed — after RETIRE_TIMEOUT_MS, or at a cancel. Its answers are not counted: under
+   * `vad` the provider's own end of turn may arrive too, and nothing tells it from the answer to this commit.
+   */
+  private retire(old: StreamingSTT) {
+    this.retiring.set(old, {
+      commitRequestedAt: this.commitRequestedAt,
+      timer: setTimeout(() => this.dropRetired(old), RETIRE_TIMEOUT_MS),
+    });
+    this.commitRequestedAt = null;
+    old.commit();
+  }
+
+  private dropRetired(session: StreamingSTT) {
+    const retired = this.retiring.get(session);
+    if (!retired) return;
+    clearTimeout(retired.timer);
+    this.retiring.delete(session);
+    session.close();
+  }
+
   private providerDown(error: unknown, attempt: number) {
     if (this.closed) return;
+    // A swap still opening is superseded: the reconnect opens with the current strategy.
+    this.sttEpoch++;
     const code = error instanceof ProviderError ? error.code : "unknown";
     const permanent = error instanceof ProviderError && error.permanent;
     this.stt?.close();
@@ -259,6 +340,8 @@ export class DirectionPipeline {
     this.cancel.abort(new Error("cancelled"));
     this.cancel = new AbortController();
     this.stt?.fence();
+    // A replaced session's answers belong to the old generation.
+    for (const session of this.retiring.keys()) this.dropRetired(session);
   }
 
   private onPartial(source: StreamingSTT, text: string) {
@@ -278,13 +361,18 @@ export class DirectionPipeline {
   }
 
   private onCommitted(source: StreamingSTT, raw: string) {
-    if (source !== this.stt) return;
+    let requestedAt: number | null;
+    const retired = this.retiring.get(source);
+    if (retired) {
+      requestedAt = retired.commitRequestedAt;
+      retired.commitRequestedAt = null;
+    } else if (source === this.stt) {
+      requestedAt = this.commitRequestedAt;
+      this.commitRequestedAt = null;
+    } else return;
     const { direction, emit, config } = this.deps;
     const sttCommitMs =
-      this.commitRequestedAt === null
-        ? undefined
-        : Math.round(nowMs() - this.commitRequestedAt);
-    this.commitRequestedAt = null;
+      requestedAt === null ? undefined : Math.round(nowMs() - requestedAt);
     const text = raw.trim();
     if (text) this.deps.onSpeech?.();
     if (!text) {

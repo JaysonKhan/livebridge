@@ -14,10 +14,13 @@ import { SAME_LANGUAGE_MARK, toSpeakable } from "../../services/gateway/src/prom
 import {
   createFakeProviders,
   FAKE_VOICES,
+  type FakeOptions,
 } from "../../services/gateway/src/providers/fake.ts";
 import {
   ProviderError,
   type ProviderFactory,
+  type StreamingSTT,
+  type SttOptions,
 } from "../../services/gateway/src/providers/types.ts";
 import { createSiteClient, type SiteClient } from "../../services/gateway/src/site.ts";
 import {
@@ -866,6 +869,262 @@ test("a raw WebSocket without the upgrade path or token gets no session", async 
     ws.once("error", () => resolve("error"));
   });
   assert.equal(status, 404);
+});
+
+// ---- turn mode: a direction's commit strategy changes during the running session ----
+
+const readiness = (client: TestClient) =>
+  client.messages.flatMap((m) => (m.type === "session.ready" ? [m.directions.out.ready] : []));
+
+/** Fake providers that record the commit strategy of every speech-to-text session, and can fail the next open. */
+function strategyFactory(fake: FakeOptions = {}) {
+  const inner = createFakeProviders({ delayMs: 2, ...fake });
+  const strategies: string[] = [];
+  const control = { failNextOpen: false };
+  const factory: ProviderFactory = {
+    ...inner,
+    stt: (options) => {
+      strategies.push(options.commit);
+      const session = inner.stt(options);
+      if (control.failNextOpen) {
+        control.failNextOpen = false;
+        session.open = async () => {
+          throw new ProviderError("timeout", "fake STT did not start in time");
+        };
+      }
+      return session;
+    },
+  };
+  return { strategies, control, factory };
+}
+
+/** A speech-to-text session the test drives by hand: it opens at once and answers only when told to. */
+class ScriptedSTT implements StreamingSTT {
+  readonly options: SttOptions;
+  commits = 0;
+  closed = false;
+  constructor(options: SttOptions) {
+    this.options = options;
+  }
+  async open() {}
+  sendAudio() {
+    return 0;
+  }
+  commit() {
+    this.commits++;
+  }
+  discardPending() {}
+  fence() {}
+  close() {
+    this.closed = true;
+  }
+  /** A committed transcript, as the provider would send it. */
+  answer(text: string) {
+    this.options.events.onCommitted(text);
+  }
+}
+
+function scriptedFactory() {
+  const sessions: ScriptedSTT[] = [];
+  const factory: ProviderFactory = {
+    ...createFakeProviders({ delayMs: 2 }),
+    stt: (options) => {
+      const session = new ScriptedSTT(options);
+      sessions.push(session);
+      return session;
+    },
+  };
+  return { sessions, factory };
+}
+
+test("session.ready lists the optional messages this gateway accepts", async () => {
+  const { base } = await start();
+  const client = await TestClient.connect(base);
+  const ready = await client.configure();
+  assert.deepEqual(ready.features, ["turn.mode"]);
+});
+
+test("turn.mode before session.ready or for a disabled direction is bad_state", async () => {
+  const { base } = await start();
+  const client = await TestClient.connect(base);
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.waitFor(
+    (c) => errors(c).some((e) => e.code === "bad_state" && e.message === "turn.mode before session.ready"),
+    "bad_state before session.ready",
+  );
+  await client.configure({ in: { enabled: false } });
+  client.send({ v: 1, type: "turn.mode", direction: "in", commit: "manual" });
+  await client.waitFor(
+    (c) => errors(c).some((e) => e.code === "bad_state" && e.message === "direction in is not enabled"),
+    "bad_state for a disabled direction",
+  );
+});
+
+test("turn.mode manual -> vad: afterwards a pause ends the turn without turn.commit, and the direction stays ready", async () => {
+  const { base, logLines } = await start({ fake: { transcripts: ["after the switch"] } });
+  const client = await TestClient.connect(base);
+  const ready = await client.configure({ in: { enabled: false } });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.sync();
+  await sleep(30);
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  const next = client.sendAudio("out", 1, speech(600));
+  client.sendAudio("out", 1, silence(400), next);
+  const final = await client.message("caption.final");
+  assert.deepEqual([final.direction, final.text], ["out", "after the switch"]);
+  await client.message("metrics");
+  assert.deepEqual(errors(client), []);
+  // Make before break: readiness never changed, so it was never announced again.
+  assert.deepEqual(readiness(client), [true]);
+  const switched = logLines.map((line) => JSON.parse(line)).find((l) => l.event === "turn.mode");
+  assert.deepEqual(
+    [switched?.session, switched?.direction, switched?.commit],
+    [ready.session_id, "out", "vad"],
+  );
+});
+
+test("turn.mode vad -> manual: afterwards speech waits for turn.commit, however long the pause", async () => {
+  const { base } = await start({ fake: { transcripts: ["held until released"] } });
+  const client = await TestClient.connect(base);
+  await client.configure({ out: { enabled: false } });
+  client.send({ v: 1, type: "turn.mode", direction: "in", commit: "manual" });
+  await client.sync();
+  await sleep(30);
+  client.send({ v: 1, type: "capture.start", direction: "in", generation: 1 });
+  let next = client.sendAudio("in", 1, speech(600));
+  next = client.sendAudio("in", 1, silence(600), next);
+  await client.sync();
+  await sleep(60);
+  assert.equal(client.messages.filter((m) => m.type === "caption.final").length, 0);
+  client.send({ v: 1, type: "turn.commit", direction: "in" });
+  const final = await client.message("caption.final");
+  assert.deepEqual([final.direction, final.text], ["in", "held until released"]);
+  await client.message("metrics");
+  assert.deepEqual(errors(client), []);
+});
+
+test("turn.mode: speech under the old strategy, audio sent while the new session opens included, still becomes one turn", async () => {
+  const { base } = await start({ fake: { delayMs: 40 } });
+  const client = await TestClient.connect(base);
+  await client.configure({ in: { enabled: false } });
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  const next = client.sendAudio("out", 1, speech(300));
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  // Sent while the new speech-to-text session is still opening: the old one still takes it.
+  client.sendAudio("out", 1, speech(300), next);
+  const final = await client.message("caption.final");
+  assert.equal(final.text, "fake transcript 1 (600 ms)");
+  assert.equal((await client.message("translation.final")).text, "(uz→en) fake transcript 1 (600 ms)");
+  await client.message("metrics");
+  await sleep(150);
+  // The replaced session answered once and was closed.
+  assert.equal(client.messages.filter((m) => m.type === "caption.final").length, 1);
+  assert.deepEqual(errors(client), []);
+});
+
+test("turn.mode with the strategy already in use opens no speech-to-text session; another strategy opens exactly one", async () => {
+  const { strategies, factory } = strategyFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure();
+  assert.equal(strategies.length, 2);
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "manual" });
+  client.send({ v: 1, type: "turn.mode", direction: "in", commit: "vad" });
+  await client.sync();
+  await sleep(30);
+  assert.equal(strategies.length, 2);
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "turn_prediction" });
+  await client.sync();
+  await sleep(30);
+  assert.deepEqual(strategies.slice(2), ["turn_prediction"]);
+  assert.deepEqual(errors(client), []);
+});
+
+test("turn.mode then turn.cancel: the replaced session's late transcript is never shown, translated or spoken", async () => {
+  const { sessions, factory } = scriptedFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ in: { enabled: false } });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.sync();
+  const old = sessions[0]!;
+  // Replaced: asked to commit what was said under the old strategy, and still open for the answer.
+  assert.equal(sessions.length, 2);
+  assert.deepEqual([old.commits, old.closed], [1, false]);
+  client.send({ v: 1, type: "turn.cancel", direction: "out", generation: 2 });
+  await client.sync();
+  assert.equal(old.closed, true);
+  old.answer("said before the cancel");
+  await sleep(30);
+  assert.deepEqual(
+    client.messages.filter((m) => m.type === "caption.final" || m.type === "translation.final"),
+    [],
+  );
+  assert.equal(client.frames.length, 0);
+});
+
+test("turn.cancel while the new session opens: nothing said before it is delivered, and the new strategy takes over", async () => {
+  const { strategies, factory } = strategyFactory({ delayMs: 40, transcripts: ["after the cancel"] });
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ in: { enabled: false } });
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(600));
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  client.send({ v: 1, type: "turn.cancel", direction: "out", generation: 2 });
+  await sleep(150);
+  assert.deepEqual(client.messages.filter((m) => m.type === "caption.final"), []);
+  assert.deepEqual(strategies, ["manual", "vad"]);
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 2 });
+  const next = client.sendAudio("out", 2, speech(600));
+  client.sendAudio("out", 2, silence(400), next);
+  const final = await client.message("caption.final");
+  assert.deepEqual([final.generation, final.text], [2, "after the cancel"]);
+});
+
+test("turn.mode: a replaced session delivers every answer it still gives, in whatever order, until a cancel closes it", async () => {
+  const { sessions, factory } = scriptedFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ in: { enabled: false } });
+  // Released (its commit still unanswered), then switched.
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.send({ v: 1, type: "turn.commit", direction: "out" });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.sync();
+  const old = sessions[0]!;
+  assert.equal(old.commits, 2);
+  // The switch's own commit had nothing left to finalise and is answered first.
+  old.answer("");
+  old.answer("the released phrase");
+  const final = await client.message("caption.final");
+  assert.equal(final.text, "the released phrase");
+  await client.message("metrics");
+  // An answer the provider sends late (its own end of turn, say) is still delivered.
+  old.answer("a late end of turn");
+  const late = await client.message("caption.final", (m) => m.text === "a late end of turn");
+  assert.equal(late.turn_id, final.turn_id + 1);
+  assert.equal(old.closed, false);
+  client.send({ v: 1, type: "turn.cancel", direction: "out", generation: 2 });
+  await client.sync();
+  assert.equal(old.closed, true);
+});
+
+test("turn.mode: when the new session cannot open, the direction goes through provider-down and reconnects with the new strategy", async () => {
+  const { strategies, control, factory } = strategyFactory();
+  const { base } = await start({ factory });
+  const client = await TestClient.connect(base);
+  await client.configure({ in: { enabled: false } });
+  control.failNextOpen = true;
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  await client.waitFor((c) => readiness(c).join() === "true,false,true", "ready -> not ready -> ready");
+  assert.ok(errors(client).some((e) => e.code === "provider_unavailable" && e.direction === "out" && !e.fatal));
+  assert.deepEqual(strategies, ["manual", "vad", "vad"]);
+  // The reconnected session ends turns by itself.
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  const next = client.sendAudio("out", 1, speech(600));
+  client.sendAudio("out", 1, silence(400), next);
+  await client.message("caption.final");
 });
 
 // ---- session modes: static token, account (authorized by the owner's site), own provider keys ----

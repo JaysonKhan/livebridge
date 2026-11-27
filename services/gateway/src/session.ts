@@ -200,6 +200,14 @@ export class Session {
       case "turn.cancel":
         problem = pipeline.cancelTo(message.generation);
         break;
+      case "turn.mode":
+        this.deps.log.info("turn.mode", {
+          session: this.deps.id,
+          direction: message.direction,
+          commit: message.commit,
+        });
+        pipeline.setCommit(message.commit);
+        break;
       case "playback.start":
       case "playback.end":
         // Client-side observation, distinct from provider completion: logged, and the end of playback bounds how
@@ -307,6 +315,7 @@ export class Session {
       providers: { ...factory.names, mock: factory.mock },
       directions: { out: describe("out"), in: describe("in") },
       max_session_seconds: config.MAX_SESSION_MINUTES * 60,
+      features: ["turn.mode"],
     });
   }
 

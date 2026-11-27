@@ -161,6 +161,21 @@ test("malformed control messages are rejected, not thrown", () => {
   });
 });
 
+test("turn.mode carries a direction and one of the commit strategies", () => {
+  for (const commit of ["manual", "vad", "turn_prediction"]) {
+    const raw = JSON.stringify({ v: 1, type: "turn.mode", direction: "out", commit });
+    assert.deepEqual(parseClientMessage(raw), { v: 1, type: "turn.mode", direction: "out", commit });
+  }
+  for (const raw of [
+    '{"v":1,"type":"turn.mode","direction":"out","commit":"auto"}',
+    '{"v":1,"type":"turn.mode","direction":"out"}',
+    '{"v":1,"type":"turn.mode","commit":"vad"}',
+    '{"v":1,"type":"turn.mode","direction":"sideways","commit":"vad"}',
+  ]) {
+    assert.ok("error" in parseClientMessage(raw), raw);
+  }
+});
+
 test("session request: no body is the static-token mode, the others carry a mode", () => {
   const el = "e".repeat(32);
   const gem = "g".repeat(39);
