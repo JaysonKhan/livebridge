@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/labels.dart';
+import '../state/connection_state.dart';
 import '../state/providers.dart';
 import 'adaptive/labeled_field.dart';
 import 'theme/tokens.dart';
@@ -24,7 +25,8 @@ class _FeedbackDialog extends ConsumerStatefulWidget {
 
 class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
   final _message = TextEditingController();
-  final _email = TextEditingController();
+  // Signed in with an account: its e-mail, which the person may change or remove.
+  late final _email = TextEditingController(text: ref.read(connectionProvider).accountEmail ?? '');
   int? _rating;
   bool _sending = false;
   String? _error;

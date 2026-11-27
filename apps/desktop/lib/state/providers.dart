@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../bridge/bug_report_client.dart';
 import '../bridge/live_bridge.dart';
 import '../bridge/models.dart';
 import '../bridge/voices_client.dart';
@@ -29,6 +30,14 @@ final delayProvider = Provider<Future<void> Function(Duration)>((ref) => Future<
 /// The session languages' names in one interface language (code -> name), from the system's locale data.
 final languageNamesProvider = FutureProvider.family<Map<String, String>, String>(
   (ref, locale) => ref.watch(bridgeProvider).languageNames(locale),
+);
+
+/// Sends problem reports to the developer's site. Tests override this with a fake.
+final bugReportClientProvider = Provider<BugReportClient>(
+  (ref) => HttpBugReportClient(
+    onFailure: (path, status, code) =>
+        ref.read(diagnosticLogProvider).add('http', 'site $path → ${status ?? '-'} $code'),
+  ),
 );
 
 /// Reads the gateway's voice list. Tests override this with a fake.

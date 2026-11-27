@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/labels.dart';
 import '../state/connection_state.dart';
 import '../state/setup_state.dart';
+import 'bug_report_dialog.dart';
 import 'adaptive/labeled_field.dart';
 import 'adaptive/platform_expander.dart';
 import 'adaptive/platform_header.dart';
@@ -226,7 +227,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Scaffold(
       body: Column(
         children: [
-          const PlatformHeader(trailing: LanguagePicker()),
+          const PlatformHeader(
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [LanguagePicker(), SizedBox(width: 4), ReportProblemButton()],
+            ),
+          ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(

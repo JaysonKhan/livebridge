@@ -14,6 +14,7 @@ import '../state/setup_state.dart';
 import 'account_chip.dart';
 import 'adaptive/platform_header.dart';
 import 'banners.dart';
+import 'bug_report_dialog.dart';
 import 'consent_dialog.dart';
 import 'language_picker.dart';
 import 'session_panel.dart';
@@ -117,7 +118,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const PlatformHeader(
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [AccountChip(), SizedBox(width: 8), LanguagePicker()],
+                children: [
+                  AccountChip(),
+                  SizedBox(width: 8),
+                  LanguagePicker(),
+                  SizedBox(width: 4),
+                  ReportProblemButton(),
+                ],
               ),
             ),
             if (bypass) const BypassBanner(),

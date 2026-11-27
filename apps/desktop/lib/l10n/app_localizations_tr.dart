@@ -1123,4 +1123,36 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get connectionAccount => 'Hesabınız';
+
+  @override
+  String get close => 'Kapat';
+
+  @override
+  String get reportButton => 'Sorun bildir';
+
+  @override
+  String get reportNote =>
+      'Neyin yanlış gittiğini yazın. Rapor geliştiriciye gider; e-posta yalnızca size yanıt vermek için kullanılır.';
+
+  @override
+  String get reportMessageLabel => 'Ne oldu?';
+
+  @override
+  String get reportIncludeLog => 'Tanılama günlüğünü ekle';
+
+  @override
+  String get reportIncludeLogNote =>
+      'Uygulama açıldığından beri ayarlar, cihazlar, hatalar ve süreler. Söylenenler, anahtarlar ve belirteçler asla eklenmez.';
+
+  @override
+  String get reportShowLog => 'Gönderilecekleri göster';
+
+  @override
+  String get reportPreviewTitle => 'Gönderilecekler';
+
+  @override
+  String get reportSent => 'Rapor gönderildi. Teşekkürler!';
+
+  @override
+  String get reportFailed => 'Rapor gönderilemedi. Bağlantıyı kontrol edip tekrar deneyin.';
 }

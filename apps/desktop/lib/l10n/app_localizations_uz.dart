@@ -1123,4 +1123,36 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get connectionAccount => 'Hisobingiz';
+
+  @override
+  String get close => 'Yopish';
+
+  @override
+  String get reportButton => 'Muammo haqida xabar berish';
+
+  @override
+  String get reportNote =>
+      'Nima noto\'g\'ri ishlaganini yozing. Xabar dasturchiga boradi; e-pochta faqat sizga javob berish uchun ishlatiladi.';
+
+  @override
+  String get reportMessageLabel => 'Nima bo\'ldi?';
+
+  @override
+  String get reportIncludeLog => 'Diagnostika jurnalini qo\'shish';
+
+  @override
+  String get reportIncludeLogNote =>
+      'Ilova ishga tushgandan beri sozlamalar, qurilmalar, xatolar va vaqtlar. Aytilgan gaplar, kalitlar va tokenlar hech qachon kirmaydi.';
+
+  @override
+  String get reportShowLog => 'Nima yuborilishini ko\'rish';
+
+  @override
+  String get reportPreviewTitle => 'Nima yuboriladi';
+
+  @override
+  String get reportSent => 'Xabar yuborildi. Rahmat!';
+
+  @override
+  String get reportFailed => 'Xabar yuborilmadi. Internetni tekshirib, qayta urinib ko\'ring.';
 }

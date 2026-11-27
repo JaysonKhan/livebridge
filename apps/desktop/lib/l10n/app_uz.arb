@@ -348,5 +348,15 @@
   "bannerIdleTimeout": "Seans 10 daqiqa gapirilmagani uchun tugadi.",
   "bannerSessionReplaced": "Seans boshqa qurilmada davom ettirildi.",
   "bannerSessionLimit": "Xizmat band. Bir daqiqadan so'ng qayta urinib ko'ring.",
-  "connectionAccount": "Hisobingiz"
+  "connectionAccount": "Hisobingiz",
+  "close": "Yopish",
+  "reportButton": "Muammo haqida xabar berish",
+  "reportNote": "Nima noto'g'ri ishlaganini yozing. Xabar dasturchiga boradi; e-pochta faqat sizga javob berish uchun ishlatiladi.",
+  "reportMessageLabel": "Nima bo'ldi?",
+  "reportIncludeLog": "Diagnostika jurnalini qo'shish",
+  "reportIncludeLogNote": "Ilova ishga tushgandan beri sozlamalar, qurilmalar, xatolar va vaqtlar. Aytilgan gaplar, kalitlar va tokenlar hech qachon kirmaydi.",
+  "reportShowLog": "Nima yuborilishini ko'rish",
+  "reportPreviewTitle": "Nima yuboriladi",
+  "reportSent": "Xabar yuborildi. Rahmat!",
+  "reportFailed": "Xabar yuborilmadi. Internetni tekshirib, qayta urinib ko'ring."
 }

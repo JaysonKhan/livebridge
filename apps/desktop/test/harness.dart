@@ -12,6 +12,7 @@ import 'package:livebridge/state/setup_state.dart';
 import 'package:livebridge/ui/app.dart';
 
 import 'fake_account_client.dart';
+import 'fake_bug_report_client.dart';
 import 'fake_live_bridge.dart';
 import 'fake_sample_player.dart';
 import 'fake_voices_client.dart';
@@ -22,6 +23,7 @@ final en = lookupAppLocalizations(const Locale('en'));
 late FakeLiveBridge fake;
 late FakeVoicesClient fakeVoices;
 late FakeSamplePlayer fakeSamples;
+late FakeBugReportClient fakeReports;
 late WidgetTester tt;
 
 /// [forceLocale] pins the UI language (English by default so the assertions stay readable); pass null to let
@@ -48,6 +50,7 @@ Future<ProviderContainer> pumpApp(
   }
   fakeVoices = voices ?? FakeVoicesClient();
   fakeSamples = FakeSamplePlayer();
+  fakeReports = FakeBugReportClient();
   // Tall enough that the whole (lazy) setup list is built; the test font is much wider than a real one.
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -63,6 +66,7 @@ Future<ProviderContainer> pumpApp(
         samplePlayerProvider.overrideWithValue(fakeSamples),
         // Nor the site or a browser.
         accountClientProvider.overrideWithValue(site ?? FakeAccountClient()),
+        bugReportClientProvider.overrideWithValue(fakeReports),
         urlOpenerProvider.overrideWithValue(opener ?? (url) async => true),
         if (platform != null) hostPlatformProvider.overrideWithValue(platform),
         ...overrides,

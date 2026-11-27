@@ -348,5 +348,15 @@
   "bannerIdleTimeout": "Oturum, 10 dakika konuşma olmadığı için sona erdi.",
   "bannerSessionReplaced": "Oturum başka bir cihazda devam ettirildi.",
   "bannerSessionLimit": "Hizmet meşgul. Bir dakika sonra tekrar deneyin.",
-  "connectionAccount": "Hesabınız"
+  "connectionAccount": "Hesabınız",
+  "close": "Kapat",
+  "reportButton": "Sorun bildir",
+  "reportNote": "Neyin yanlış gittiğini yazın. Rapor geliştiriciye gider; e-posta yalnızca size yanıt vermek için kullanılır.",
+  "reportMessageLabel": "Ne oldu?",
+  "reportIncludeLog": "Tanılama günlüğünü ekle",
+  "reportIncludeLogNote": "Uygulama açıldığından beri ayarlar, cihazlar, hatalar ve süreler. Söylenenler, anahtarlar ve belirteçler asla eklenmez.",
+  "reportShowLog": "Gönderilecekleri göster",
+  "reportPreviewTitle": "Gönderilecekler",
+  "reportSent": "Rapor gönderildi. Teşekkürler!",
+  "reportFailed": "Rapor gönderilemedi. Bağlantıyı kontrol edip tekrar deneyin."
 }

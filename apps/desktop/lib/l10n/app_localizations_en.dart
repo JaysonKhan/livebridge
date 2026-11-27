@@ -1117,4 +1117,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectionAccount => 'Your account';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get reportButton => 'Report a problem';
+
+  @override
+  String get reportNote =>
+      'Tell us what went wrong. The report goes to the developer; the e-mail is only used to reply to you.';
+
+  @override
+  String get reportMessageLabel => 'What happened?';
+
+  @override
+  String get reportIncludeLog => 'Include the diagnostic log';
+
+  @override
+  String get reportIncludeLogNote =>
+      'Settings, devices, errors and timings since the app started. Never what was said, keys or tokens.';
+
+  @override
+  String get reportShowLog => 'Show what will be sent';
+
+  @override
+  String get reportPreviewTitle => 'What will be sent';
+
+  @override
+  String get reportSent => 'Report sent. Thank you!';
+
+  @override
+  String get reportFailed => 'The report was not sent. Check the connection and try again.';
 }

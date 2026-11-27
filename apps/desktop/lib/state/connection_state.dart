@@ -140,6 +140,12 @@ class ConnectionState {
   /// A Start is getting what it needs (an account's token can take a refresh); Start is off meanwhile.
   final bool startPending;
 
+  /// The signed-in account's e-mail, which the feedback and report forms start with; null in the other modes.
+  String? get accountEmail {
+    final email = mode == ConnectionMode.account ? account?.email.trim() : null;
+    return email == null || email.isEmpty ? null : email;
+  }
+
   /// About how many minutes the balance lasts in [mode]; null when the balance or the rates are unknown.
   int? minutesLeft(SessionMode mode) {
     final a = account;

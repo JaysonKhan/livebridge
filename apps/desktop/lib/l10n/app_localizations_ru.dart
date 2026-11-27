@@ -1120,4 +1120,36 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get connectionAccount => 'Ваш аккаунт';
+
+  @override
+  String get close => 'Закрыть';
+
+  @override
+  String get reportButton => 'Сообщить о проблеме';
+
+  @override
+  String get reportNote =>
+      'Опишите, что пошло не так. Сообщение получит разработчик; e-mail нужен только для ответа вам.';
+
+  @override
+  String get reportMessageLabel => 'Что произошло?';
+
+  @override
+  String get reportIncludeLog => 'Приложить журнал диагностики';
+
+  @override
+  String get reportIncludeLogNote =>
+      'Настройки, устройства, ошибки и время с запуска приложения. Никогда — сказанное, ключи и токены.';
+
+  @override
+  String get reportShowLog => 'Показать, что будет отправлено';
+
+  @override
+  String get reportPreviewTitle => 'Что будет отправлено';
+
+  @override
+  String get reportSent => 'Сообщение отправлено. Спасибо!';
+
+  @override
+  String get reportFailed => 'Сообщение не отправлено. Проверьте подключение и попробуйте снова.';
 }

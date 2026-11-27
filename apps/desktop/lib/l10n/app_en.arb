@@ -649,5 +649,15 @@
   "bannerIdleTimeout": "The session ended after 10 minutes without speech.",
   "bannerSessionReplaced": "The session continued on another device.",
   "bannerSessionLimit": "The service is busy. Try again in a minute.",
-  "connectionAccount": "Your account"
+  "connectionAccount": "Your account",
+  "close": "Close",
+  "reportButton": "Report a problem",
+  "reportNote": "Tell us what went wrong. The report goes to the developer; the e-mail is only used to reply to you.",
+  "reportMessageLabel": "What happened?",
+  "reportIncludeLog": "Include the diagnostic log",
+  "reportIncludeLogNote": "Settings, devices, errors and timings since the app started. Never what was said, keys or tokens.",
+  "reportShowLog": "Show what will be sent",
+  "reportPreviewTitle": "What will be sent",
+  "reportSent": "Report sent. Thank you!",
+  "reportFailed": "The report was not sent. Check the connection and try again."
 }

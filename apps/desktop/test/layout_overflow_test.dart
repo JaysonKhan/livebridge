@@ -10,6 +10,7 @@ import 'package:livebridge/state/host_platform.dart';
 import 'package:livebridge/state/providers.dart';
 import 'package:livebridge/state/setup_state.dart';
 import 'package:livebridge/bridge/account_client.dart';
+import 'package:livebridge/bridge/bug_report_client.dart';
 import 'package:livebridge/ui/google_button.dart';
 import 'package:livebridge/ui/home_screen.dart';
 import 'package:livebridge/ui/session_panel.dart';
@@ -254,6 +255,42 @@ void main() {
 
   /// The signed-in main screen at the smallest window (980×680): the header chip with its menu, the top-up sheet with
   /// its longest sentences, every banner with its button, and the keys and gateway chips. Nothing may overflow.
+  /// The header with the bug icon beside a large balance, and the report dialog filled in, failing, and with the
+  /// preview open; then the same dialog from the onboarding.
+  Future<void> exerciseReport(WidgetTester tester, HostPlatform platform, String code) async {
+    final site = FakeAccountClient()..meAnswer = FakeAccountClient.info(123456789);
+    final bridge = FakeLiveBridge()
+      ..settings = {'connectionMode': 'account', 'accountRefreshToken': 'refresh-0'}
+      ..telemetry = const TelemetryStatus(enabled: true, appVersion: '1.2.1+4', osVersion: 'macOS 26.6.2');
+    await pumpApp(
+      tester,
+      bridge: bridge,
+      size: const Size(980, 680),
+      forceLocale: Locale(code),
+      platform: platform,
+      site: site,
+      overrides: [delayProvider.overrideWithValue((_) => Completer<void>().future)],
+    );
+    final l = lookupAppLocalizations(Locale(code));
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('report-problem')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('report-message')), 'w' * 1990);
+    await tester.pump();
+    fakeReports.error = const BugReportException('network');
+    await tester.tap(find.byKey(const Key('report-send')));
+    await tester.pumpAndSettle();
+    expect(find.text(l.reportFailed), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    // The dialog scrolls when the window is small.
+    await tester.ensureVisible(find.byKey(const Key('report-preview')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('report-preview')));
+    await tester.pumpAndSettle();
+    expect(find.text(l.reportPreviewTitle), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }
+
   Future<void> exerciseAccount(WidgetTester tester, HostPlatform platform, String code) async {
     final site = FakeAccountClient()
       ..meAnswer = FakeAccountClient.info(123456789)
@@ -338,6 +375,9 @@ void main() {
 
   for (final platform in HostPlatform.values) {
     for (final code in ['uz', 'ru', 'tr', 'en']) {
+      testWidgets('${platform.name} / $code: the bug icon and the report dialog fit 980×680', (tester) async {
+        await exerciseReport(tester, platform, code);
+      });
       testWidgets('${platform.name} / $code: the account screen, menu, sheet and banners fit 980×680', (tester) async {
         await exerciseAccount(tester, platform, code);
       });

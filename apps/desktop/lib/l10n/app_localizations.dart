@@ -2103,6 +2103,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your account'**
   String get connectionAccount;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @reportButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a problem'**
+  String get reportButton;
+
+  /// No description provided for @reportNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us what went wrong. The report goes to the developer; the e-mail is only used to reply to you.'**
+  String get reportNote;
+
+  /// No description provided for @reportMessageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened?'**
+  String get reportMessageLabel;
+
+  /// No description provided for @reportIncludeLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Include the diagnostic log'**
+  String get reportIncludeLog;
+
+  /// No description provided for @reportIncludeLogNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings, devices, errors and timings since the app started. Never what was said, keys or tokens.'**
+  String get reportIncludeLogNote;
+
+  /// No description provided for @reportShowLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Show what will be sent'**
+  String get reportShowLog;
+
+  /// No description provided for @reportPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What will be sent'**
+  String get reportPreviewTitle;
+
+  /// No description provided for @reportSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Report sent. Thank you!'**
+  String get reportSent;
+
+  /// No description provided for @reportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The report was not sent. Check the connection and try again.'**
+  String get reportFailed;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
