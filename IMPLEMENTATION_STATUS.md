@@ -58,8 +58,8 @@ the balance fell (19 021 → 18 652 units); Top up opened the checkout page; sig
 | "Report a problem" (bug icon on the main screen and the onboarding; description, e-mail, log on by default with a preview) | done; account e-mail prefilled in it and in feedback |
 | Statistics sharing on by default (an earlier "off" kept) | done in the app and both hosts; docs say so |
 | Windows: Bluetooth / USB endpoints told apart | done (topology connector); compiled only by the Windows workflow |
-| Site endpoint `POST /api/services/v1/bug-reports/`, admin inbox, Telegram note with the log file | done on the site's branch; **not deployed** |
-| Real report from the app reaching the site and the admin group | waits for the site deploy |
+| Site endpoint `POST /api/services/v1/bug-reports/`, admin inbox, Telegram note with the log file | **deployed 2026-11-27** with the site's `./deploy.sh` (migration applied, health 200) |
+| Real report from the app reaching the site and the admin group | **done 2026-11-27**: the real app (this Mac, ephemeral settings) sent one through the bug icon; the site stored it (version, OS, platform, devices, log) and the admin-group note was delivered |
 
 ## Environment (M0)
 
