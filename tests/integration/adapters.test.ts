@@ -1209,6 +1209,21 @@ test("STT: a transcript still owed for a commit sent before a fence is never del
   assert.deepEqual(events.disconnects, []);
 });
 
+test("STT: a commit with nothing captured after a fence never stands for a transcript owed from before it", async () => {
+  const mock = await eleven({ transcripts: ["cancelled turn"] });
+  const { stt, events } = sttAdapter(mock.base);
+  await stt.open();
+  speak(stt, 400);
+  stt.commit();
+  // The provider has not answered yet.
+  stt.fence();
+  // Nothing captured since: answered at once with nothing, which must not use up the drop owed for the old turn.
+  stt.commit();
+  await until(() => mock.stt.chunks.some((c) => c.commit), "the old turn's commit");
+  await sleep(150);
+  assert.deepEqual(events.committed, [""]);
+});
+
 test("STT: audio sent before a fence but never committed is committed there, so it never joins the next turn", async () => {
   const mock = await eleven({ transcripts: ["muted words", "next turn"] });
   const { stt, events } = sttAdapter(mock.base);

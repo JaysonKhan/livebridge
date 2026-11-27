@@ -191,13 +191,14 @@ export class ElevenLabsRealtimeSTT implements StreamingSTT {
 
   commit() {
     if (!this.isOpen()) return;
-    this.unanswered++;
     const total = this.uncommittedBytes + this.pending.length;
     if (total === 0) {
-      // Nothing was captured (push-to-talk tapped): there is nothing to commit, and saying so needs no round trip.
-      queueMicrotask(() => this.closed || this.committed(""));
+      // Nothing was captured (push-to-talk tapped): there is nothing to commit, and saying so needs no round trip. The
+      // provider owes nothing for it, so it never takes the place of a transcript a fence is still dropping.
+      queueMicrotask(() => this.closed || this.options.events.onCommitted(""));
       return;
     }
+    this.unanswered++;
     const padding = Math.max(0, MIN_COMMIT_BYTES - total);
     this.sendChunk(padding ? Buffer.concat([this.pending, Buffer.alloc(padding)]) : this.pending, true);
     this.pending = Buffer.alloc(0);
