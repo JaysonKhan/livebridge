@@ -119,7 +119,9 @@ void main() {
     });
 
     testWidgets('analytics and the sharing dialog say "this computer" and "Windows version"', (tester) async {
-      await pumpApp(tester, bridge: _windowsBridge(), platform: HostPlatform.windows, size: const Size(1280, 4000));
+      // Sharing switched off earlier, so the switch turns it on and the dialog explains what is sent.
+      final bridge = _windowsBridge()..settings = {..._windowsBridge().settings, 'telemetryEnabled': false};
+      await pumpApp(tester, bridge: bridge, platform: HostPlatform.windows, size: const Size(1280, 4000));
       await openAnalytics(tester);
       expect(find.text(en.analyticsPrivacyWindows), findsOneWidget);
       expect(find.text(en.analyticsEnabledWindows), findsOneWidget);
