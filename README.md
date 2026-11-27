@@ -347,6 +347,8 @@ See [`.env.example`](.env.example) for the complete list with comments.
   errors reach the developer; the totals are public at
   [jaysonkhan.com/services/livebridge](https://jaysonkhan.com/services/livebridge/). Switch it off any time in the
   Analytics panel (**Share anonymous statistics**); a choice to switch it off is kept across updates.
+- **Report a problem** (the bug icon) sends your description and, unless you untick it, a diagnostic log of devices,
+  settings, errors and timings — never what was said, keys or tokens. You see exactly what is sent first.
 - The providers process what you send them under their own terms.
 
 Details: [`docs/privacy.md`](docs/privacy.md) and [`docs/telemetry-api.md`](docs/telemetry-api.md).

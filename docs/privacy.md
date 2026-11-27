@@ -14,6 +14,8 @@
 | **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on a Mac, `%APPDATA%\LiveBridge\analytics.jsonl` on Windows. Shared with the developer unless you switch sharing off (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
 | **Shared statistics** (numbers only, **on by default**, switch off in Analytics) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |
 | **Feedback** | Only when you write and submit it: your message, optionally your e-mail and a 1–5 rating. | Until the developer deletes it. |
+| **Diagnostic log** (no speech, keys or tokens) | In memory and in `diagnostics.log` next to the analytics log (at most about 512 KB with one previous file). Leaves the computer only inside a problem report you send. | Rolls over by itself; deleted with the folder. |
+| **Problem report** | Only when you press **Send** in **Report a problem**: your description, the e-mail in the form, the app and OS version, the connection mode and — unless you untick it — the device list and the diagnostic log. You can see exactly what goes before sending. | Until the developer deletes it. |
 
 Nothing is captured before **Start session** and the consent confirmation, and nothing after stop, panic or app
 exit. There is no audio recording and no automatic transcript storage: the gateway keeps nothing (`STORE_CONTENT`
@@ -54,7 +56,26 @@ with the `telemetryEndpoint` preference or removed entirely.
 ### Feedback
 
 **Send feedback** posts the text you type to the same collector, with your e-mail and a rating only if you fill
-them in. It is tied to your install ID only when statistics sharing is on.
+them in. It is tied to your install ID only when statistics sharing is on. When you are signed in with an account, the
+e-mail field starts with your account's address; you can change or clear it before sending.
+
+### Problem reports and the diagnostic log
+
+From the moment the app starts it keeps a **diagnostic log** of what happened, so a problem can be traced: the app
+and system version, the connection mode, your account's e-mail (only when signed in with an account), the gateway's
+host name (never its full address or token), your audio devices and which ones you chose (names, sample rates,
+whether one is Bluetooth or USB), the meeting apps you chose, settings, each Start, state changes and reconnects,
+error codes, failed requests to the site or the gateway (status and code only), the timings of each turn, and app
+errors. It **never** holds what was said, translations, audio levels, keys, tokens or the refresh token: captions are
+not recorded at all, and every line passes a filter that replaces anything shaped like a key or token (and your own
+gateway's token) with `[secret]` — covered by tests. The log stays on your computer.
+
+**Report a problem** (the bug icon at the top right) sends a description you write, the e-mail in the form (in
+account mode it starts with your account's address; you can clear it), the app and OS version and the connection
+mode to the developer's site. **Include the diagnostic log** is on by default and adds the device list and the log;
+**Show what will be sent** shows exactly that text first. The report goes to the developer only: the site keeps it
+for the developer's eyes and notifies the developer with a short summary and the log, without your e-mail. It is tied
+to your install ID only when statistics sharing is on.
 
 ### The hosted gateway (account and own-keys modes)
 
@@ -86,7 +107,7 @@ same gateway code, with the same rules:
 
 Gateway logs hold event names, session ids, counts, durations and provider error codes. Transcript text, audio,
 tokens and provider payloads cannot be logged: log fields are restricted to primitives and no call site passes
-content (tested in `tests/integration`). The app does not log captions.
+content (tested in `tests/integration`). The app does not log captions; its diagnostic log is described above.
 
 ## Third-party processing — not controlled by this project
 

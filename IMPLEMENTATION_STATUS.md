@@ -50,6 +50,17 @@ the balance fell (19 021 → 18 652 units); Top up opened the checkout page; sig
 **Not run yet:** a purchase from the app, own-keys mode on the hosted gateway, and the remaining rows in
 `docs/manual-qa.md` (declined and expired sign-in, empty balance, the other banners, offline launch).
 
+## Bug reports and statistics on by default (plan `docs/plans/2026-11-27-bug-reports.md`, not released yet)
+
+| Part | State |
+|---|---|
+| Diagnostic log in the app (memory + rolling `diagnostics.log`, every line redacted) | done; a test drives all three connection modes and asserts no speech, key or token reaches it |
+| "Report a problem" (bug icon on the main screen and the onboarding; description, e-mail, log on by default with a preview) | done; account e-mail prefilled in it and in feedback |
+| Statistics sharing on by default (an earlier "off" kept) | done in the app and both hosts; docs say so |
+| Windows: Bluetooth / USB endpoints told apart | done (topology connector); compiled only by the Windows workflow |
+| Site endpoint `POST /api/services/v1/bug-reports/`, admin inbox, Telegram note with the log file | done on the site's branch; **not deployed** |
+| Real report from the app reaching the site and the admin group | waits for the site deploy |
+
 ## Environment (M0)
 
 | Item | Finding |
