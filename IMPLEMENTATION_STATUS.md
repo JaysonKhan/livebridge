@@ -1,6 +1,6 @@
 # LiveBridge AI — implementation status
 
-**Updated:** 2026-11-26 (accounts in the app on a branch, voice choice, gateway deployed, Windows supported) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
+**Updated:** 2026-11-27 (release 1.2.0: accounts, Google sign-in, top up, own keys; account mode run for real) · **Spec:** `livebridge_ai_claude_implementation.md` v1.0
 
 ## Where it stands
 
@@ -38,13 +38,17 @@ translation quality or the cloned voice; all test speech so far was synthetic. B
 | Step | State |
 |---|---|
 | 1. Voice choice | in the app (see Verified) |
-| 3. The gateway's account and own-keys modes | built on a separate branch by another session; not part of this branch |
-| 4. The desktop app | **built and tested on this branch (`claude/app-onboarding-e41735`), not pushed, not released.** Onboarding with Google sign-in through the site's device sign-in (code + browser; no Apple sign-in yet), the three ways to connect (account, own keys, own gateway; an existing saved token opens as own gateway), balance chip and top-up sheet, banners for empty balance / billing / idle / continued on another device / busy service, Start blocked on a known empty balance, access token refreshed in the background, secrets (refresh token, provider keys, static token) kept in the Keychain / Credential Manager. Both native hosts carry the new contract (`docs/bridge-contract.md`) |
+| 2. The site (accounts, Google sign-in, device sign-in for the app, wallet, packages, checkout) | live on jaysonkhan.com |
+| 3. The gateway's account and own-keys modes | deployed on the hosted gateway (`360bd10`): the site authorises account tokens over its local socket, usage is reported every 10 seconds, session caps, idle timeout |
+| 4. The desktop app | **released in 1.2.0** (2026-11-27, merged as PR #2). Onboarding with Google sign-in through the site's device sign-in (code + browser; no Apple sign-in yet), the three ways to connect (account, own keys, own gateway; an existing saved token opens as own gateway), balance chip and top-up sheet, banners for empty balance / billing / idle / continued on another device / busy service, Start blocked on a known empty balance, access token refreshed in the background, secrets (refresh token, provider keys, static token) kept in the Keychain / Credential Manager. Both native hosts carry the new contract (`docs/bridge-contract.md`) |
 
-Checks for step 4 on this Mac: `flutter analyze` clean, `flutter test` 385 passed, `swift test` 40 run (1 skipped), 0 failures,
-`apps/desktop/native/livebridge_core/tests/run.sh` 2 262 checks, 0 failed. **Not done:** the Windows build of this
-branch has not run (it is not pushed, so the Windows workflow has not seen it); the end-to-end run with the real site and
-the deployed gateway has not happened (`docs/manual-qa.md` lists the checks, all NOT RUN); nothing is released.
+Checks for step 4 on this Mac: `flutter analyze` clean, `flutter test` 443 passed, `swift test` 40 run (1 skipped), 0 failures,
+`apps/desktop/native/livebridge_core/tests/run.sh` 2 262 checks, 0 failed; the Windows workflow passed on the release
+commit. **Real run (2026-11-26, release build, real site, hosted gateway):** an existing install opened in own-gateway
+mode; Sign in with Google signed the app in; account-mode sessions translated, usage was reported every 10 seconds and
+the balance fell (19 021 → 18 652 units); Top up opened the checkout page; sign-out returned to the start screen.
+**Not run yet:** a purchase from the app, own-keys mode on the hosted gateway, and the remaining rows in
+`docs/manual-qa.md` (declined and expired sign-in, empty balance, the other banners, offline launch).
 
 ## Environment (M0)
 
