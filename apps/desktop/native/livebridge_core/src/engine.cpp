@@ -493,6 +493,9 @@ void Engine::release_push_to_talk() {
 /// cannot switch during a session keeps its mode, and so does the session.
 void Engine::sync_out_commit() {
   if (!config_ || !session_ready_ || !gateway_out_commit_ || *gateway_out_commit_ == config_->out_commit) return;
+  // Leaving push-to-talk while the button is held is a release, even on a gateway that cannot switch: the app has let
+  // go of the button already, so nothing else would end the turn.
+  if (*gateway_out_commit_ == "manual" && ptt_held_) release_push_to_talk();
   if (std::find(gateway_features_.begin(), gateway_features_.end(), "turn.mode") == gateway_features_.end()) {
     config_->out_commit = *gateway_out_commit_;
     // The state showing the mode in force comes first, so that the app can go back to it when the error arrives.
@@ -502,8 +505,6 @@ void Engine::sync_out_commit() {
                false, "out");
     return;
   }
-  // Leaving push-to-talk while the button is held is a release.
-  if (*gateway_out_commit_ == "manual" && ptt_held_) release_push_to_talk();
   // Entering push-to-talk closes the hands-free lane; what was being said, the gateway commits.
   if (config_->out_commit == "manual" && out_capture_open_) {
     out_capture_open_ = false;

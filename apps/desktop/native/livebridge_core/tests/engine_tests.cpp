@@ -1099,6 +1099,19 @@ static void test_a_gateway_that_cannot_switch_keeps_the_mode() {
     s.engine.ptt_down();
     CHECK(s.host.sent.size() == 1 && str(s.host.sent[0], "type") == "capture.start");
   }
+  {  // a held talk button is let go all the same: the app already treats it as released, nothing else ends the turn
+    Session s;
+    s.go(settings("captions", "manual"));
+    s.engine.ptt_down();
+    s.forget();
+    s.engine.set_out_commit("vad");
+    CHECK(s.host.sent.size() == 2);
+    CHECK(str(s.host.sent[0], "type") == "turn.commit" && str(s.host.sent[1], "type") == "capture.pause");
+    CHECK(str(s.events[1], "code") == "mode_switch_unsupported" && str(s.events.back(), "outCommit") == "manual");
+    s.forget();
+    s.engine.ptt_up();
+    CHECK(s.host.sent.empty());
+  }
   {  // an automatic lane stays open
     Session s;
     s.go(settings("captions", "vad", false));

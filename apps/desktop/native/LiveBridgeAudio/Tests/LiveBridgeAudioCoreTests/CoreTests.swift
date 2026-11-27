@@ -563,6 +563,22 @@ final class OutCommitSwitchTests: XCTestCase {
         }
     }
 
+    func testAGatewayWithoutTheFeatureStillReleasesAHeldTalkButton() throws {
+        // The app treats the button as let go once it asks for automatic, so the phrase must be committed here too,
+        // or the microphone would stay open with nothing to end the turn.
+        let engine = try connected("manual")
+        ready(engine, features: nil)
+        engine.pttDown()
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+        engine.setOutCommit("vad")
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["turn.commit", "capture.pause"])
+        XCTAssertEqual(lastState()?["outCommit"] as? String, "manual")
+        engine.pttUp()
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        engine.pttDown()
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+    }
+
     func testAnEarlyChoiceTheGatewayCannotMakeIsUndoneBeforeTheMicrophoneOpens() throws {
         let engine = try connected("manual")
         engine.setOutCommit("vad")

@@ -550,6 +550,9 @@ public final class Engine: @unchecked Sendable {
     /// Moves the gateway's outgoing direction to the configured turn mode, once this connection's `session.ready` is in.
     private func syncOutCommit() {
         guard let config, let features = gatewayFeatures, let running = gatewayOutCommit, running != config.outCommit else { return }
+        // Leaving hold to talk while the button is held is a release, even on a gateway that cannot switch: the app has
+        // let go of the button already, so nothing else would end the turn.
+        if running == "manual", pttHeld { releaseTalk() }
         guard features.contains("turn.mode") else {
             // An older gateway cannot switch: the session keeps the mode in force.
             self.config?.outCommit = running
@@ -559,8 +562,6 @@ public final class Engine: @unchecked Sendable {
                 "message": "This gateway cannot change the turn mode during a session; stop and start again to use the new mode",
             ])
         }
-        // Leaving hold to talk while the button is held is a release.
-        if running == "manual", pttHeld { releaseTalk() }
         // Entering hold to talk closes the hands-free window; the gateway commits what was being said.
         if config.outCommit == "manual", outCaptureOpen {
             outCaptureOpen = false
