@@ -11,8 +11,8 @@
 | Device choices, language, mode, gateway URL, interface language, the chosen voices (id and name) | macOS UserDefaults; on Windows `%APPDATA%\LiveBridge\settings.json`. | Until changed. No content. |
 | Voice list and samples | The list of your ElevenLabs account's voices: gateway → ElevenLabs → the app, each time a voice picker is opened and at no other time. A sample you play is downloaded by the app straight from the provider's public sample storage. | The gateway keeps the list in memory for 10 minutes. Nothing is stored on disk. |
 | **Conversation export** (text of both speakers) | Only when you press **Export conversation** and choose where to save. A Markdown file on your disk. | Until you delete the file. |
-| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on a Mac, `%APPDATA%\LiveBridge\analytics.jsonl` on Windows. Stays there unless you opt in to sharing (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
-| **Shared statistics** (opt-in, off by default) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |
+| **Analytics log** (numbers only) | `~/Library/Application Support/LiveBridge/analytics.jsonl` on a Mac, `%APPDATA%\LiveBridge\analytics.jsonl` on Windows. Shared with the developer unless you switch sharing off (next row). | Until you press **Clear log** (capped at 20 MB plus one previous file). |
+| **Shared statistics** (numbers only, **on by default**, switch off in Analytics) | The same numbers-only records, with a random install ID, sent to the developer's collector at `jaysonkhan.com`. | Raw records 180 days on the collector; only aggregates are published. |
 | **Feedback** | Only when you write and submit it: your message, optionally your e-mail and a 1–5 rating. | Until the developer deletes it. |
 
 Nothing is captured before **Start session** and the consent confirmation, and nothing after stop, panic or app
@@ -33,16 +33,19 @@ codes, reconnects, turns where nothing was recognised, and your thumbs-up / thum
 itself (covered by a test). It can be switched off, exported and cleared from the Analytics panel. Sessions against
 fake providers are excluded from the figures.
 
-### Sharing statistics with the developer (opt-in)
+### Sharing statistics with the developer (on by default)
 
-Off by default. If you switch on **Share anonymous statistics** the app uploads those same numbers-only records to
-the developer's collector so latency and error rates can be compared across installs. What travels: the records
-above, the app version, the operating system's version (macOS or Windows), the interface language and a random
-install ID created at that moment (not derived from your hardware, account or network). What never travels: anything that was said, translations,
+**On by default.** Unless you switch off **Share anonymous statistics** (Analytics panel), the app uploads those same
+numbers-only records to the developer's collector, so that errors and slow turns on other people's computers reach the
+developer and latency can be compared across installs. Up to release 1.2.0 this was off by default: if you switched it
+off yourself, it stays off after the update (the app keeps that choice); an install that never touched the switch
+starts sharing after the update. What travels: the records above, the app version, the operating system's version
+(macOS or Windows), the interface language and a random install ID created the first time sharing is on (not derived
+from your hardware, account or network). What never travels: anything that was said, translations,
 audio, device names, the gateway address, keys. The collector does not store IP addresses with the data and
 publishes aggregates only (`https://jaysonkhan.com/services/livebridge/`). Like any website, the server keeps an
 ordinary access log in which a request's address appears; it is not linked to the records. Switching the option off
-stops uploads.
+stops uploads at once.
 The exact wire format is in `docs/telemetry-api.md`.
 
 Forks: the collector address is a default in the source (`TelemetryUploader.defaultEndpoint`) and can be changed

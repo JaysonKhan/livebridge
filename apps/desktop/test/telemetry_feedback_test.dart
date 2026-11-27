@@ -29,15 +29,31 @@ Future<void> _type(WidgetTester tester, String key, String text) async {
 
 void main() {
   group('statistics sharing', () {
-    testWidgets('is off by default and saves nothing until confirmed', (tester) async {
+    testWidgets('is on when nothing was saved, and saves nothing', (tester) async {
       await pumpApp(tester, size: _tall);
+      await openAnalytics(tester);
+      expect(_switchOn(tester), isTrue);
+      expect(fake.savedPrefs, isEmpty);
+    });
+
+    testWidgets('an earlier "off" stays off', (tester) async {
+      await pumpApp(tester, bridge: FakeLiveBridge()..settings = {'telemetryEnabled': false}, size: _tall);
       await openAnalytics(tester);
       expect(_switchOn(tester), isFalse);
       expect(fake.savedPrefs, isEmpty);
     });
 
-    testWidgets('turning it on asks first; Cancel leaves it off and saves nothing', (tester) async {
+    testWidgets('switching the default off saves false with no dialog', (tester) async {
       await pumpApp(tester, size: _tall);
+      await openAnalytics(tester);
+      await tapVisible(tester, _switch);
+      expect(find.text(en.telemetryDialogTitle), findsNothing);
+      expect(fake.savedPrefs.last, {'telemetryEnabled': false});
+      expect(_switchOn(tester), isFalse);
+    });
+
+    testWidgets('turning it on asks first; Cancel leaves it off and saves nothing', (tester) async {
+      await pumpApp(tester, bridge: FakeLiveBridge()..settings = {'telemetryEnabled': false}, size: _tall);
       await openAnalytics(tester);
       await tapVisible(tester, _switch);
 
@@ -56,7 +72,7 @@ void main() {
     });
 
     testWidgets('Confirm saves telemetryEnabled true; turning it off saves false with no dialog', (tester) async {
-      await pumpApp(tester, size: _tall);
+      await pumpApp(tester, bridge: FakeLiveBridge()..settings = {'telemetryEnabled': false}, size: _tall);
       await openAnalytics(tester);
       final before = fake.count('telemetryStatus');
 
@@ -296,8 +312,8 @@ void main() {
       expect(fake.feedbacks, hasLength(2));
     });
 
-    testWidgets('works with statistics sharing off (the default)', (tester) async {
-      await pumpApp(tester, size: _tall);
+    testWidgets('works with statistics sharing off', (tester) async {
+      await pumpApp(tester, bridge: FakeLiveBridge()..settings = {'telemetryEnabled': false}, size: _tall);
       await _openFeedback(tester);
       await _type(tester, 'feedback-message', 'Hi');
       await tester.tap(_sendBtn);

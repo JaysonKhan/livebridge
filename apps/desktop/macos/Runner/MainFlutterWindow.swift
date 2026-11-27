@@ -69,7 +69,8 @@ class MainFlutterWindow: NSWindow {
 final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
   private let engine = Engine()
   private let analytics = AnalyticsLog(fileURL: AnalyticsLog.defaultURL())
-  /// Opt-in upload of the numbers-only log to the developer's collector (docs/telemetry-api.md). Off by default.
+  /// Upload of the numbers-only log to the developer's collector (docs/telemetry-api.md). On unless the user switched
+  /// it off; a saved `false` stays off.
   private let telemetry: TelemetryUploader
   private var events: FlutterEventSink?
   private var sessionRunning = false
@@ -84,7 +85,7 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
       appVersion: "\(info?["CFBundleShortVersionString"] as? String ?? "0")+\(info?["CFBundleVersion"] as? String ?? "0")")
     super.init()
     telemetry.uiLanguage = preferences["uiLanguage"] as? String
-    telemetry.isEnabled = !Settings.ephemeral && (preferences["telemetryEnabled"] as? Bool ?? false)
+    telemetry.isEnabled = !Settings.ephemeral && (preferences["telemetryEnabled"] as? Bool ?? true)
     telemetry.uploadPending()
     FlutterMethodChannel(name: "livebridge/control", binaryMessenger: messenger)
       .setMethodCallHandler { [weak self] call, result in self?.handle(call, result) }

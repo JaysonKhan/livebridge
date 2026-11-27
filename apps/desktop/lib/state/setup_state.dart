@@ -69,7 +69,7 @@ class SetupState {
     this.showOriginal = true,
     this.showTranslated = true,
     this.uiLanguage,
-    this.telemetryEnabled = false,
+    this.telemetryEnabled = true,
   });
 
   final List<AudioDevice> devices;
@@ -101,7 +101,8 @@ class SetupState {
   /// The saved interface language (`uz`, `ru`, `tr`, `en`); null follows the system language.
   final String? uiLanguage;
 
-  /// Opt-in: upload the numbers-only analytics log to the developer (default off).
+  /// Upload the numbers-only analytics log to the developer: on unless the user switched it off (a saved `false`
+  /// stays off).
   final bool telemetryEnabled;
 
   SetupState copyWith({
@@ -351,7 +352,7 @@ class SetupNotifier extends Notifier<SetupState> {
     _persist({'uiLanguage': code});
   }
 
-  /// Saves the opt-in to share anonymous statistics; completes when the preference is stored.
+  /// Saves the choice to share anonymous statistics; completes when the preference is stored.
   Future<void> setTelemetryEnabled(bool v) async {
     state = state.copyWith(telemetryEnabled: v);
     await ref

@@ -343,9 +343,10 @@ See [`.env.example`](.env.example) for the complete list with comments.
 - **Captions** are kept in memory and disappear when the session ends. **Export** writes a Markdown file only when
   you ask for it.
 - **Analytics** are local and numbers-only: timings, counts, error codes and your ratings — never what was said.
-- **Sharing statistics is opt-in and off by default.** If you switch it on, the same numbers are sent with a random
-  install id; the totals are public at
-  [jaysonkhan.com/services/livebridge](https://jaysonkhan.com/services/livebridge/).
+- **Sharing statistics is on by default — numbers only.** The same numbers are sent with a random install id, so that
+  errors reach the developer; the totals are public at
+  [jaysonkhan.com/services/livebridge](https://jaysonkhan.com/services/livebridge/). Switch it off any time in the
+  Analytics panel (**Share anonymous statistics**); a choice to switch it off is kept across updates.
 - The providers process what you send them under their own terms.
 
 Details: [`docs/privacy.md`](docs/privacy.md) and [`docs/telemetry-api.md`](docs/telemetry-api.md).
@@ -386,7 +387,7 @@ and `npm run bench` are the tools that exercise the real providers.
 | [`docs/benchmark.md`](docs/benchmark.md) | Latency measurements and how they were taken |
 | [`docs/bridge-contract.md`](docs/bridge-contract.md) | Contract between the Flutter app and the audio engine |
 | [`packages/protocol/README.md`](packages/protocol/README.md) | The gateway wire protocol |
-| [`docs/telemetry-api.md`](docs/telemetry-api.md) | The opt-in statistics and feedback API |
+| [`docs/telemetry-api.md`](docs/telemetry-api.md) | The statistics, feedback and bug-report API |
 | [`docs/deployment.md`](docs/deployment.md) | Running the gateway on a server |
 
 ## Status and limits

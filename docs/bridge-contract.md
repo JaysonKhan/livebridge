@@ -9,7 +9,7 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 
 | Method | Arguments | Result |
 |---|---|---|
-| `listDevices` | — | `List<Map>`: `uid` String, `name` String, `inputChannels` int, `outputChannels` int, `sampleRate` double, `transport` String (`builtin`, `usb`, `bluetooth`, `virtual`, `aggregate`, `other`), `isDefaultInput` bool, `isDefaultOutput` bool |
+| `listDevices` | — | `List<Map>`: `uid` String, `name` String, `inputChannels` int, `outputChannels` int, `sampleRate` double, `transport` String (`builtin`, `usb`, `bluetooth`, `virtual`, `aggregate`, `other`; Windows reports `virtual` (by name), `bluetooth` or `usb` (from the driver the endpoint's topology connector leads to), else `other`), `isDefaultInput` bool, `isDefaultOutput` bool |
 | `listAudioProcesses` | — | `List<Map>`: `pid` int, `bundleId` String, `name` String, `isPlaying` bool — processes that currently own an audio object |
 | `loadSettings` | — | `Map` of everything saved so far (missing keys absent): the `start` config keys plus the preference keys below. The secret items (see "Secret items") come from the Keychain / Credential Manager under the keys `accessToken`, `accountRefreshToken`, `elevenlabsApiKey` and `geminiApiKey` — each only when present — the rest from UserDefaults / the settings file |
 | `saveSettings` | any subset of the `start` config keys and preference keys | — (the given keys are **merged** into what is stored; a `null` value removes a key — for a secret item this deletes it, an absent key leaves it untouched; if a secret cannot be written the call fails with `settings_failed`) |
@@ -19,7 +19,7 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `analyticsSummary` | — | `Map`, see "Analytics" below |
 | `analyticsExport` | — | String? — Save dialog for the raw analytics file (JSON Lines); saved path or `null` |
 | `analyticsClear` | — | — (deletes the analytics file) |
-| `telemetryStatus` | — | `Map`: `enabled` bool, `installId` String? (present once sharing was ever switched on), `endpoint` String, `pendingRecords` int (local records not uploaded yet), `lastUploadAt` String? (ISO-8601), `lastError` String? |
+| `telemetryStatus` | — | `Map`: `enabled` bool, `installId` String? (present once sharing was ever on), `endpoint` String, `pendingRecords` int (local records not uploaded yet), `lastUploadAt` String? (ISO-8601), `lastError` String?, `appVersion` String (`1.2.0+3`), `osVersion` String (`macOS 26.6.2`, `Windows 11 (build 26100)`) |
 | `sendFeedback` | `message` String (1–2000 chars), `email` String?, `rating` int? (1–5) | — ; throws `PlatformException` with code `rate_limited`, `feedback_rejected` or `feedback_failed` |
 | `microphonePermission` | — | String: `granted`, `denied`, `undetermined` |
 | `requestMicrophonePermission` | — | bool |
@@ -88,7 +88,7 @@ secret item: the app keeps it in memory only.
 |---|---|---|
 | `uiLanguage` | String | `uz`, `ru`, `tr` or `en`; absent = follow the system language if supported, else English |
 | `analyticsEnabled` | bool | default `true`; `false` stops writing the analytics log |
-| `telemetryEnabled` | bool | default `false`. Opt-in: upload the numbers-only analytics records to the developer's collector (docs/telemetry-api.md). Needs `analyticsEnabled` |
+| `telemetryEnabled` | bool | default `true` (absent = on; a saved `false` stays off). Upload the numbers-only analytics records to the developer's collector (docs/telemetry-api.md). Needs `analyticsEnabled` |
 | `connectionMode` | String | `account`, `keys`, `gateway` (own gateway) or `none` (ask again — shown as the onboarding screen). Absent on an install that predates accounts: a saved static token then means `gateway`, otherwise onboarding |
 | `deviceId` | String | random id of this installation, sent to the site when signing in |
 | `captionFontSize` | double | caption text size |

@@ -1,16 +1,18 @@
-# Opt-in telemetry and feedback API (v1)
+# Telemetry, feedback and bug-report API (v1)
 
 The contract between the LiveBridge app (client) and the collector on the developer's site (server). The server side
 lives in a different repository; this file is the single source of truth for both.
 
 **Principles**
 
-- **Opt-in.** The app sends nothing unless the user switches on "Share anonymous statistics" (default off). Feedback
-  is sent only when the user writes and submits it.
+- **On by default, numbers only.** The app uploads the numbers-only records unless the user switches off "Share
+  anonymous statistics". An explicit "off" is kept across updates. (Up to release 1.2.0 the default was off.) Feedback
+  and bug reports are sent only when the user writes and submits them.
 - **Numbers only.** Timings, counts, error codes, text lengths, ratings. Never transcript or translation text, never
   audio, never device names, never the gateway address or any key.
-- **Pseudonymous.** A random `install_id` (UUID v4) generated on first opt-in — not derived from hardware, account or
-  network. An e-mail address is sent only if the user types one into the feedback form.
+- **Pseudonymous.** A random `install_id` (UUID v4) generated the first time sharing is on — not derived from hardware,
+  account or network. An e-mail address is sent only when it is in the feedback or bug-report form's e-mail field
+  (typed by the user, or the signed-in account's address, which the user can remove).
 - **The client is open source**, so the endpoints are public and unauthenticated: the server must treat every request
   as untrusted (validation, size limits, rate limits) and the published figures as approximate.
 - Sessions against fake/mock providers are never uploaded.
@@ -115,9 +117,10 @@ Responses: `201 {"ok": true}`, `400 {"error": "..."}`, `429 {"error": "rate_limi
 
 ## Client behaviour
 
-- Preference `telemetryEnabled` (default `false`). When switched on, the app creates the `install_id`; when switched
-  off it stops uploading (the id is kept so re-enabling continues the same install; "Clear log" does not touch the
-  server).
+- Preference `telemetryEnabled` (default `true`: absent means on; a saved `false` stays off). While on, the app has an
+  `install_id` (created the first time); when switched off it stops uploading (the id is kept so re-enabling continues
+  the same install; "Clear log" does not touch the server). Switching on in the app first shows what is sent;
+  switching off needs no confirmation.
 - Uploads happen after a session ends and at app start, from the local numbers-only log, in batches of at most 500
   records, resuming where the last successful upload stopped. A failed upload is retried the next time.
 - Feedback is sent immediately on submit; failure is shown to the user and nothing is queued.

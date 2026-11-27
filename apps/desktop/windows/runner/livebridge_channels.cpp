@@ -103,13 +103,14 @@ LiveBridgeChannels::LiveBridgeChannels(flutter::BinaryMessenger* messenger, HWND
   const Json* analytics_enabled = saved.find("analyticsEnabled");
   analytics_.set_enabled(analytics_enabled == nullptr || analytics_enabled->as_bool(true));
 
-  // Opt-in statistics: off unless the user switched sharing on. Uploads what is pending at start.
+  // Statistics (numbers only): on unless the user switched sharing off; a saved `false` stays off. Uploads what is
+  // pending at start.
   const Json* endpoint = saved.find("telemetryEndpoint");
   telemetry_ = std::make_unique<WinTelemetry>(analytics_.path(), FLUTTER_VERSION,
                                               endpoint != nullptr ? endpoint->as_string() : std::string());
   if (const Json* language = saved.find("uiLanguage")) telemetry_->SetUiLanguage(language->as_string());
   const Json* sharing = saved.find("telemetryEnabled");
-  telemetry_->SetEnabled(sharing != nullptr && sharing->as_bool(false));
+  telemetry_->SetEnabled(sharing == nullptr || sharing->as_bool(true));
   telemetry_->UploadPending();
 
   control_ = std::make_unique<flutter::MethodChannel<EncodableValue>>(
