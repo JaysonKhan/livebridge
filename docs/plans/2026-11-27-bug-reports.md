@@ -30,7 +30,7 @@ reports the app and OS version, sharing is on when no choice was saved, and Wind
 - Both repos are public: no server IPs, paths, other project names or cost figures.
 - Dart: `dart format lib test` (width 120 comes from `analysis_options.yaml`). Strings in all four ARB files
   (en, uz, ru, tr), then `flutter gen-l10n`.
-- Site work on branch `livebridge-bug-reports` in `/Users/mac/JaysonServer/jaysonkhan_v2`; deploy only on the
+- Site work on branch `livebridge-bug-reports` in the site repo; deploy only on the
   owner's word, via `./deploy.sh`.
 - Commits read as the owner's: no `Co-Authored-By` or tool attribution. Nothing pushed, merged, deployed or released
   without the owner's word. Never run bare `python`.
@@ -73,7 +73,7 @@ reports the app and OS version, sharing is on when no choice was saved, and Wind
 
 ---
 
-## Site (`/Users/mac/JaysonServer/jaysonkhan_v2`, branch `livebridge-bug-reports`)
+## Site (the site repo, branch `livebridge-bug-reports`)
 
 ### Task S1: bug-report endpoint, model and rate limit
 
