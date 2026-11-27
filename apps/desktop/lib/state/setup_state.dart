@@ -102,7 +102,7 @@ class SetupState {
   final String? uiLanguage;
 
   /// Upload the numbers-only analytics log to the developer: on unless the user switched it off (a saved `false`
-  /// stays off).
+  /// stays off) or switched the analytics log off before choosing.
   final bool telemetryEnabled;
 
   SetupState copyWith({
@@ -243,7 +243,8 @@ class SetupNotifier extends Notifier<SetupState> {
         uiLanguage: AppLocalizations.supportedLocales.any((l) => l.languageCode == saved['uiLanguage'])
             ? saved['uiLanguage'] as String
             : null,
-        telemetryEnabled: saved['telemetryEnabled'] as bool?,
+        // No saved choice: on, unless the analytics log (which sharing uploads) was switched off.
+        telemetryEnabled: saved['telemetryEnabled'] as bool? ?? saved['analyticsEnabled'] != false,
       );
     } on Exception catch (e) {
       ref.read(sessionProvider.notifier).reportException(e, 'loadSettings');

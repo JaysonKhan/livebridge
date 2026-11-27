@@ -40,8 +40,9 @@ fake providers are excluded from the figures.
 **On by default.** Unless you switch off **Share anonymous statistics** (Analytics panel), the app uploads those same
 numbers-only records to the developer's collector, so that errors and slow turns on other people's computers reach the
 developer and latency can be compared across installs. Up to release 1.2.0 this was off by default: if you switched it
-off yourself, it stays off after the update (the app keeps that choice); an install that never touched the switch
-starts sharing after the update. What travels: the records above, the app version, the operating system's version
+off yourself, it stays off after the update (the app keeps that choice); if you had switched the analytics log off,
+sharing stays off too. An install that never touched either switch starts sharing after the update **from that moment
+on**: numbers recorded before the update are not sent. What travels: the records above, the app version, the operating system's version
 (macOS or Windows), the interface language and a random install ID created the first time sharing is on (not derived
 from your hardware, account or network). What never travels: anything that was said, translations,
 audio, device names, the gateway address, keys. The collector does not store IP addresses with the data and
@@ -74,7 +75,8 @@ gateway's token) with `[secret]` — covered by tests. The log stays on your com
 account mode it starts with your account's address; you can clear it), the app and OS version and the connection
 mode to the developer's site. **Include the diagnostic log** is on by default and adds the device list and the log;
 **Show what will be sent** shows exactly that text first. The report goes to the developer only: the site keeps it
-for the developer's eyes and notifies the developer with a short summary and the log, without your e-mail. It is tied
+for the developer's eyes and notifies the developer in a private Telegram group with a short summary and the log as a
+file, with every e-mail address in them hidden. It is tied
 to your install ID only when statistics sharing is on.
 
 ### The hosted gateway (account and own-keys modes)

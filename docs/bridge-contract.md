@@ -88,7 +88,7 @@ secret item: the app keeps it in memory only.
 |---|---|---|
 | `uiLanguage` | String | `uz`, `ru`, `tr` or `en`; absent = follow the system language if supported, else English |
 | `analyticsEnabled` | bool | default `true`; `false` stops writing the analytics log |
-| `telemetryEnabled` | bool | default `true` (absent = on; a saved `false` stays off). Upload the numbers-only analytics records to the developer's collector (docs/telemetry-api.md). Needs `analyticsEnabled` |
+| `telemetryEnabled` | bool | default `true` (absent = on, unless `analyticsEnabled` is `false`; a saved `false` stays off; on by default an install that never shared uploads only records written from then on). Upload the numbers-only analytics records to the developer's collector (docs/telemetry-api.md). Needs `analyticsEnabled` |
 | `connectionMode` | String | `account`, `keys`, `gateway` (own gateway) or `none` (ask again — shown as the onboarding screen). Absent on an install that predates accounts: a saved static token then means `gateway`, otherwise onboarding |
 | `deviceId` | String | random id of this installation, sent to the site when signing in |
 | `captionFontSize` | double | caption text size |

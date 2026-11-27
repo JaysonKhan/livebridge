@@ -661,6 +661,31 @@ final class TelemetryUploaderTests: XCTestCase {
         XCTAssertEqual(status["osVersion"] as? String, "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)")
     }
 
+    func testOnByDefaultSendsNothingFromBeforeAndThenEverythingNew() {
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 2)
+        let uploader = uploader()
+        uploader.enableFromNow()
+        XCTAssertEqual(uploader.status()["enabled"] as? Bool, true)
+        XCTAssertNotNil(uploader.status()["installId"])
+        XCTAssertEqual(upload(uploader), 0)
+        XCTAssertTrue(StubProtocol.requests.isEmpty)
+        logSession(log, turns: 1)
+        XCTAssertEqual(upload(uploader), 3)  // session_start, 1 turn, session_end
+    }
+
+    func testOnByDefaultKeepsThePositionOfAnInstallThatSharedBefore() {
+        let log = AnalyticsLog(fileURL: logURL)
+        logSession(log, turns: 2)
+        let uploader = uploader()
+        uploader.isEnabled = true
+        XCTAssertEqual(upload(uploader), 4)
+        uploader.isEnabled = false
+        logSession(log, turns: 1)
+        uploader.enableFromNow()
+        XCTAssertEqual(upload(uploader), 3)
+    }
+
     func testNothingIsSentUntilTheUserOptsIn() {
         logSession(AnalyticsLog(fileURL: logURL), turns: 2)
         let uploader = uploader()

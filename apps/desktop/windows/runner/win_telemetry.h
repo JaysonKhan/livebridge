@@ -158,6 +158,9 @@ class WinTelemetry {
   // The `telemetryEnabled` preference. Switching on creates the install id; follow it with UploadPending().
   void SetEnabled(bool on);
 
+  // Sharing on by default (no saved choice): an install that never shared sends nothing written before now.
+  void EnableFromNow();
+
   // The `uiLanguage` preference (`uz`, `ru`, `tr`, `en`), sent with uploads and feedback.
   void SetUiLanguage(std::string language);
 

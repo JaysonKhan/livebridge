@@ -263,6 +263,8 @@ void WinTelemetry::SendFeedback(std::string message, std::string email, std::opt
 
 void WinTelemetry::SetEnabled(bool on) { uploader_->set_enabled(on); }
 
+void WinTelemetry::EnableFromNow() { uploader_->enable_from_now(); }
+
 void WinTelemetry::SetUiLanguage(std::string language) { uploader_->set_ui_language(std::move(language)); }
 
 livebridge::Json WinTelemetry::Status() const { return uploader_->status(); }

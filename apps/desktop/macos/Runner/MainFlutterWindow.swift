@@ -85,7 +85,15 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
       appVersion: "\(info?["CFBundleShortVersionString"] as? String ?? "0")+\(info?["CFBundleVersion"] as? String ?? "0")")
     super.init()
     telemetry.uiLanguage = preferences["uiLanguage"] as? String
-    telemetry.isEnabled = !Settings.ephemeral && (preferences["telemetryEnabled"] as? Bool ?? true)
+    // With no saved choice sharing is on, unless the analytics log was switched off; it then starts from now, so the
+    // log's earlier records are not sent.
+    if Settings.ephemeral {
+      telemetry.isEnabled = false
+    } else if let saved = preferences["telemetryEnabled"] as? Bool {
+      telemetry.isEnabled = saved
+    } else if preferences["analyticsEnabled"] as? Bool ?? true {
+      telemetry.enableFromNow()
+    }
     telemetry.uploadPending()
     FlutterMethodChannel(name: "livebridge/control", binaryMessenger: messenger)
       .setMethodCallHandler { [weak self] call, result in self?.handle(call, result) }

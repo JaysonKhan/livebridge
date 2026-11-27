@@ -36,6 +36,19 @@ void main() {
       expect(fake.savedPrefs, isEmpty);
     });
 
+    testWidgets('is off when nothing was saved but the analytics log was switched off', (tester) async {
+      await pumpApp(
+        tester,
+        bridge: FakeLiveBridge()
+          ..settings = {'analyticsEnabled': false}
+          ..summary = const AnalyticsSummary(enabled: false),
+        size: _tall,
+      );
+      await openAnalytics(tester);
+      expect(_switchOn(tester), isFalse);
+      expect(fake.savedPrefs, isEmpty);
+    });
+
     testWidgets('an earlier "off" stays off', (tester) async {
       await pumpApp(tester, bridge: FakeLiveBridge()..settings = {'telemetryEnabled': false}, size: _tall);
       await openAnalytics(tester);

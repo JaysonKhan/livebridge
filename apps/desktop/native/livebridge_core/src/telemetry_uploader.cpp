@@ -92,6 +92,18 @@ void TelemetryUploader::set_enabled(bool on) {
   if (on && store_->get(kInstallIdKey).empty() && new_uuid_) store_->set(kInstallIdKey, lowercase(new_uuid_()));
 }
 
+void TelemetryUploader::enable_from_now() {
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (store_->get(kInstallIdKey).empty()) {
+      std::error_code error;
+      const auto size = std::filesystem::file_size(log_file_, error);
+      store_->set(kOffsetKey, std::to_string(error ? 0 : size));
+    }
+  }
+  set_enabled(true);
+}
+
 void TelemetryUploader::set_ui_language(std::string language) {
   const std::lock_guard<std::mutex> lock(mutex_);
   ui_language_ = std::move(language);

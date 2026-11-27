@@ -174,15 +174,18 @@ Responses: `201 {"ok": true}`, `400 {"error": "..."}` (`bad_json`, `unknown_app`
   messages per address per hour, 5 bug reports per address per hour.
 - Public pages show **aggregates only**, and a breakdown (per language, per version, per model) only when at least
   5 installs contributed to it. Feedback text, bug reports (with their logs and device lists) and per-install data
-  are visible to the owner only. The owner's notification of a new report never contains the e-mail.
+  are visible to the owner only. The owner's notification of a new report (a private Telegram group: summary + the log
+  as a file) carries no e-mail address: the report's own is left out and any in the text or the log is hidden.
 - Raw records are kept for 180 days, aggregates may be kept longer.
 
 ## Client behaviour
 
-- Preference `telemetryEnabled` (default `true`: absent means on; a saved `false` stays off). While on, the app has an
-  `install_id` (created the first time); when switched off it stops uploading (the id is kept so re-enabling continues
-  the same install; "Clear log" does not touch the server). Switching on in the app first shows what is sent;
-  switching off needs no confirmation.
+- Preference `telemetryEnabled` (default `true`: absent means on — unless `analyticsEnabled` is `false`, then off; a
+  saved `false` stays off). While on, the app has an `install_id` (created the first time); when switched off it stops
+  uploading (the id is kept so re-enabling continues the same install; "Clear log" does not touch the server).
+  Switching on in the app first shows what is sent; switching off needs no confirmation. When sharing starts **by
+  default** on an install that never shared, uploading begins at the current end of the local log: records written
+  before that moment are never sent.
 - Uploads happen after a session ends and at app start, from the local numbers-only log, in batches of at most 500
   records, resuming where the last successful upload stopped. A failed upload is retried the next time.
 - Feedback and bug reports are sent immediately on submit; failure is shown to the user and nothing is queued.

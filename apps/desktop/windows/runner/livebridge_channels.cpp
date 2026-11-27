@@ -109,8 +109,14 @@ LiveBridgeChannels::LiveBridgeChannels(flutter::BinaryMessenger* messenger, HWND
   telemetry_ = std::make_unique<WinTelemetry>(analytics_.path(), FLUTTER_VERSION,
                                               endpoint != nullptr ? endpoint->as_string() : std::string());
   if (const Json* language = saved.find("uiLanguage")) telemetry_->SetUiLanguage(language->as_string());
+  // With no saved choice sharing is on, unless the analytics log was switched off; it then starts from now, so the
+  // log's earlier records are not sent.
   const Json* sharing = saved.find("telemetryEnabled");
-  telemetry_->SetEnabled(sharing == nullptr || sharing->as_bool(true));
+  if (sharing != nullptr) {
+    telemetry_->SetEnabled(sharing->as_bool(false));
+  } else if (analytics_enabled == nullptr || analytics_enabled->as_bool(true)) {
+    telemetry_->EnableFromNow();
+  }
   telemetry_->UploadPending();
 
   control_ = std::make_unique<flutter::MethodChannel<EncodableValue>>(

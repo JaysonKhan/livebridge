@@ -164,6 +164,34 @@ static void test_status_has_app_and_os_version() {
   CHECK(text_of(uploader.status(), "osVersion") == "Windows 11 (build 26100)");
 }
 
+// Sharing on by default (the user never chose): an install that never shared sends nothing written before.
+static void test_on_by_default_sends_nothing_from_before_and_then_everything_new() {
+  Fixture fixture;
+  AnalyticsLog log(fixture.scratch.file);
+  log_session(log, 2);
+  TelemetryUploader uploader(fixture.options());
+  uploader.enable_from_now();
+  CHECK(uploader.enabled());
+  CHECK(fixture.uuids_made == 1);
+  CHECK(uploader.upload_pending() == 0);
+  CHECK(fixture.collector.requests.empty());
+  log_session(log, 1);
+  CHECK(uploader.upload_pending() == 3);  // session_start, 1 turn, session_end
+}
+
+static void test_on_by_default_keeps_the_position_of_an_install_that_shared_before() {
+  Fixture fixture;
+  AnalyticsLog log(fixture.scratch.file);
+  log_session(log, 2);
+  TelemetryUploader uploader(fixture.options());
+  uploader.set_enabled(true);
+  CHECK(uploader.upload_pending() == 4);
+  uploader.set_enabled(false);
+  log_session(log, 1);
+  uploader.enable_from_now();
+  CHECK(uploader.upload_pending() == 3);
+}
+
 static void test_nothing_is_sent_until_the_user_opts_in() {
   Fixture fixture;
   AnalyticsLog log(fixture.scratch.file);
@@ -498,6 +526,8 @@ static void test_the_feedback_message_check() {
 
 int main() {
   test_status_has_app_and_os_version();
+  test_on_by_default_sends_nothing_from_before_and_then_everything_new();
+  test_on_by_default_keeps_the_position_of_an_install_that_shared_before();
   test_nothing_is_sent_until_the_user_opts_in();
   test_uploads_numbers_only_once_and_resumes_where_it_stopped();
   test_mock_sessions_are_never_uploaded();

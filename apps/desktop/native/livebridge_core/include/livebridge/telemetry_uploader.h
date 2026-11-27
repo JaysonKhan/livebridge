@@ -90,6 +90,10 @@ class TelemetryUploader {
   bool enabled() const;
   void set_enabled(bool on);
 
+  /// Sharing on by default, when the user never chose: an install that never shared starts at the current end of the
+  /// log, so nothing written before this moment is sent. An install that shared before keeps its position.
+  void enable_from_now();
+
   /// Interface language reported with uploads and feedback (`uz`, `ru`, `tr`, `en`); "" leaves it out.
   void set_ui_language(std::string language);
 

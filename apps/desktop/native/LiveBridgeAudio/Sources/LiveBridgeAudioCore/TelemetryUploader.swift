@@ -59,6 +59,18 @@ public final class TelemetryUploader: @unchecked Sendable {
         }
     }
 
+    /// Sharing on by default, when the user never chose: an install that never shared starts at the current end of the
+    /// log, so nothing written before this moment is sent. An install that shared before keeps its position.
+    public func enableFromNow() {
+        queue.sync {
+            if store.string(forKey: Key.installId) == nil {
+                let size = (try? FileManager.default.attributesOfItem(atPath: logURL.path)[.size] as? Int) ?? 0
+                store.set(size ?? 0, forKey: Key.offset)
+            }
+        }
+        isEnabled = true
+    }
+
     public func status() -> [String: Any] {
         queue.sync {
             var status: [String: Any] = [
