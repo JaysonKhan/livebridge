@@ -28,6 +28,10 @@ void main() {
     group('${platform.name} look', () {
       testWidgets('without a session: the switch works, the panel waits with flat bars', (tester) async {
         final c = await pumpApp(tester, platform: platform);
+        final label = tester.widget<Text>(find.descendant(of: _hold, matching: find.byType(Text)));
+        if (platform == HostPlatform.windows) {
+          expect(label.style, isNull, reason: 'the toggle button colours its label, also on the accent fill');
+        }
         expect(_panelText(tester), en.talkNoSession);
         expect(_waveform(tester).live, isFalse);
         await tester.tap(_auto);

@@ -282,7 +282,8 @@ class TurnModeSwitch extends ConsumerWidget {
     final notifier = ref.read(setupProvider.notifier);
     final l = context.l10n;
     final t = context.tokens;
-    final style = Theme.of(context).textTheme.labelLarge;
+    // Windows: the toggle button gives the label its style and colour (black on the mint fill in the dark theme).
+    final style = t.isWindows ? null : Theme.of(context).textTheme.labelLarge;
     Widget label(Key key, IconData icon, String text) => Row(
       key: key,
       mainAxisSize: MainAxisSize.min,
