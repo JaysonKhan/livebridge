@@ -246,6 +246,12 @@ final class LiveBridgeChannels: NSObject, FlutterStreamHandler {
     case "setBypass":
       engine.setBypass(arguments["enabled"] as? Bool ?? false)
       result(nil)
+    case "setOutCommit":
+      guard let commit = arguments["commit"] as? String, EngineConfig.outCommits.contains(commit) else {
+        return result(Self.badArguments)
+      }
+      engine.setOutCommit(commit)
+      result(nil)
     case "panic":
       engine.panic()
       result(nil)

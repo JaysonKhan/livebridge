@@ -25,6 +25,8 @@ public struct EngineConfig: Sendable {
     public var mode: Mode
     /// "manual" (push-to-talk), "vad" or "turn_prediction".
     public var outCommit: String
+    /// The values `outCommit` can take.
+    public static let outCommits: Set<String> = ["manual", "vad", "turn_prediction"]
     public var translationModel: String?
     /// The synthesized voice chosen for each direction; nil = the gateway's configured voice. An id that is not
     /// well-formed is treated as not chosen.
@@ -35,7 +37,7 @@ public struct EngineConfig: Sendable {
     /// Diagnostics only: feed a generated tone instead of opening the microphone.
     public var syntheticMic = false
     /// Diagnostics only, with `syntheticMic`: 16 kHz mono s16le speech played from its start each time
-    /// push-to-talk goes down (silence once it runs out), instead of the tone.
+    /// push-to-talk goes down or the hands-free window opens (silence once it runs out), instead of the tone.
     public var syntheticMicAudio: Data?
 
     public init?(dictionary: [String: Any]) {
@@ -50,7 +52,7 @@ public struct EngineConfig: Sendable {
             let target = dictionary["targetLang"] as? String, Self.isLanguageCode(target),
             case let my = dictionary["myLang"] as? String ?? "uz", Self.isLanguageCode(my), my != target,
             let mode = (dictionary["mode"] as? String).flatMap(Mode.init(rawValue:)),
-            let commit = dictionary["outCommit"] as? String, ["manual", "vad", "turn_prediction"].contains(commit)
+            let commit = dictionary["outCommit"] as? String, Self.outCommits.contains(commit)
         else { return nil }
         gatewayURL = url
         self.connection = connection
@@ -121,6 +123,11 @@ public final class Engine: @unchecked Sendable {
     private var inCaptureStarted = false
     private var outCaptureOpen = false
     private var pttHeld = false
+    /// The turn mode the gateway's outgoing direction runs on this connection: what the last `session.configure` or
+    /// `turn.mode` asked for. Nil while there is no connection.
+    private var gatewayOutCommit: String?
+    /// The `features` of this connection's `session.ready`; nil until it arrives.
+    private var gatewayFeatures: Set<String>?
     private var outgoingMuted = false
     private var incomingAudioMuted = false
     private var bypass = false
@@ -169,6 +176,8 @@ public final class Engine: @unchecked Sendable {
     public func pttUp() { queue.async { self.pushToTalk(down: false) } }
     public func setOutgoingMuted(_ muted: Bool) { queue.async { self.muteOutgoing(muted) } }
     public func setBypass(_ enabled: Bool) { queue.async { self.applyBypass(enabled) } }
+    /// Changes the outgoing turn mode of the running session and its reconnects. Unknown values are ignored.
+    public func setOutCommit(_ commit: String) { queue.async { self.applyOutCommit(commit) } }
 
     public func setIncomingAudioMuted(_ muted: Bool) {
         queue.async {
@@ -339,6 +348,26 @@ public final class Engine: @unchecked Sendable {
 
     func installConfigForTesting(_ config: EngineConfig) { queue.sync { self.config = config } }
 
+    /// Runs what a successful connection does, on a transport that records its control messages instead of sending
+    /// them (see `takeSentForTesting`).
+    func connectedForTesting() {
+        queue.sync {
+            let transport = GatewayTransport(queue: queue)
+            transport.sentForTesting = []
+            self.transport = transport
+            sendConfigure(on: transport)
+        }
+    }
+
+    /// The control messages the current connection sent since the last call, oldest first.
+    func takeSentForTesting() -> [[String: Any]] {
+        queue.sync {
+            let sent = transport?.sentForTesting ?? []
+            transport?.sentForTesting?.removeAll()
+            return sent
+        }
+    }
+
     private func connect() {
         guard let config else { return }
         let transport = GatewayTransport(queue: queue)
@@ -352,9 +381,16 @@ public final class Engine: @unchecked Sendable {
             case .failure(let error):
                 self.connectionFailed(error)
             case .success:
-                transport.send(Self.configureMessage(for: config))
+                self.sendConfigure(on: transport)
             }
         }
+    }
+
+    /// Sends `session.configure` built from the config as it is now, so a turn mode chosen while connecting goes too.
+    private func sendConfigure(on transport: GatewayTransport) {
+        guard let config else { return }
+        transport.send(Self.configureMessage(for: config))
+        gatewayOutCommit = config.outCommit
     }
 
     /// The `session.configure` message for a start map (the transport adds the protocol version).
@@ -392,6 +428,8 @@ public final class Engine: @unchecked Sendable {
         inCaptureStarted = false
         outCaptureOpen = false
         pttHeld = false
+        gatewayOutCommit = nil
+        gatewayFeatures = nil
         reconnectAttempt += 1
         guard reconnectAttempt <= Self.maxReconnectAttempts else {
             emit(["type": "error", "code": "gateway_unreachable", "message": "connection lost and could not be restored: \(reason)", "fatal": true])
@@ -425,6 +463,8 @@ public final class Engine: @unchecked Sendable {
         inCaptureStarted = false
         outCaptureOpen = false
         pttHeld = false
+        gatewayOutCommit = nil
+        gatewayFeatures = nil
         outgoingMuted = false
         incomingAudioMuted = false
         bypass = false
@@ -486,13 +526,50 @@ public final class Engine: @unchecked Sendable {
             transport?.send(["type": "capture.start", "direction": "out", "generation": Int(generation[.out]!)])
         } else {
             guard pttHeld else { return }
-            pttHeld = false
-            // Frames are sent in order on the same socket, so the commit always follows the last captured frame.
-            transport?.send(["type": "turn.commit", "direction": "out"])
-            transport?.send(["type": "capture.pause", "direction": "out"])
-            releasedAtUs = monotonicMicroseconds()
+            releaseTalk()
         }
         emitState()
+    }
+
+    /// Lets go of the talk button: what was said becomes a turn.
+    private func releaseTalk() {
+        pttHeld = false
+        // Frames are sent in order on the same socket, so the commit always follows the last captured frame.
+        transport?.send(["type": "turn.commit", "direction": "out"])
+        transport?.send(["type": "capture.pause", "direction": "out"])
+        releasedAtUs = monotonicMicroseconds()
+    }
+
+    private func applyOutCommit(_ commit: String) {
+        guard EngineConfig.outCommits.contains(commit), let current = config?.outCommit, commit != current else { return }
+        config?.outCommit = commit
+        syncOutCommit()
+        emitState()
+    }
+
+    /// Moves the gateway's outgoing direction to the configured turn mode, once this connection's `session.ready` is in.
+    private func syncOutCommit() {
+        guard let config, let features = gatewayFeatures, let running = gatewayOutCommit, running != config.outCommit else { return }
+        guard features.contains("turn.mode") else {
+            // An older gateway cannot switch: the session keeps the mode in force.
+            self.config?.outCommit = running
+            emitState()
+            return emit([
+                "type": "error", "code": "mode_switch_unsupported", "direction": "out", "fatal": false,
+                "message": "This gateway cannot change the turn mode during a session; stop and start again to use the new mode",
+            ])
+        }
+        // Leaving hold to talk while the button is held is a release.
+        if running == "manual", pttHeld { releaseTalk() }
+        // Entering hold to talk closes the hands-free window; the gateway commits what was being said.
+        if config.outCommit == "manual", outCaptureOpen {
+            outCaptureOpen = false
+            transport?.send(["type": "capture.pause", "direction": "out"])
+        }
+        transport?.send(["type": "turn.mode", "direction": "out", "commit": config.outCommit])
+        gatewayOutCommit = config.outCommit
+        openHandsFreeCaptureIfNeeded()
+        if phase == .ready || phase == .active { phase = inCaptureStarted || outCaptureOpen ? .active : .ready }
     }
 
     private func muteOutgoing(_ muted: Bool) {
@@ -528,6 +605,7 @@ public final class Engine: @unchecked Sendable {
         guard let config, config.outCommit != "manual", !outCaptureOpen, directionReady[.out] == true, !outgoingMuted, !bypass
         else { return }
         outCaptureOpen = true
+        syntheticMicOffset = 0
         transport?.send(["type": "capture.start", "direction": "out", "generation": Int(generation[.out]!)])
     }
 
@@ -620,12 +698,15 @@ public final class Engine: @unchecked Sendable {
                 if let rate = info["synth_sample_rate"] as? Double { synthRate = rate }
             }
             mock = (message["providers"] as? [String: Any])?["mock"] as? Bool ?? false
+            gatewayFeatures = Set((message["features"] as? [Any] ?? []).compactMap { $0 as? String })
             reconnectAttempt = 0
             statusMessage = nil
             if directionReady[.in] == true, !inCaptureStarted {
                 inCaptureStarted = true
                 transport?.send(["type": "capture.start", "direction": "in", "generation": Int(generation[.in]!)])
             }
+            // A mode chosen before this point goes now; one the gateway cannot take is undone before the window opens.
+            syncOutCommit()
             openHandsFreeCaptureIfNeeded()
             phase = inCaptureStarted || outCaptureOpen ? .active : .ready
             emitState()

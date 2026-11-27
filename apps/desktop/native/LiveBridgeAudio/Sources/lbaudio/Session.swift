@@ -14,6 +14,10 @@ import LiveBridgeAudioCore
 ///                                       --synthetic-mic; each turn is held for the recording's length)
 ///       [--gain-db -70]                 attenuate everything played (inaudible hardware runs)
 ///       [--panic-during-turn N]         call panic while turn N is playing and measure how fast playback stops
+///       [--plan hold,auto,hold]         instead of --turns: switch the turn mode during the session, phase by phase.
+///                                       `hold` holds push-to-talk for the recording's length (or --hold); `auto`
+///                                       switches to --auto-commit and lets the recording play hands-free
+///       [--auto-commit vad]             the automatic mode `auto` phases switch to (vad or turn_prediction)
 func runSession() throws {
     guard let gateway = value("gateway"), let token = value("token") else { fail("session needs --gateway and --token") }
     let devices = AudioDevices.all()
@@ -44,6 +48,11 @@ func runSession() throws {
     // With a recording, release right as the speech ends — that is the "end of speech" the latency is measured from.
     let hold = micFileSeconds ?? number("hold", default: 1.5)
     let panicTurn = Int(number("panic-during-turn", default: 0))
+    let plan = value("plan")?.split(separator: ",").map(String.init) ?? []
+    let autoCommit = value("auto-commit") ?? "vad"
+    guard plan.allSatisfy({ ["hold", "auto"].contains($0) }), ["vad", "turn_prediction"].contains(autoCommit) else {
+        fail("--plan takes hold/auto phases, --auto-commit vad or turn_prediction")
+    }
 
     final class Recorder: @unchecked Sendable {
         let lock = NSLock()
@@ -54,6 +63,8 @@ func runSession() throws {
         var errors: [String] = []
         var counts: [String: Int] = [:]
         var lastOutQueueMs = 0.0
+        var finals: [String] = []
+        var phases: [[String: Any]] = []
         func sync<T>(_ body: () -> T) -> T {
             lock.lock()
             defer { lock.unlock() }
@@ -75,6 +86,8 @@ func runSession() throws {
                 if event["translateTotalMs"] != nil { recorder.stages.append(event.filter { $0.key != "type" }) }
             case "error":
                 recorder.errors.append("\(event["code"] ?? "?"): \(event["message"] ?? "")")
+            case "caption" where event["direction"] as? String == "out":
+                if event["kind"] as? String == "final" { recorder.finals.append(event["text"] as? String ?? "") }
             case "meters":
                 recorder.lastOutQueueMs = event["outQueueMs"] as? Double ?? 0
             default: break
@@ -101,8 +114,34 @@ func runSession() throws {
         fail("session did not become ready: \(recorder.sync { recorder.errors })")
     }
 
+    // A switching session: each phase records how many turns its speech became.
+    for (index, phase) in plan.enumerated() {
+        let before = recorder.sync { recorder.finals.count }
+        let started = Date()
+        if phase == "hold" {
+            engine.setOutCommit("manual")
+            Thread.sleep(forTimeInterval: 0.3)
+            engine.pttDown()
+            Thread.sleep(forTimeInterval: hold)
+            engine.pttUp()
+            _ = waitUntil(10, { recorder.finals.count > before })
+        } else {
+            // Switching opens the hands-free window, and the recording plays from its start.
+            engine.setOutCommit(autoCommit)
+            Thread.sleep(forTimeInterval: (micFileSeconds ?? hold) + 3)
+        }
+        Thread.sleep(forTimeInterval: 1.5)
+        recorder.sync {
+            recorder.phases.append([
+                "phase": "\(index + 1) \(phase)",
+                "turns": recorder.finals.count - before,
+                "seconds": (Date().timeIntervalSince(started) * 10).rounded() / 10,
+            ])
+        }
+    }
+
     var panicStopMs: Double?
-    for turn in 1...max(1, turns) {
+    for turn in 1...max(1, turns) where plan.isEmpty {
         let before = recorder.sync { recorder.endToEnd.count }
         engine.pttDown()
         Thread.sleep(forTimeInterval: hold)
@@ -145,6 +184,10 @@ func runSession() throws {
             "errors": recorder.errors,
             "finalState": recorder.state,
         ]
+        if !plan.isEmpty {
+            summary["phases"] = recorder.phases
+            summary["outFinals"] = recorder.finals
+        }
         if let panicStopMs { summary["panicToIdleMs"] = (panicStopMs * 10).rounded() / 10 }
         return summary
     }

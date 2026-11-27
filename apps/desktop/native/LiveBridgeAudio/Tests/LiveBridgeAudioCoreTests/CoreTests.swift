@@ -421,6 +421,175 @@ final class ConnectionModeTests: XCTestCase {
     }
 }
 
+final class OutCommitSwitchTests: XCTestCase {
+    private var events: [[String: Any]] = []
+
+    private func config(_ commit: String) throws -> EngineConfig {
+        try XCTUnwrap(EngineConfig(dictionary: [
+            "gatewayUrl": "https://bridge.example.com", "accessToken": "secret-token", "micUid": "mic", "headphonesUid": "phones",
+            "sourcePids": [4242], "targetLang": "en", "mode": "bidirectional", "outCommit": commit,
+        ]))
+    }
+
+    /// An engine whose connection has just sent `session.configure` (already taken).
+    private func connected(_ commit: String) throws -> Engine {
+        let engine = Engine()
+        engine.onEvent = { self.events.append($0) }
+        engine.installConfigForTesting(try config(commit))
+        engine.connectedForTesting()
+        _ = engine.takeSentForTesting()
+        addTeardownBlock { engine.stop() }
+        return engine
+    }
+
+    /// The gateway's `session.ready` with the outgoing direction ready.
+    private func ready(_ engine: Engine, features: [String]? = ["turn.mode"]) {
+        var message: [String: Any] = [
+            "v": 1, "type": "session.ready",
+            "directions": ["out": ["enabled": true, "ready": true], "in": ["enabled": false, "ready": false]],
+        ]
+        if let features { message["features"] = features }
+        engine.receivedForTesting(message)
+    }
+
+    private func types(_ sent: [[String: Any]]) -> [String] { sent.map { $0["type"] as? String ?? "" } }
+
+    private func lastState() -> [String: Any]? { events.last { $0["type"] as? String == "state" } }
+
+    func testSwitchingToAutomaticTellsTheGatewayAndOpensTheMicrophone() throws {
+        let engine = try connected("manual")
+        ready(engine)
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        engine.setOutCommit("vad")
+        let sent = engine.takeSentForTesting()
+        XCTAssertEqual(types(sent), ["turn.mode", "capture.start"])
+        XCTAssertEqual(sent.first?["direction"] as? String, "out")
+        XCTAssertEqual(sent.first?["commit"] as? String, "vad")
+        XCTAssertEqual(sent.last?["direction"] as? String, "out")
+        XCTAssertEqual(lastState()?["outCommit"] as? String, "vad")
+        XCTAssertEqual(lastState()?["state"] as? String, "active")
+        XCTAssertEqual(lastState()?["capturing"] as? Bool, true)
+        // The talk button belongs to hold to talk only.
+        engine.pttDown()
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+    }
+
+    func testSwitchingToHoldToTalkClosesTheMicrophoneBeforeTellingTheGateway() throws {
+        let engine = try connected("vad")
+        ready(engine)
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+        engine.setOutCommit("manual")
+        let sent = engine.takeSentForTesting()
+        XCTAssertEqual(types(sent), ["capture.pause", "turn.mode"])
+        XCTAssertEqual(sent.last?["commit"] as? String, "manual")
+        XCTAssertEqual(lastState()?["outCommit"] as? String, "manual")
+        XCTAssertEqual(lastState()?["state"] as? String, "ready")
+        XCTAssertEqual(lastState()?["capturing"] as? Bool, false)
+        engine.pttDown()
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+    }
+
+    func testSwitchingWhileTheTalkButtonIsHeldCommitsThePhraseFirst() throws {
+        let engine = try connected("manual")
+        ready(engine)
+        engine.pttDown()
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+        engine.setOutCommit("turn_prediction")
+        let sent = engine.takeSentForTesting()
+        XCTAssertEqual(types(sent), ["turn.commit", "capture.pause", "turn.mode", "capture.start"])
+        XCTAssertEqual(sent[2]["commit"] as? String, "turn_prediction")
+        // Letting go of the button afterwards changes nothing.
+        engine.pttUp()
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+    }
+
+    func testTheModeInForceAgainChangesNothing() throws {
+        let engine = try connected("manual")
+        ready(engine)
+        let before = events.count
+        engine.setOutCommit("manual")
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        XCTAssertEqual(events.count, before)
+    }
+
+    func testAnUnknownModeIsIgnored() throws {
+        let engine = try connected("manual")
+        ready(engine)
+        let before = events.count
+        for commit in ["", "push", "VAD", "turn-prediction"] { engine.setOutCommit(commit) }
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        XCTAssertEqual(events.count, before)
+    }
+
+    func testWithoutASessionNothingHappens() {
+        let engine = Engine()
+        engine.onEvent = { self.events.append($0) }
+        engine.setOutCommit("vad")
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        XCTAssertTrue(events.isEmpty)
+    }
+
+    func testAChoiceMadeBeforeTheGatewayIsReadyIsSentWhenItIs() throws {
+        let engine = try connected("manual")
+        engine.setOutCommit("vad")
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        XCTAssertEqual(lastState()?["outCommit"] as? String, "vad")
+        ready(engine)
+        let sent = engine.takeSentForTesting()
+        XCTAssertEqual(types(sent), ["turn.mode", "capture.start"])
+        XCTAssertEqual(sent.first?["commit"] as? String, "vad")
+        XCTAssertEqual(lastState()?["state"] as? String, "active")
+    }
+
+    func testAGatewayWithoutTheFeatureKeepsTheModeInForce() throws {
+        for features: [String]? in [nil, [], ["something.else"]] {
+            let engine = try connected("manual")
+            ready(engine, features: features)
+            let before = events.count
+            engine.setOutCommit("vad")
+            XCTAssertEqual(types(engine.takeSentForTesting()), [], "\(String(describing: features))")
+            let after = Array(events[before...])
+            let index = try XCTUnwrap(after.firstIndex { $0["type"] as? String == "error" })
+            // The state showing the mode in force comes first, then the error.
+            XCTAssertEqual(after.prefix(index).last?["type"] as? String, "state")
+            XCTAssertEqual(after.prefix(index).last?["outCommit"] as? String, "manual")
+            XCTAssertEqual(after[index]["code"] as? String, "mode_switch_unsupported")
+            XCTAssertEqual(after[index]["direction"] as? String, "out")
+            XCTAssertEqual(after[index]["fatal"] as? Bool, false)
+            XCTAssertEqual(lastState()?["outCommit"] as? String, "manual")
+            // Hold to talk keeps working.
+            engine.pttDown()
+            XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+        }
+    }
+
+    func testAnEarlyChoiceTheGatewayCannotMakeIsUndoneBeforeTheMicrophoneOpens() throws {
+        let engine = try connected("manual")
+        engine.setOutCommit("vad")
+        ready(engine, features: nil)
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        XCTAssertEqual(events.last { $0["type"] as? String == "error" }?["code"] as? String, "mode_switch_unsupported")
+        XCTAssertEqual(lastState()?["outCommit"] as? String, "manual")
+        XCTAssertEqual(lastState()?["state"] as? String, "ready")
+    }
+
+    func testAReconnectConfiguresTheModeChosenLast() throws {
+        let engine = try connected("manual")
+        ready(engine)
+        engine.failReconnectForTesting(AudioEngineError("gateway_error", "connection dropped"))
+        engine.setOutCommit("vad")
+        XCTAssertEqual(types(engine.takeSentForTesting()), [])
+        engine.connectedForTesting()
+        let configure = engine.takeSentForTesting()
+        XCTAssertEqual(types(configure), ["session.configure"])
+        let directions = try XCTUnwrap(configure.first?["directions"] as? [String: [String: Any]])
+        XCTAssertEqual(directions["out"]?["commit"] as? String, "vad")
+        // The gateway already runs the new mode: no turn.mode, the microphone simply opens.
+        ready(engine)
+        XCTAssertEqual(types(engine.takeSentForTesting()), ["capture.start"])
+    }
+}
+
 final class ProcessListTests: XCTestCase {
     func testSystemServicesAreNotOfferedAsMeetingSourcesButBrowsersAndMeetingAppsAre() {
         for bundle in ["com.google.Chrome.helper", "us.zoom.xos", "org.mozilla.firefox", "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.FaceTime"] {

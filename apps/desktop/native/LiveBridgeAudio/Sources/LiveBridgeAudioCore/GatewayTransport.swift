@@ -7,6 +7,8 @@ final class GatewayTransport: NSObject, URLSessionWebSocketDelegate, @unchecked 
     var onFrame: ((Data) -> Void)?
     /// The connection ended without `close()` being called.
     var onClosed: ((String) -> Void)?
+    /// Tests only: when set, every control message sent is also appended here.
+    var sentForTesting: [[String: Any]]?
 
     /// Capture frames allowed to wait for the network: 25 × 20 ms = 500 ms. Beyond that new frames are dropped.
     private static let maxPendingFrames = 25
@@ -100,6 +102,7 @@ final class GatewayTransport: NSObject, URLSessionWebSocketDelegate, @unchecked 
     func send(_ message: [String: Any]) {
         var message = message
         message["v"] = 1
+        sentForTesting?.append(message)
         guard let task, let data = try? JSONSerialization.data(withJSONObject: message),
             let text = String(data: data, encoding: .utf8)
         else { return }
