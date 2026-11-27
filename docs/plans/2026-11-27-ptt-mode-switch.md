@@ -46,11 +46,13 @@ direction never stops being ready.
 - Client → gateway: `{ v: 1, type: "turn.mode", direction, commit }` — `commit` one of `manual`, `vad`,
   `turn_prediction`. The direction uses this strategy for the rest of the session (reconnects included). The same
   strategy again does nothing.
-- Gateway behaviour: a new speech-to-text session with the new strategy is opened while the old one finishes what
-  was said before `turn.mode`. Then the new session takes over and the old one is committed — whatever was said under
-  the old strategy becomes a turn — and it keeps delivering its answers for 15 s. Audio and a commit that arrive
-  after `turn.mode` while the new session opens wait for it (up to 10 s of audio). If the new session cannot be
-  opened, the direction goes through the normal provider-down path (reconnects use the new strategy).
+- Gateway behaviour: at `turn.mode` the old speech-to-text session is committed at once — whatever was said under
+  the old strategy becomes a turn, never waiting for the new session — and keeps delivering its answers (a `manual`
+  one until it has answered every commit, a `vad` one for 15 s; at most two replaced sessions are kept). A new
+  session with the new strategy opens meanwhile; audio and commits that arrive after `turn.mode` wait for it, in
+  order (up to 10 s of audio). Switching back while it opens closes it at once. If it cannot be opened, the
+  direction goes through the normal provider-down path (reconnects use the new strategy); the replaced session still
+  delivers what was said before the switch.
 - `session.ready` gains `features: string[]`; `"turn.mode"` in it = the message is accepted.
 
 ### Bridge (`docs/bridge-contract.md`)

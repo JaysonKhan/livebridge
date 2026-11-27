@@ -70,7 +70,14 @@ invalid frames close the session.
 Every message has `"v": 1` and `"type"`.
 
 Client → gateway: `session.configure`, `capture.start`, `capture.pause`, `capture.stop`, `turn.commit`,
-`turn.cancel`, `playback.start`, `playback.end`, `ping`.
+`turn.cancel`, `turn.mode`, `playback.start`, `playback.end`, `ping`.
+
+`turn.mode` (`direction`, `commit`: `manual`, `vad` or `turn_prediction`) changes how a direction's turns end for the
+rest of the session, reconnects included; the same strategy again does nothing. It is accepted only when
+`session.ready` lists `"turn.mode"` in `features` (an older gateway sends no `features`). What was said before it is
+committed at once and becomes a turn under the old strategy; audio and commits sent after it wait for the
+speech-to-text session the gateway opens with the new strategy (up to 10 s of audio), in order. The direction stays
+ready throughout; if the new session cannot open, the direction goes through the usual provider-down path.
 
 Languages: `source_lang` / `target_lang` of a direction are codes from `src/languages.ts` — the 90 languages that
 Eleven v4 can speak and realtime speech-to-text can recognise (`fixtures/languages.json` is the same table, shared
