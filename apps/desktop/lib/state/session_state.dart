@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/live_bridge.dart';
 import '../bridge/models.dart';
+import 'diagnostics.dart';
 import 'providers.dart';
 import 'setup_state.dart';
 
@@ -203,7 +204,10 @@ class SessionNotifier extends Notifier<SessionState> {
   SessionState _idleWith({ErrorEvent? error}) =>
       SessionState(outTurns: state.outTurns, inTurns: state.inTurns, metrics: state.metrics, error: error);
 
-  void reportError(ErrorEvent e) => state = state.copyWith(error: e);
+  void reportError(ErrorEvent e) {
+    recordAppError(ref.read(diagnosticLogProvider), e);
+    state = state.copyWith(error: e);
+  }
 
   void reportException(Exception e, String method) => reportError(
     e is PlatformException
@@ -225,6 +229,10 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   Future<void> start(StartConfig config) async {
+    final log = ref.read(diagnosticLogProvider);
+    for (final line in describeStart(config, ref.read(setupProvider))) {
+      log.add('start', line);
+    }
     state = SessionState(engine: EngineState.connecting);
     try {
       await _bridge.stopMeters();

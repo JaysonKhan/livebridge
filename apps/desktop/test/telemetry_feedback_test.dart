@@ -130,13 +130,14 @@ void main() {
 
     testWidgets('the status reloads when the section opens and after a session ends', (tester) async {
       await pumpApp(tester, size: _tall);
-      expect(fake.count('telemetryStatus'), 0);
-      await openAnalytics(tester);
+      // Once at launch: the diagnostic log records the app's version from it.
       expect(fake.count('telemetryStatus'), 1);
+      await openAnalytics(tester);
+      expect(fake.count('telemetryStatus'), 2);
       await push(readyState);
       await push(const StateEvent(state: EngineState.idle));
       await tester.pumpAndSettle();
-      expect(fake.count('telemetryStatus'), 2);
+      expect(fake.count('telemetryStatus'), 3);
     });
 
     testWidgets('shows the public statistics address and Copy puts it on the clipboard', (tester) async {

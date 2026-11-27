@@ -5,6 +5,7 @@ import '../bridge/live_bridge.dart';
 import '../bridge/models.dart';
 import '../bridge/voices_client.dart';
 import 'connection_state.dart';
+import 'diagnostics.dart';
 
 /// The native bridge. Tests override this with a fake.
 final bridgeProvider = Provider<LiveBridge>((ref) => MethodChannelLiveBridge());
@@ -31,7 +32,12 @@ final languageNamesProvider = FutureProvider.family<Map<String, String>, String>
 );
 
 /// Reads the gateway's voice list. Tests override this with a fake.
-final voicesClientProvider = Provider<VoicesClient>((ref) => HttpVoicesClient());
+final voicesClientProvider = Provider<VoicesClient>(
+  (ref) => HttpVoicesClient(
+    onFailure: (path, status, code) =>
+        ref.read(diagnosticLogProvider).add('http', 'gateway $path → ${status ?? '-'} $code'),
+  ),
+);
 
 /// The voices the current connection may use, per mode (and, for the own gateway, its address). The credential is not
 /// part of the key: it is fetched inside, from the connection. Nothing keeps it between uses: each picker that opens

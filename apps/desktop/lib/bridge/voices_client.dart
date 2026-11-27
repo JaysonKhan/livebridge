@@ -75,15 +75,22 @@ abstract class VoicesClient {
 
 /// `GET <gateway>/v1/voices` with the same credential a session is created with.
 class HttpVoicesClient implements VoicesClient {
-  HttpVoicesClient({this.timeout = const Duration(seconds: 10)});
+  HttpVoicesClient({this.timeout = const Duration(seconds: 10), this.onFailure});
 
   /// For the whole exchange: connecting, the answer and its body.
   final Duration timeout;
+
+  /// Told of every failed listing — `v1/voices`, the HTTP status (null when there was no answer) and the error code;
+  /// never a body or a credential. The diagnostic log listens.
+  final void Function(String path, int? status, String code)? onFailure;
+
+  static const _path = 'v1/voices';
 
   @override
   Future<List<Voice>> list({required String gatewayUrl, required VoicesAuth auth}) async {
     final uri = Uri.tryParse('${gatewayUrl.trim().replaceFirst(RegExp(r'/+$'), '')}/v1/voices');
     if (uri == null || !(uri.isScheme('http') || uri.isScheme('https')) || uri.host.isEmpty) {
+      onFailure?.call(_path, null, 'bad_address');
       throw const VoicesException(VoicesFailure.network);
     }
     final client = HttpClient();
@@ -93,10 +100,12 @@ class HttpVoicesClient implements VoicesClient {
       (status, body) = await _get(client, uri, auth).timeout(timeout);
     } on Exception {
       // Refused, unreachable, a TLS failure, a broken answer or none in time: the gateway could not be reached.
+      onFailure?.call(_path, null, 'network');
       throw const VoicesException(VoicesFailure.network);
     } finally {
       client.close(force: true);
     }
+    if (status != HttpStatus.ok) onFailure?.call(_path, status, _errorCode(body) ?? 'error');
     switch (status) {
       case HttpStatus.ok:
         break;
@@ -113,10 +122,14 @@ class HttpVoicesClient implements VoicesClient {
     try {
       decoded = jsonDecode(body);
     } on FormatException {
+      onFailure?.call(_path, status, 'bad_body');
       throw const VoicesException(VoicesFailure.unavailable);
     }
     final voices = decoded is Map ? decoded['voices'] : null;
-    if (voices is! List) throw const VoicesException(VoicesFailure.unavailable);
+    if (voices is! List) {
+      onFailure?.call(_path, status, 'bad_body');
+      throw const VoicesException(VoicesFailure.unavailable);
+    }
     return voices.map(Voice.fromJson).nonNulls.toList();
   }
 

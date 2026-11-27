@@ -142,10 +142,18 @@ abstract class AccountClient {
 
 /// `<siteBase>/api/livebridge/v1/…`, JSON in and out.
 class HttpAccountClient implements AccountClient {
-  HttpAccountClient(this.siteBase, {this.timeout = const Duration(seconds: 10), DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  HttpAccountClient(
+    this.siteBase, {
+    this.timeout = const Duration(seconds: 10),
+    DateTime Function()? now,
+    this.onFailure,
+  }) : _now = now ?? DateTime.now;
 
   final Uri siteBase;
+
+  /// Told of every failed exchange — the API path, the HTTP status (null when there was no answer) and the error code;
+  /// never a body or a token. The diagnostic log listens.
+  final void Function(String path, int? status, String code)? onFailure;
 
   /// For each whole exchange: connecting, the answer and its body.
   final Duration timeout;
@@ -191,7 +199,10 @@ class HttpAccountClient implements AccountClient {
   @override
   Future<TokenPair> refresh(String refreshToken) async {
     final r = await _call('POST', 'token/refresh/', body: {'refresh_token': refreshToken});
-    if (r.status == HttpStatus.unauthorized && r.code == 'invalid_grant') throw const AccountSignedOut();
+    if (r.status == HttpStatus.unauthorized && r.code == 'invalid_grant') {
+      _report(r);
+      throw const AccountSignedOut();
+    }
     if (r.status != HttpStatus.ok) throw _errorOf(r);
     return _parse(r, () => _pair(r.json));
   }
@@ -262,11 +273,15 @@ class HttpAccountClient implements AccountClient {
     try {
       return read();
     } on Object {
+      onFailure?.call(r.path, r.status, 'bad_body');
       throw const AccountError('network');
     }
   }
 
+  void _report(_Reply r) => onFailure?.call(r.path, r.status, r.code ?? 'error');
+
   Exception _errorOf(_Reply r, {bool bearer = false}) {
+    _report(r);
     if (bearer && r.status == HttpStatus.unauthorized && r.code == 'invalid_token') return const AccountTokenStale();
     if (r.status == HttpStatus.tooManyRequests) return const AccountError('rate_limited');
     return AccountError(r.code ?? 'network');
@@ -282,16 +297,18 @@ class HttpAccountClient implements AccountClient {
     final uri = siteBase.replace(path: '${siteBase.path.replaceFirst(RegExp(r'/+$'), '')}/api/livebridge/v1/$path');
     final client = HttpClient();
     try {
-      return await _exchange(client, method, uri, body, bearer, language).timeout(timeout);
+      final (status, json) = await _exchange(client, method, uri, body, bearer, language).timeout(timeout);
+      return _Reply(status, json, path);
     } on Object {
       // Refused, unreachable, a TLS failure, a dropped connection or no answer in time.
+      onFailure?.call(path, null, 'network');
       throw const AccountError('network');
     } finally {
       client.close(force: true);
     }
   }
 
-  static Future<_Reply> _exchange(
+  static Future<(int, Object?)> _exchange(
     HttpClient client,
     String method,
     Uri uri,
@@ -317,15 +334,18 @@ class HttpAccountClient implements AccountClient {
     } on FormatException {
       json = null;
     }
-    return _Reply(response.statusCode, json);
+    return (response.statusCode, json);
   }
 }
 
 class _Reply {
-  _Reply(this.status, this.json);
+  _Reply(this.status, this.json, this.path);
 
   final int status;
   final Object? json;
+
+  /// The API path asked (`token/refresh/`).
+  final String path;
 
   /// The `error` code of a failure body, when there is one.
   String? get code {

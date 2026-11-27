@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
 import '../state/connection_state.dart';
+import '../state/diagnostics.dart';
 import '../state/host_platform.dart';
 import '../state/setup_state.dart';
 import 'home_screen.dart';
@@ -21,6 +22,7 @@ class LiveBridgeApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(diagnosticRecorderProvider);
     final saved = ref.watch(setupProvider.select((s) => s.uiLanguage));
     // The platform look (Fluent on Windows, macOS on the Mac) follows the host; light or dark follows the system.
     final platform = ref.watch(hostPlatformProvider);

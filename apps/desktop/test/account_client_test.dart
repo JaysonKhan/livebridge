@@ -104,6 +104,29 @@ void main() {
       fail('did not throw');
     }
 
+    test('reports a failure with its path, status and code only', () async {
+      final failures = <(String, int?, String)>[];
+      final watched = HttpAccountClient(
+        Uri.parse('http://127.0.0.1:${server.port}'),
+        timeout: const Duration(milliseconds: 500),
+        now: () => clock,
+        onFailure: (what, status, code) => failures.add((what, status, code)),
+      );
+      replies['$base/token/refresh/'] = json(401, {'error': 'invalid_grant', 'detail': 'lbr_body_secret'});
+      replies['$base/packages/'] = json(429, {'error': 'rate_limited'});
+      replies['$base/device/token/'] = json(400, {'error': 'authorization_pending'});
+      await thrownBy(watched.refresh('lbr_mine'));
+      await thrownBy(watched.packages());
+      expect(await watched.pollDevice('lbd_x'), isA<DevicePending>()); // waiting for the person is not a failure
+      drop = true;
+      await thrownBy(watched.me('lba_mine'));
+      expect(failures, [
+        ('token/refresh/', 401, 'invalid_grant'),
+        ('packages/', 429, 'rate_limited'),
+        ('me/', null, 'network'),
+      ]);
+    });
+
     test('startDevice posts the device and reads the codes', () async {
       replies['$base/device/start/'] = json(201, {
         'device_code': 'lbd_1',

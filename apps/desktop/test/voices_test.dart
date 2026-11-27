@@ -65,6 +65,24 @@ void main() {
       }
     }
 
+    test('reports a failure with its path, status and code only', () async {
+      final failures = <(String, int?, String)>[];
+      final client = HttpVoicesClient(onFailure: (what, status, code) => failures.add((what, status, code)));
+      status = 401;
+      body = '{"error":"invalid_key","detail":"sk_body_secret"}';
+      await failureOf(client.list(gatewayUrl: base, auth: const ProviderKeyAuth('el-key')));
+      status = 200;
+      body = 'not json';
+      await failureOf(client.list(gatewayUrl: base, auth: const BearerAuth('t')));
+      await server.close(force: true);
+      await failureOf(client.list(gatewayUrl: base, auth: const BearerAuth('t')));
+      expect(failures, [
+        ('v1/voices', 401, 'invalid_key'),
+        ('v1/voices', 200, 'bad_body'),
+        ('v1/voices', null, 'network'),
+      ]);
+    });
+
     test('lists voices with the bearer token', () async {
       body = jsonEncode({
         'voices': [

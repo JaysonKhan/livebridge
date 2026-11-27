@@ -11,6 +11,7 @@ import '../bridge/live_bridge.dart';
 import '../bridge/models.dart';
 import '../bridge/voices_client.dart';
 import '../l10n/app_localizations.dart';
+import 'diagnostics.dart';
 import 'providers.dart';
 import 'session_state.dart';
 import 'setup_state.dart';
@@ -27,7 +28,13 @@ const String kHostedGateway = String.fromEnvironment(
 const String kSiteBase = String.fromEnvironment('LIVEBRIDGE_SITE', defaultValue: 'https://jaysonkhan.com');
 
 /// The site's app API. Tests override this with a fake.
-final accountClientProvider = Provider<AccountClient>((ref) => HttpAccountClient(Uri.parse(kSiteBase)));
+final accountClientProvider = Provider<AccountClient>(
+  (ref) => HttpAccountClient(
+    Uri.parse(kSiteBase),
+    onFailure: (path, status, code) =>
+        ref.read(diagnosticLogProvider).add('http', 'site $path → ${status ?? '-'} $code'),
+  ),
+);
 
 /// How often a running account session checks whether its access token needs refreshing.
 const Duration _refreshCheck = Duration(seconds: 30);
