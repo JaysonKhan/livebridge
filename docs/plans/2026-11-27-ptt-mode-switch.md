@@ -49,7 +49,7 @@ direction never stops being ready.
 - Gateway behaviour: a new speech-to-text session with the new strategy is opened while the old one finishes what
   was said before `turn.mode`. Then the new session takes over and the old one is committed — whatever was said under
   the old strategy becomes a turn — and it keeps delivering its answers for 15 s. Audio and a commit that arrive
-  after `turn.mode` while the new session opens wait for it (up to 5 s of audio). If the new session cannot be
+  after `turn.mode` while the new session opens wait for it (up to 10 s of audio). If the new session cannot be
   opened, the direction goes through the normal provider-down path (reconnects use the new strategy).
 - `session.ready` gains `features: string[]`; `"turn.mode"` in it = the message is accepted.
 

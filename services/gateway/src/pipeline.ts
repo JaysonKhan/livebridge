@@ -67,11 +67,11 @@ const OVERFLOW_WARNING_INTERVAL_MS = 1_000;
 /** A replaced speech-to-text session still delivers what it says for this long, then it is closed. */
 const RETIRE_TIMEOUT_MS = 15_000;
 /**
- * Captured audio that may wait for a swapped-in speech-to-text session to open: 5 s. Opening usually takes well under
- * a second, but the provider has been seen to take 6 s; speech said meanwhile is sent late rather than lost. Older
- * audio is dropped.
+ * Captured audio that may wait for a swapped-in speech-to-text session to open: 10 s. Opening usually takes under
+ * half a second, but the provider has been seen to take almost 8 s; speech said meanwhile is sent late rather than
+ * lost. Older audio is dropped.
  */
-const MAX_OPENING_AUDIO_BYTES = 160_000;
+const MAX_OPENING_AUDIO_BYTES = 320_000;
 
 const nowMs = () => performance.now();
 const jitteredBackoff = (attempt: number) =>
