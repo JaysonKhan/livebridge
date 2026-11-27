@@ -29,6 +29,7 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `start` | config map (below) | — (returns when the engine has begun connecting; progress arrives as `state` events) |
 | `stop` | — | — |
 | `pttDown` / `pttUp` | — | — |
+| `setOutCommit` | `commit` String (`manual`, `vad`, `turn_prediction`) | — (the outgoing turn mode of the running session and of its reconnects. Leaving `manual` while the talk button is held is a release: the phrase is committed. Entering `manual` pauses the hands-free capture; the gateway commits what was being said. Entering `vad` / `turn_prediction` opens the capture under the usual conditions. No session: nothing happens. Not connected yet or reconnecting: the next `session.configure` carries it. A gateway whose `session.ready` does not list the `turn.mode` feature keeps the mode in force: a `state` event shows it, then a non-fatal `error` `mode_switch_unsupported` follows. Anything but the three values fails with `bad_arguments`) |
 | `setOutgoingMuted` | `muted` bool | — |
 | `setIncomingAudioMuted` | `muted` bool | — |
 | `updateAccessToken` | `accessToken` String | — (replaces the token the next automatic reconnect sends; the running session is not touched. The app calls it after refreshing the account's access token in the background) |
@@ -50,7 +51,7 @@ All arguments and results are standard-codec maps/lists. A failed call throws `P
 | `myLang` | String | the owner's language, default `uz` — a code from `packages/protocol/src/languages.ts` (90 languages) |
 | `targetLang` | String | the remote participant's language, default `en` — same table; must differ from `myLang` |
 | `mode` | String | `captions`, `incoming`, `bidirectional` |
-| `outCommit` | String | `manual` (push-to-talk), `vad`, `turn_prediction` |
+| `outCommit` | String | `manual` (push-to-talk), `vad`, `turn_prediction`; changed during a session with `setOutCommit` |
 | `translationModel` | String? | must be allowed by the gateway |
 | `outVoiceId` | String? | voice of the owner's translated speech; absent = the gateway's configured voice |
 | `inVoiceId` | String? | voice of the remote participant's translated speech; absent = the gateway's configured voice |
@@ -92,6 +93,7 @@ secret item: the app keeps it in memory only.
 | `connectionMode` | String | `account`, `keys`, `gateway` (own gateway) or `none` (ask again — shown as the onboarding screen). Absent on an install that predates accounts: a saved static token then means `gateway`, otherwise onboarding |
 | `deviceId` | String | random id of this installation, sent to the site when signing in |
 | `captionFontSize` | double | caption text size |
+| `outAutoCommit` | String | `vad` (default) or `turn_prediction`: the mode the session switch's "Automatic" stands for — the last automatic mode chosen. `outCommit` is saved with it whenever the turn mode changes |
 | `showOriginal` / `showTranslated` | bool | caption line visibility |
 | `outVoiceName` / `inVoiceName` | String? | what the chosen voices are called, saved with `outVoiceId` / `inVoiceId` the moment a voice is picked (so the setup column can show the choice without asking the gateway); `null` removes them |
 | `accountOutVoiceId` / `accountInVoiceId` / `accountOutVoiceName` / `accountInVoiceName`, and the same with a `keys` prefix | String? | the same four values for the account and own-keys connection modes (the voice lists differ); `outVoiceId` & co. stay the own gateway's |
@@ -106,7 +108,7 @@ Each event is a map with a `type` key.
 
 | `type` | Fields |
 |---|---|
-| `state` | `state` (`idle`, `connecting`, `ready`, `active`, `degraded`, `stopping`), `outReady` bool, `inReady` bool, `capturing` bool (PTT held or hands-free capture running), `mock` bool (gateway is using fake providers), `bypass` bool, `outgoingMuted` bool, `incomingAudioMuted` bool, `message` String? |
+| `state` | `state` (`idle`, `connecting`, `ready`, `active`, `degraded`, `stopping`), `outReady` bool, `inReady` bool, `capturing` bool (PTT held or hands-free capture running), `mock` bool (gateway is using fake providers), `bypass` bool, `outgoingMuted` bool, `incomingAudioMuted` bool, `message` String?; while a session is configured also `mode`, `myLang`, `targetLang` and `outCommit` (the outgoing turn mode in force) |
 | `caption` | `direction` (`out`, `in`), `turnId` int, `kind` (`partial`, `final`, `translationDelta`, `translationFinal`, `skipped`), `text` String. `skipped` follows a `final` when the gateway left the turn untranslated and unspoken; it carries `reason` (`same_language` — the speech was already in the target language, usually the other side's voice in this lane; `echo` — our own synthesized speech came back) and an empty `text` |
 | `meters` | `mic` double, `source` double (dBFS, −120 = silence), `outQueueMs` double, `inQueueMs` double — about 10 per second |
 | `balance` | `balanceUnits` int — the account's remaining balance, from the gateway's `account.balance`; the app shows it as minutes |

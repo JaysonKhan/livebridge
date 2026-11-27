@@ -168,6 +168,12 @@ have not been measured.
 
 Automatic modes keep the microphone open, so wear headphones.
 
+During a session the switch **Hold to talk | Automatic** above the talk panel changes the mode at once, without
+restarting (Automatic is the last automatic mode chosen in the setup, VAD at first). The panel's bars follow your
+microphone level while it is being sent — teal with moving bars means you are heard; flat grey bars mean nothing is
+sent. Switching during a session needs a gateway from this version or later; an older one keeps the mode the session
+started with.
+
 ## Languages and voice
 
 **Languages.** Each side of the conversation is chosen from a list of **90 languages** — the languages that Eleven v4
