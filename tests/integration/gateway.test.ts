@@ -1088,6 +1088,21 @@ test("turn.cancel while the new session opens: nothing said before it is deliver
   assert.deepEqual([final.generation, final.text], [2, "after the cancel"]);
 });
 
+test("turn.cancel while the new session opens drops the audio and the commit waiting for it", async () => {
+  const { base } = await start({ fake: { delayMs: 40 } });
+  const client = await TestClient.connect(base);
+  await client.configure({ in: { enabled: false } });
+  client.send({ v: 1, type: "turn.mode", direction: "out", commit: "vad" });
+  // Waiting for the new session: speech and a release, then a cancel (mute) before it opens.
+  client.send({ v: 1, type: "capture.start", direction: "out", generation: 1 });
+  client.sendAudio("out", 1, speech(400));
+  client.send({ v: 1, type: "turn.commit", direction: "out" });
+  client.send({ v: 1, type: "turn.cancel", direction: "out", generation: 2 });
+  await sleep(250);
+  assert.deepEqual(client.messages.filter((m) => m.type === "caption.final"), []);
+  assert.deepEqual(errors(client), []);
+});
+
 test("turn.mode: a replaced session delivers every answer it still gives, in whatever order, until a cancel closes it", async () => {
   const { sessions, factory } = scriptedFactory();
   const { base } = await start({ factory });
