@@ -297,8 +297,11 @@ Then start a session in the app as above. On first launch macOS asks for two per
 ./scripts/make-dmg.sh    # builds the app and writes dist/JK-LiveBridge-<version>.dmg
 ```
 
-Open the DMG and drag **JK - LiveBridge** to Applications. The app is ad-hoc signed and not notarised, so on
-another Mac the first launch is blocked: open **System Settings → Privacy & Security** and press **Open Anyway**.
+Open the DMG and drag **JK - LiveBridge** to Applications. The released app is signed with a self-signed
+certificate (not Apple's) and is not notarised, so on another Mac the first launch is blocked: open **System Settings
+→ Privacy & Security** and press **Open Anyway**. The certificate stays the same from release to release, so the
+Keychain does not ask again after each update. A build without that certificate (yours, from source) is ad-hoc signed
+instead.
 The DMG contains the app only — the gateway still has to run (step 2).
 
 **Windows — an installer:** every push to `main` that touches the app runs the *Windows* GitHub workflow, which
@@ -406,7 +409,7 @@ and `npm run bench` are the tools that exercise the real providers.
   has measured them.
 - **Two people in one room will hear a mess.** Both microphones pick up both voices. The crosstalk filters catch
   most of it by language, but they cannot tell who is speaking — test from separate rooms, with headphones.
-- **No signed downloads.** The DMG is ad-hoc signed and not notarised, the Windows installer is not code-signed, so
+- **No signed downloads.** The DMG is self-signed and not notarised, the Windows installer is not code-signed, so
   macOS and SmartScreen ask for confirmation on first launch. Both hold the app only: the gateway runs separately, on
   your own machine or server, with your own API keys.
 - **Windows:** hearing the meeting app needs Windows 11 or Windows 10 build 20348 or newer; on older builds the app

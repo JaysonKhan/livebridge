@@ -197,6 +197,37 @@ silent; nothing else depends on it.
   shared access log, make sure those responses cannot ban your own address; give this vhost its own access log if
   in doubt.
 
+## macOS release signing
+
+Releases are signed with a self-signed code-signing identity, `JK - LiveBridge self-signed`, kept in the
+maintainer's login keychain — never in the repository. Its only job is to stay the same: the Keychain remembers which
+app may read the saved tokens and keys by the app's code requirement (`identifier "com.jaysonkhan.livebridge" and
+certificate root = …`), so an app signed with the same certificate keeps that access after an update. An ad-hoc
+signed app's requirement is its own hash, which changes with every build, so each update would ask again.
+
+`scripts/make-dmg.sh` re-signs the release app (nested frameworks first, then the app with
+`Runner/Release.entitlements`) and the DMG with it. `LIVEBRIDGE_SIGN_IDENTITY` names another identity; without one in
+the keychain the script warns and leaves the app ad-hoc signed. Xcode itself keeps ad-hoc signing, so the project
+builds anywhere.
+
+Creating the identity (once, on the release Mac): a 10-year certificate with only the code-signing key usage —
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -keyout key.pem -out cert.pem \
+  -subj "/CN=JK - LiveBridge self-signed/O=JK - LiveBridge" \
+  -addext "basicConstraints=critical,CA:false" -addext "keyUsage=critical,digitalSignature" \
+  -addext "extendedKeyUsage=critical,codeSigning"
+openssl pkcs12 -export -inkey key.pem -in cert.pem -name "JK - LiveBridge self-signed" -out id.p12   # asks a password
+security import id.p12 -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign                # asks it again
+rm key.pem cert.pem id.p12
+```
+
+Use the system `/usr/bin/openssl` (LibreSSL): a PKCS#12 file from OpenSSL 3 needs `-legacy` for `security import`.
+The certificate does not need to be trusted; `codesign` uses it as it is. **Keep a backup** (Keychain Access →
+export the identity as .p12 with a strong password, stored outside the repository): a lost identity means a new
+requirement, and every installed copy asks for Keychain access once more after the next update. The first update from
+1.2.0 (ad-hoc signed) asks once for the same reason.
+
 ## Docker alternative
 
 ```bash
