@@ -352,6 +352,7 @@
   "talkHoldReady": "Press and hold, or hold Space",
   "talkHoldHeld": "Speak… release to send",
   "talkListening": "Listening — sends on each pause",
+  "talkTranslationPlaying": "Translation is playing — listening again right after",
   "talkMuted": "Microphone muted — nothing is sent",
   "talkBypass": "No translation — your microphone goes straight to the call",
   "errModeSwitchUnsupported": "This gateway can't change the mode during a session. Stop and start again to use the other mode.",

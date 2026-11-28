@@ -30,6 +30,13 @@ void main() {
       expect((odd as StateEvent).outCommit, isNull);
     });
 
+    test('a state event says whether the echo hold keeps the microphone back; absent means not', () {
+      final held = BridgeEvent.fromMap({'type': 'state', 'state': 'active', 'outHeld': true});
+      expect((held as StateEvent).outHeld, isTrue);
+      final absent = BridgeEvent.fromMap({'type': 'state', 'state': 'active'});
+      expect((absent as StateEvent).outHeld, isFalse);
+    });
+
     test('parses caption, metrics and error events', () {
       final c = BridgeEvent.fromMap({'type': 'caption', 'direction': 'in', 'turnId': 3, 'kind': 'final', 'text': 'Hi'});
       expect(c, isA<CaptionEvent>());

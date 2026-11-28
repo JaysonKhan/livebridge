@@ -6,6 +6,7 @@ import 'package:livebridge/state/host_platform.dart';
 import 'package:livebridge/state/session_state.dart';
 import 'package:livebridge/state/setup_state.dart';
 import 'package:livebridge/ui/session_panel.dart';
+import 'package:livebridge/ui/theme/tokens.dart';
 
 import 'harness.dart';
 
@@ -90,6 +91,45 @@ void main() {
         await tester.tap(_hold);
         await tester.pump();
         expect(fake.calls.last, 'setOutCommit(manual)');
+        expect(_panelText(tester), en.talkHoldReady);
+      });
+
+      testWidgets('automatic: while translated speech holds the microphone back the panel says so, neutral and flat', (
+        tester,
+      ) async {
+        final c = await pumpApp(tester, platform: platform);
+        c.read(setupProvider.notifier).setAutomatic(true);
+        const listening = StateEvent(state: EngineState.active, outReady: true, outCommit: OutCommit.vad);
+        await push(listening);
+        await _meter(-25);
+        expect(_waveform(tester).levels.last, greaterThan(0));
+
+        await push(
+          const StateEvent(state: EngineState.active, outReady: true, outCommit: OutCommit.vad, outHeld: true),
+        );
+        expect(c.read(talkStateProvider), TalkState.translationPlaying);
+        expect(_panelText(tester), en.talkTranslationPlaying);
+        expect(find.descendant(of: _panel, matching: find.byIcon(Icons.headphones)), findsOneWidget);
+        final t = tester.element(_panel).tokens;
+        final panel = tester.widget<AnimatedContainer>(_panel).decoration! as BoxDecoration;
+        expect(panel.color, isNot(t.accent), reason: 'nothing is sent, so the panel is not teal');
+        expect(_waveform(tester).live, isFalse);
+        expect(_waveform(tester).levels.every((l) => l == 0), isTrue, reason: 'the bars drop flat at once');
+        await _meter(-20);
+        expect(_waveform(tester).levels.every((l) => l == 0), isTrue, reason: 'the raw microphone level is not shown');
+
+        await push(listening);
+        expect(_panelText(tester), en.talkListening);
+        await _meter(-25);
+        expect(_waveform(tester).live, isTrue);
+        expect(_waveform(tester).levels.last, greaterThan(0));
+      });
+
+      testWidgets('hold to talk ignores the echo hold', (tester) async {
+        await pumpApp(tester, platform: platform);
+        await push(
+          const StateEvent(state: EngineState.ready, outReady: true, outCommit: OutCommit.manual, outHeld: true),
+        );
         expect(_panelText(tester), en.talkHoldReady);
       });
 

@@ -623,6 +623,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get talkListening => 'Dinliyorum — duraklayınca kendisi gönderir';
 
   @override
+  String get talkTranslationPlaying => 'Çeviri çalınıyor — bitince yeniden dinliyorum';
+
+  @override
   String get talkMuted => 'Mikrofon kapalı — hiçbir şey gönderilmiyor';
 
   @override

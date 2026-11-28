@@ -391,7 +391,7 @@ static bool logged(const FakeHost& host, std::initializer_list<const char*> expe
 
 static const char* const kIdleState =
     R"({"type":"state","state":"idle","outReady":false,"inReady":false,"capturing":false,"mock":false,)"
-    R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false})";
+    R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false})";
 
 // ── Settings ──
 
@@ -611,7 +611,7 @@ static void test_start_connects_and_configures_each_mode() {
     CHECK(s.events.size() == 1);
     CHECK(same(s.events[0],
                R"({"type":"state","state":"connecting","outReady":false,"inReady":false,"capturing":false,)"
-               R"("mock":false,"bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+               R"("mock":false,"bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
                R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})"));
     CHECK(s.host.sent.empty());  // nothing is sent before the socket is open
     s.engine.on_transport_open();
@@ -798,7 +798,7 @@ static void test_ready_reports_state_and_opens_capture() {
     CHECK(s.events.size() == 1);
     CHECK(same(s.events[0],
                R"({"type":"state","state":"active","outReady":true,"inReady":true,"capturing":true,"mock":true,)"
-               R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+               R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
                R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})"));
     s.host.now += 20'000;
     s.source(2 * kFrame);
@@ -940,7 +940,7 @@ static void test_switching_to_an_automatic_turn_mode() {
     CHECK(s.events.size() == 1);
     CHECK(same(s.events[0],
                R"({"type":"state","state":"active","outReady":true,"inReady":false,"capturing":true,"mock":false,)"
-               R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+               R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
                R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"vad"})"));
     s.mic(kFrame);
     CHECK(s.host.frames.size() == 1 && s.host.frames[0].direction == kOut);
@@ -985,7 +985,7 @@ static void test_switching_to_push_to_talk() {
   CHECK(s.events.size() == 1);
   CHECK(same(s.events[0],
              R"({"type":"state","state":"ready","outReady":true,"inReady":false,"capturing":false,"mock":false,)"
-             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
              R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})"));
   s.mic(kFrame);
   CHECK(s.host.frames.empty());
@@ -1081,7 +1081,7 @@ static void test_a_switch_before_the_gateway_is_ready() {
 static void test_a_gateway_that_cannot_switch_keeps_the_mode() {
   static const char* const kManualActive =
       R"({"type":"state","state":"active","outReady":true,"inReady":true,"capturing":true,"mock":false,)"
-      R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+      R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
       R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})";
   static const char* const kUnsupported =
       R"({"type":"error","code":"mode_switch_unsupported","direction":"out","fatal":false,"message":)"
@@ -1386,7 +1386,7 @@ static void test_panic_discards_everything() {
   CHECK(s.events.size() == 2 && str(s.events[0], "state") == "stopping");
   CHECK(same(s.events[1],
              R"({"type":"state","state":"idle","outReady":false,"inReady":false,"capturing":false,"mock":false,)"
-             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
              R"("message":"Panic stop: all audio discarded"})"));
 
   // Whatever was still on its way is dropped.
@@ -1567,7 +1567,7 @@ static void test_connection_loss_degrades_and_reconnects() {
   CHECK(s.events.size() == 1);
   CHECK(same(s.events[0],
              R"({"type":"state","state":"degraded","outReady":false,"inReady":false,"capturing":false,"mock":false,)"
-             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,)"
+             R"("bypass":false,"outgoingMuted":false,"incomingAudioMuted":false,"outHeld":false,)"
              R"x("message":"Connection lost — reconnecting (attempt 1 of 5)",)x"
              R"("mode":"captions","myLang":"uz","targetLang":"en","outCommit":"manual"})"));
   s.source(kFrame);
@@ -1812,6 +1812,99 @@ static void test_echo_hold_in_automatic_modes() {
   CHECK(p.host.frames.size() == 1 && p.host.frames[0].direction == kOut);
 }
 
+/// The `state` events of `s` since it last forgot, each as its `outHeld`.
+static std::vector<bool> out_held(const Session& s) {
+  std::vector<bool> held;
+  for (const Json& event : s.events) {
+    if (str(event, "type") != "state") continue;
+    CHECK(has(event, "outHeld"));
+    held.push_back(yes(event, "outHeld"));
+  }
+  return held;
+}
+
+static void test_the_echo_hold_is_reported_on_the_flip() {
+  Session s;
+  s.go(settings("incoming", "vad"));
+  FakeHost::Sink& in = s.host.sinks[1];
+  s.mic(kFrame);
+  s.engine.tick();
+  CHECK(s.events.empty());
+
+  // Translated speech starts playing: the next microphone frame is held back, and the app hears of it once.
+  s.synthesized(kIn, 1, 1, 960, true);
+  s.mic(kFrame);
+  CHECK(out_held(s) == std::vector<bool>({true}) && s.events.size() == 1);
+  CHECK(str(s.events[0], "state") == "active" && yes(s.events[0], "capturing"));
+  for (int i = 0; i < 5; i++) {
+    s.host.now += 20'000;
+    s.mic(kFrame);
+    s.engine.tick();
+  }
+  CHECK(s.events.size() == 1);  // on the flip only, never per frame
+
+  // It has played; the hold lasts 400 ms more and then ends by itself, with no microphone frame arriving.
+  s.mic(kFrame);
+  in.consumed = in.written;
+  s.host.now += 399'999;
+  s.engine.tick();
+  CHECK(s.events.size() == 1);
+  s.host.now += 1;
+  s.engine.tick();
+  CHECK(out_held(s) == std::vector<bool>({true, false}) && s.events.size() == 2);
+  s.mic(kFrame);
+  s.engine.tick();
+  CHECK(s.events.size() == 2 && s.host.frames.size() == 2);  // the microphone goes again
+
+  // The tick alone notices the hold begin, and a microphone frame can end it as well as the tick.
+  Session t;
+  t.go(settings("incoming", "turn_prediction"));
+  t.synthesized(kIn, 1, 1, 960, true);
+  t.engine.tick();
+  CHECK(out_held(t) == std::vector<bool>({true}));
+  t.mic(kFrame);
+  t.host.sinks[1].consumed = t.host.sinks[1].written;
+  t.host.now += 400'000;
+  t.mic(kFrame);
+  CHECK(out_held(t) == std::vector<bool>({true, false}));
+  CHECK(t.host.frames.size() == 1 && t.host.frames[0].direction == kOut);
+
+  // Leaving the automatic window ends the hold in the same state event; coming back while it plays starts it again.
+  Session w;
+  w.go(settings("incoming", "vad"), R"(["turn.mode"])");
+  w.synthesized(kIn, 1, 1, 960, true);
+  w.engine.tick();
+  w.forget();
+  w.engine.set_out_commit("manual");
+  CHECK(out_held(w) == std::vector<bool>({false}) && str(w.events[0], "outCommit") == "manual");
+  w.engine.set_out_commit("vad");
+  CHECK(out_held(w) == std::vector<bool>({false, true}));
+  w.forget();
+  w.engine.set_outgoing_muted(true);
+  w.engine.set_outgoing_muted(false);
+  w.engine.stop();
+  CHECK(out_held(w) == std::vector<bool>({false, true, false, false}));
+  CHECK(same(w.events.back(), kIdleState));
+
+  // Push-to-talk is never held back, so it never says so; neither do muted headphones, which cannot echo.
+  Session p;
+  p.go(settings("incoming", "manual"));
+  p.synthesized(kIn, 1, 1, 960, true);
+  p.engine.tick();
+  p.engine.ptt_down();
+  p.mic(kFrame);
+  p.engine.tick();
+  p.engine.ptt_up();
+  CHECK(out_held(p) == std::vector<bool>({false, false}));
+  Session m;
+  m.go(settings("incoming", "vad"));
+  m.engine.set_incoming_audio_muted(true);
+  m.synthesized(kIn, 1, 1, 960, true);
+  m.mic(kFrame);
+  m.engine.tick();
+  CHECK(out_held(m) == std::vector<bool>({false}) && m.host.frames.size() == 1);
+}
+
 // ── Sources and devices going away ──
 
 static void test_source_and_device_loss() {
@@ -1998,6 +2091,7 @@ int main() {
   test_reconnect_uses_the_token_from_update_access_token();
   test_terminal_refusals_during_reconnect_end_the_session();
   test_echo_hold_in_automatic_modes();
+  test_the_echo_hold_is_reported_on_the_flip();
   test_source_and_device_loss();
   test_backlog_and_playback_overflow();
   test_stop_releases_everything();

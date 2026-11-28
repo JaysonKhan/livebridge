@@ -146,6 +146,8 @@ public final class Engine: @unchecked Sendable {
     /// for a moment after), so that speech coming out of loudspeakers is not picked up and translated back.
     private var echoHoldUntilUs: UInt64 = 0
     private static let echoTailUs: UInt64 = 400_000
+    /// What the last `state` event said as `outHeld`.
+    private var outHeld = false
 
     private let micLevel = AtomicValue(-1200)
     private let sourceLevel = AtomicValue(-1200)
@@ -367,6 +369,15 @@ public final class Engine: @unchecked Sendable {
             return sent
         }
     }
+
+    /// Plays incoming speech into `sink`. One that was never started keeps what is written queued until it is flushed.
+    func installIncomingSinkForTesting(_ sink: PlaybackSink) { queue.sync { sinks[.in] = sink } }
+
+    /// One microphone frame, as the capture callback delivers it.
+    func capturedForTesting(_ pcm: Data) { queue.sync { captured(pcm, direction: .out) } }
+
+    /// What the session's 20 ms timer does.
+    func tickForTesting() { queue.sync { playbackTick() } }
 
     private func connect() {
         guard let config else { return }
@@ -629,7 +640,8 @@ public final class Engine: @unchecked Sendable {
             guard (pttHeld || outCaptureOpen), !outgoingMuted, directionReady[.out] == true else { return }
             if outCaptureOpen, !pttHeld {
                 let now = monotonicMicroseconds()
-                if let incoming = sinks[.in], incoming.queuedMs > 0, !incoming.isMuted { echoHoldUntilUs = now + Self.echoTailUs }
+                if incomingPlaying { echoHoldUntilUs = now + Self.echoTailUs }
+                updateOutHeld(now)
                 if now < echoHoldUntilUs { return }
             }
         } else {
@@ -650,6 +662,25 @@ public final class Engine: @unchecked Sendable {
                 ])
             }
         }
+    }
+
+    /// Translated incoming speech is still to be heard in the room.
+    private var incomingPlaying: Bool {
+        guard let incoming = sinks[.in] else { return false }
+        return incoming.queuedMs > 0 && !incoming.isMuted
+    }
+
+    /// The automatic capture window is open but the echo hold keeps the microphone back — what `captured` would decide
+    /// for a frame arriving at `now`.
+    private func holdingMicrophone(_ now: UInt64) -> Bool {
+        guard phase == .ready || phase == .active, outCaptureOpen, !pttHeld else { return false }
+        return incomingPlaying || now < echoHoldUntilUs
+    }
+
+    /// Tells the app when `outHeld` flips — on the flip only, never per frame. The hold also ends with no frame
+    /// arriving, so the session timer asks too.
+    private func updateOutHeld(_ now: UInt64 = monotonicMicroseconds()) {
+        if holdingMicrophone(now) != outHeld { emitState(now: now) }
     }
 
     private func startSyntheticMic() {
@@ -776,7 +807,13 @@ public final class Engine: @unchecked Sendable {
         }
     }
 
-    /// Runs every 20 ms: reports when a turn actually becomes audible and when it has finished playing.
+    /// Runs every 20 ms during a session.
+    private func playbackTick() {
+        observePlayback()
+        updateOutHeld()
+    }
+
+    /// Reports when a turn actually becomes audible and when it has finished playing.
     private func observePlayback() {
         for direction in [Direction.out, .in] {
             guard let sink = sinks[direction], var turns = playing[direction], !turns.isEmpty else { continue }
@@ -842,7 +879,7 @@ public final class Engine: @unchecked Sendable {
     }
 
     private func startSessionTimers() {
-        playbackTimer = makeTimer(milliseconds: 20) { [weak self] in self?.observePlayback() }
+        playbackTimer = makeTimer(milliseconds: 20) { [weak self] in self?.playbackTick() }
         watchTimer = makeTimer(milliseconds: 1000) { [weak self] in self?.watchSources() }
     }
 
@@ -879,12 +916,14 @@ public final class Engine: @unchecked Sendable {
         meterTap = nil
     }
 
-    private func emitState() {
+    private func emitState(now: UInt64 = monotonicMicroseconds()) {
+        outHeld = holdingMicrophone(now)
         var event: [String: Any] = [
             "type": "state", "state": phase.rawValue,
             "outReady": directionReady[.out] ?? false, "inReady": directionReady[.in] ?? false,
             "capturing": pttHeld || outCaptureOpen || inCaptureStarted || bypass,
             "mock": mock, "bypass": bypass, "outgoingMuted": outgoingMuted, "incomingAudioMuted": incomingAudioMuted,
+            "outHeld": outHeld,
         ]
         if let statusMessage { event["message"] = statusMessage }
         if let config {

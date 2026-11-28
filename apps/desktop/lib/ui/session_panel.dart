@@ -367,6 +367,7 @@ class PttButton extends ConsumerWidget {
       TalkState.holdReady => (l.talkHoldReady, Icons.mic_none),
       TalkState.holdHeld => (l.talkHoldHeld, Icons.mic),
       TalkState.listening => (l.talkListening, Icons.mic),
+      TalkState.translationPlaying => (l.talkTranslationPlaying, Icons.headphones),
       TalkState.muted => (l.talkMuted, Icons.mic_off),
       TalkState.bypass => (l.talkBypass, Icons.call_split),
     };

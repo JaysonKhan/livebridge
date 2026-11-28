@@ -606,6 +606,139 @@ final class OutCommitSwitchTests: XCTestCase {
     }
 }
 
+final class EchoHoldStateTests: XCTestCase {
+    private var events: [[String: Any]] = []
+    /// One 20 ms microphone frame, and 100 ms of translated speech at the gateway's synthesis rate.
+    private let frame = Data(count: CaptureSource.frameSamples * 2)
+    private let speech = Data(count: 4_800)
+
+    private var states: [[String: Any]] { events.filter { $0["type"] as? String == "state" } }
+
+    /// A ready session in `commit` mode whose incoming speech goes to a playback queue on a real output device that is
+    /// never started: what is written stays queued, as if it were still playing, until it is flushed. Nothing is heard.
+    private func session(_ commit: String) throws -> (Engine, PlaybackSink) {
+        guard let device = AudioDevices.all().first(where: { $0.outputChannels > 0 }) else {
+            throw XCTSkip("needs an audio output device")
+        }
+        let sink = try PlaybackSink(deviceID: device.id)
+        let engine = Engine()
+        engine.onEvent = { self.events.append($0) }
+        engine.installConfigForTesting(try XCTUnwrap(EngineConfig(dictionary: [
+            "gatewayUrl": "https://bridge.example.com", "accessToken": "secret-token", "micUid": "mic", "headphonesUid": "phones",
+            "sourcePids": [4242], "targetLang": "en", "mode": "incoming", "outCommit": commit,
+        ])))
+        engine.installIncomingSinkForTesting(sink)
+        engine.connectedForTesting()
+        engine.receivedForTesting([
+            "v": 1, "type": "session.ready", "features": ["turn.mode"],
+            "directions": ["out": ["enabled": true, "ready": true], "in": ["enabled": false, "ready": false]],
+        ])
+        addTeardownBlock { engine.stop() }
+        return (engine, sink)
+    }
+
+    func testThePanelIsToldOnceWhenTranslatedSpeechHoldsTheMicrophoneBackAndOnceWhenTheHoldEnds() throws {
+        let (engine, sink) = try session("vad")
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, false)
+        engine.capturedForTesting(frame)
+        engine.tickForTesting()
+        let before = states.count
+
+        // Translated speech starts playing: the next microphone frame is held back, and the panel hears of it.
+        sink.write(pcm16: speech, rate: 24_000)
+        engine.capturedForTesting(frame)
+        XCTAssertEqual(states.count, before + 1)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, true)
+        XCTAssertEqual(states.last?["state"] as? String, "active")
+        for _ in 0..<5 {
+            engine.capturedForTesting(frame)
+            engine.tickForTesting()
+        }
+        XCTAssertEqual(states.count, before + 1, "said on the flip only, never per frame")
+
+        // It has played; the hold lasts a moment longer...
+        sink.flush()
+        engine.capturedForTesting(frame)
+        engine.tickForTesting()
+        XCTAssertEqual(states.count, before + 1)
+        // ...and then ends by itself, with no microphone frame arriving to notice it.
+        Thread.sleep(forTimeInterval: 0.45)
+        engine.tickForTesting()
+        XCTAssertEqual(states.count, before + 2)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, false)
+        engine.capturedForTesting(frame)
+        engine.tickForTesting()
+        XCTAssertEqual(states.count, before + 2)
+    }
+
+    func testTheTimerAloneNoticesTheHoldBeginAndAMicrophoneFrameCanEndIt() throws {
+        let (engine, sink) = try session("turn_prediction")
+        let before = states.count
+        sink.write(pcm16: speech, rate: 24_000)
+        engine.tickForTesting()
+        XCTAssertEqual(states.count, before + 1)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, true)
+        engine.capturedForTesting(frame)
+        sink.flush()
+        engine.capturedForTesting(frame)
+        XCTAssertEqual(states.count, before + 1)
+        Thread.sleep(forTimeInterval: 0.45)
+        engine.capturedForTesting(frame)
+        XCTAssertEqual(states.count, before + 2)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, false)
+    }
+
+    func testHoldToTalkIsNeverHeldBack() throws {
+        let (engine, sink) = try session("manual")
+        sink.write(pcm16: speech, rate: 24_000)
+        engine.tickForTesting()
+        engine.pttDown()
+        engine.capturedForTesting(frame)
+        engine.tickForTesting()
+        engine.pttUp()
+        engine.tickForTesting()
+        XCTAssertFalse(states.isEmpty)
+        for state in states { XCTAssertEqual(state["outHeld"] as? Bool, false) }
+    }
+
+    func testLeavingTheAutomaticWindowEndsTheHoldInTheSameStateEvent() throws {
+        let (engine, sink) = try session("vad")
+        sink.write(pcm16: speech, rate: 24_000)
+        engine.capturedForTesting(frame)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, true)
+        engine.setOutCommit("manual")
+        _ = engine.takeSentForTesting()
+        XCTAssertEqual(states.last?["outCommit"] as? String, "manual")
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, false)
+
+        engine.setOutCommit("vad")
+        engine.tickForTesting()
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, true)
+        engine.setOutgoingMuted(true)
+        _ = engine.takeSentForTesting()
+        XCTAssertEqual(states.last?["outgoingMuted"] as? Bool, true)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, false)
+
+        engine.setOutgoingMuted(false)
+        engine.tickForTesting()
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, true)
+        engine.stop()
+        _ = engine.takeSentForTesting()
+        XCTAssertEqual(states.last?["state"] as? String, "idle")
+        for state in states.suffix(2) { XCTAssertEqual(state["outHeld"] as? Bool, false) }
+    }
+
+    func testMutedHeadphonesHoldNothingBack() throws {
+        let (engine, sink) = try session("vad")
+        engine.setIncomingAudioMuted(true)
+        sink.write(pcm16: speech, rate: 24_000)
+        engine.capturedForTesting(frame)
+        engine.tickForTesting()
+        XCTAssertEqual(states.last?["incomingAudioMuted"] as? Bool, true)
+        XCTAssertEqual(states.last?["outHeld"] as? Bool, false)
+    }
+}
+
 final class ProcessListTests: XCTestCase {
     func testSystemServicesAreNotOfferedAsMeetingSourcesButBrowsersAndMeetingAppsAre() {
         for bundle in ["com.google.Chrome.helper", "us.zoom.xos", "org.mozilla.firefox", "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.FaceTime"] {

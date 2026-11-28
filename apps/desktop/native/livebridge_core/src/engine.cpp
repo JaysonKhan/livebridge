@@ -558,8 +558,8 @@ void Engine::capture_frame(Direction direction, const std::uint8_t* pcm) {
     if (!(ptt_held_ || out_capture_open_) || outgoing_muted_ || !direction_ready_[0]) return;
     if (out_capture_open_ && !ptt_held_) {
       const std::uint64_t now = host_.now_us();
-      if (sink_open_[1] && !sink_muted_[1] && host_.sink_written(Direction::in) > host_.sink_consumed(Direction::in))
-        echo_hold_until_us_ = now + kEchoTailUs;
+      if (incoming_playing()) echo_hold_until_us_ = now + kEchoTailUs;
+      update_out_held(now);
       if (now < echo_hold_until_us_) return;
     }
   } else if (!in_capture_started_ || !direction_ready_[1]) {
@@ -582,6 +582,24 @@ void Engine::capture_frame(Direction direction, const std::uint8_t* pcm) {
     emit_error("capture_backlog", "the network is not keeping up; some captured audio was dropped", false,
                direction_name(direction));
   }
+}
+
+/// Translated incoming speech is still to be heard in the room.
+bool Engine::incoming_playing() {
+  return sink_open_[1] && !sink_muted_[1] && host_.sink_written(Direction::in) > host_.sink_consumed(Direction::in);
+}
+
+/// The automatic capture lane is open but the echo hold keeps the microphone back — what `capture_frame` would decide
+/// for a frame arriving at `now`.
+bool Engine::holding_microphone(std::uint64_t now) {
+  if ((phase_ != Phase::ready && phase_ != Phase::active) || !out_capture_open_ || ptt_held_) return false;
+  return incoming_playing() || now < echo_hold_until_us_;
+}
+
+/// Tells the interface when `outHeld` flips — on the flip only, never per frame. The hold also ends with no frame
+/// arriving, so `tick()` asks too.
+void Engine::update_out_held(std::uint64_t now) {
+  if (holding_microphone(now) != out_held_) emit_state(now);
 }
 
 // ── Gateway -> playback / interface ──
@@ -865,6 +883,7 @@ void Engine::tick() {
   if (phase_ == Phase::idle) return;
   observe_playback();
   const std::uint64_t now = host_.now_us();
+  update_out_held(now);
   if (now - last_source_watch_us_ >= kSourceWatchEveryUs) {
     last_source_watch_us_ = now;
     watch_source();
@@ -885,8 +904,11 @@ void Engine::emit(const Json& event) {
   if (on_event_) on_event_(event);
 }
 
-void Engine::emit_state() {
+void Engine::emit_state() { emit_state(host_.now_us()); }
+
+void Engine::emit_state(std::uint64_t now) {
   static const char* const kPhases[] = {"idle", "connecting", "ready", "active", "degraded", "stopping"};
+  out_held_ = holding_microphone(now);
   Json event = object({
       {"type", "state"},
       {"state", kPhases[static_cast<int>(phase_)]},
@@ -897,6 +919,7 @@ void Engine::emit_state() {
       {"bypass", bypass_},
       {"outgoingMuted", outgoing_muted_},
       {"incomingAudioMuted", incoming_audio_muted_},
+      {"outHeld", out_held_},
   });
   if (status_message_) event.set("message", *status_message_);
   if (config_) {

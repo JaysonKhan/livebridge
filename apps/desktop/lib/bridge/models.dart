@@ -375,6 +375,7 @@ sealed class BridgeEvent {
           incomingAudioMuted: m['incomingAudioMuted'] as bool? ?? false,
           message: m['message'] as String?,
           outCommit: parseWire(OutCommit.values, m['outCommit']),
+          outHeld: m['outHeld'] as bool? ?? false,
         );
       case 'caption':
         final direction = parseWire(Direction.values, m['direction']);
@@ -440,6 +441,7 @@ final class StateEvent extends BridgeEvent {
     this.incomingAudioMuted = false,
     this.message,
     this.outCommit,
+    this.outHeld = false,
   });
 
   final EngineState state;
@@ -454,6 +456,10 @@ final class StateEvent extends BridgeEvent {
 
   /// The outgoing turn mode in force in the running session; null when no session is configured.
   final OutCommit? outCommit;
+
+  /// The automatic capture window is open, but the microphone is held back while translated incoming speech plays
+  /// (and a moment after), so that it is not picked up and translated back.
+  final bool outHeld;
 }
 
 final class CaptionEvent extends BridgeEvent {

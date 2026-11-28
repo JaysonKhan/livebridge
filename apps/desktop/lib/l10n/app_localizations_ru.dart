@@ -621,6 +621,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get talkListening => 'Слушаю — отправляю на каждой паузе';
 
   @override
+  String get talkTranslationPlaying => 'Звучит перевод — потом снова слушаю';
+
+  @override
   String get talkMuted => 'Микрофон выключен — ничего не отправляется';
 
   @override

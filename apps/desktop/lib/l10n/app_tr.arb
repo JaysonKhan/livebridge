@@ -184,6 +184,7 @@
   "talkHoldReady": "Basılı tutun veya Boşluk",
   "talkHoldHeld": "Konuşun… bırakınca gönderilir",
   "talkListening": "Dinliyorum — duraklayınca kendisi gönderir",
+  "talkTranslationPlaying": "Çeviri çalınıyor — bitince yeniden dinliyorum",
   "talkMuted": "Mikrofon kapalı — hiçbir şey gönderilmiyor",
   "talkBypass": "Çevirisiz — mikrofon doğrudan görüşmeye gidiyor",
   "errModeSwitchUnsupported": "Bu gateway oturum sırasında modu değiştiremiyor. Modu değiştirmek için oturumu durdurup yeniden başlatın.",

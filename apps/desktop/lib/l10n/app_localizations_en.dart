@@ -618,6 +618,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get talkListening => 'Listening — sends on each pause';
 
   @override
+  String get talkTranslationPlaying => 'Translation is playing — listening again right after';
+
+  @override
   String get talkMuted => 'Microphone muted — nothing is sent';
 
   @override

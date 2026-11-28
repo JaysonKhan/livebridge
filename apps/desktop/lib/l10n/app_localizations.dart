@@ -1198,6 +1198,12 @@ abstract class AppLocalizations {
   /// **'Listening — sends on each pause'**
   String get talkListening;
 
+  /// No description provided for @talkTranslationPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation is playing — listening again right after'**
+  String get talkTranslationPlaying;
+
   /// No description provided for @talkMuted.
   ///
   /// In en, this message translates to:

@@ -257,12 +257,16 @@ class Engine {
   void open_hands_free_capture_if_needed();
   long long display_turn(Direction direction, long long gateway_turn);
   void capture_frame(Direction direction, const std::uint8_t* pcm);
+  bool incoming_playing();
+  bool holding_microphone(std::uint64_t now);
+  void update_out_held(std::uint64_t now);
   void received(const Json& message);
   void observe_playback();
   void watch_source();
   void send(const char* type, Members fields);
   void emit(const Json& event);
   void emit_state();
+  void emit_state(std::uint64_t now);
   void emit_error(const std::string& code, const std::string& message, bool fatal, const char* direction = nullptr);
 
   EngineHost& host_;
@@ -315,6 +319,8 @@ class Engine {
   /// Automatic turn modes only: the microphone is not forwarded while translated incoming speech is playing (and
   /// for a moment after), so that speech coming out of loudspeakers is not picked up and translated back.
   std::uint64_t echo_hold_until_us_ = 0;
+  /// What the last `state` event said as `outHeld`.
+  bool out_held_ = false;
   std::uint64_t last_source_watch_us_ = 0;
 };
 

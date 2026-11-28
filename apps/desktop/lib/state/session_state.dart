@@ -95,6 +95,7 @@ class SessionState {
     this.message,
     this.pttHeld = false,
     this.outCommit,
+    this.outHeld = false,
     this.outTurns = const [],
     this.inTurns = const [],
     this.metrics,
@@ -115,6 +116,9 @@ class SessionState {
 
   /// The outgoing turn mode in force in the running session, as the host last reported it.
   final OutCommit? outCommit;
+
+  /// Automatic turn modes: the microphone is held back while translated incoming speech plays, as the host reported.
+  final bool outHeld;
   final List<CaptionTurn> outTurns;
   final List<CaptionTurn> inTurns;
   final MetricsEvent? metrics;
@@ -142,6 +146,7 @@ class SessionState {
     Object? message = _keep,
     bool? pttHeld,
     OutCommit? outCommit,
+    bool? outHeld,
     List<CaptionTurn>? outTurns,
     List<CaptionTurn>? inTurns,
     Object? metrics = _keep,
@@ -159,6 +164,7 @@ class SessionState {
     message: identical(message, _keep) ? this.message : message as String?,
     pttHeld: pttHeld ?? this.pttHeld,
     outCommit: outCommit ?? this.outCommit,
+    outHeld: outHeld ?? this.outHeld,
     outTurns: outTurns ?? this.outTurns,
     inTurns: inTurns ?? this.inTurns,
     metrics: identical(metrics, _keep) ? this.metrics : metrics as MetricsEvent?,
@@ -201,6 +207,7 @@ class SessionNotifier extends Notifier<SessionState> {
           message: s.message,
           pttHeld: s.state == EngineState.ready || s.state == EngineState.active ? state.pttHeld : false,
           outCommit: s.outCommit,
+          outHeld: s.outHeld,
         );
       case final CaptionEvent c:
         state = c.direction == Direction.out
@@ -330,6 +337,9 @@ enum TalkState {
   holdReady,
   holdHeld,
   listening,
+
+  /// Automatic, but the microphone is held back while translated incoming speech plays.
+  translationPlaying,
   muted,
   bypass;
 
@@ -344,11 +354,12 @@ final talkStateProvider = Provider<TalkState>((ref) {
           (s.running, s.engine == EngineState.stopping, s.bypass, s.outgoingMuted, s.canPtt && s.outReady, s.pttHeld),
     ),
   );
+  final outHeld = ref.watch(sessionProvider.select((s) => s.outHeld));
   final manual = ref.watch(setupProvider.select((s) => s.outCommit == OutCommit.manual));
   if (!running || stopping) return TalkState.noSession;
   if (bypass) return TalkState.bypass;
   if (muted) return TalkState.muted;
   if (!ready) return TalkState.connecting;
-  if (!manual) return TalkState.listening;
+  if (!manual) return outHeld ? TalkState.translationPlaying : TalkState.listening;
   return held ? TalkState.holdHeld : TalkState.holdReady;
 });

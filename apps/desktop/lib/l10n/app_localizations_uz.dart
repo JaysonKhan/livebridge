@@ -622,6 +622,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get talkListening => 'Tinglayapman — pauzada o\'zi yuboradi';
 
   @override
+  String get talkTranslationPlaying => 'Tarjima eshittirilmoqda — tugagach yana tinglayman';
+
+  @override
   String get talkMuted => 'Mikrofon o\'chiq — hech narsa yuborilmaydi';
 
   @override

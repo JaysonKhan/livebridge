@@ -184,6 +184,7 @@
   "talkHoldReady": "Bosib turing yoki Probel",
   "talkHoldHeld": "Gapiring… qo'yib yuborsangiz yuboriladi",
   "talkListening": "Tinglayapman — pauzada o'zi yuboradi",
+  "talkTranslationPlaying": "Tarjima eshittirilmoqda — tugagach yana tinglayman",
   "talkMuted": "Mikrofon o'chiq — hech narsa yuborilmaydi",
   "talkBypass": "Tarjimasiz — mikrofon to'g'ridan-to'g'ri qo'ng'iroqda",
   "errModeSwitchUnsupported": "Bu gateway sessiya davomida rejimni almashtira olmaydi. Boshqa rejim uchun sessiyani to'xtatib, qayta boshlang.",
