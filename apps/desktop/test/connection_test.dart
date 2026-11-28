@@ -475,6 +475,31 @@ void main() {
       expect(bridge.savedPrefs.last, {'accountRefreshToken': null, 'connectionMode': 'none'});
     });
 
+    test('Start stays off while the retry refreshes the refused token', () async {
+      final c = await load(accountSettings);
+      await notifier(c).start(base);
+      site.refreshGate = Completer<void>();
+      bridge.push(const ErrorEvent(code: 'invalid_token', message: 'refused', fatal: true));
+      await flush();
+      expect(c.read(sessionProvider).running, isFalse, reason: 'the refused session has ended');
+      expect(c.read(connectionProvider).startPending, isTrue);
+      site.refreshGate!.complete();
+      await flush();
+      expect(bridge.count('start'), 2);
+      expect(c.read(connectionProvider).startPending, isFalse);
+    });
+
+    test('the retry refresh failing lets Start on again', () async {
+      final c = await load(accountSettings);
+      await notifier(c).start(base);
+      site.refreshError = const AccountError('network');
+      bridge.push(const ErrorEvent(code: 'invalid_token', message: 'refused', fatal: true));
+      await flush();
+      expect(bridge.count('start'), 1);
+      expect(c.read(connectionProvider).startPending, isFalse);
+      expect(c.read(sessionProvider).error?.code, 'accounts_unavailable');
+    });
+
     test('the site unreachable at Start: accounts_unavailable, carrying no English text', () async {
       final c = await load(accountSettings);
       now = now.add(const Duration(minutes: 16));
@@ -570,6 +595,13 @@ void main() {
       expect(site.refreshedWith, hasLength(2));
     });
 
+    test('the missing-keys blocker names the buttons that lead to the key fields, in every language', () {
+      for (final code in ['uz', 'ru', 'tr', 'en']) {
+        final l = lookupAppLocalizations(Locale(code));
+        expect(l.blockEnterKeys, allOf(contains(l.connectionChange), contains(l.onboardingOwnKeys)), reason: code);
+      }
+    });
+
     test('keys mode without both keys is blocked; the own gateway keeps its checks', () async {
       final c = await load({'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key'});
       final s = c.read(connectionProvider);
@@ -616,6 +648,15 @@ void main() {
       );
       expect(bridge.settings.containsKey('connectionMode'), isFalse);
       expect(c.read(connectionProvider).mode, isNull);
+    });
+
+    test('a Change that cannot be saved keeps the mode and shows the failure; nothing is thrown', () async {
+      final c = await load({'connectionMode': 'keys', 'elevenlabsApiKey': 'el-key', 'geminiApiKey': 'gm-key'});
+      bridge.savePreferencesError = PlatformException(code: 'settings_failed', message: 'keychain refused');
+      await notifier(c).changeConnection();
+      expect(c.read(connectionProvider).mode, ConnectionMode.keys);
+      expect(c.read(connectionProvider).previous, isNull);
+      expect(c.read(sessionProvider).error?.code, 'settings_failed');
     });
 
     test('changeConnection saves "none" and keeps the saved secrets', () async {

@@ -140,7 +140,11 @@ class _BugReportDialogState extends ConsumerState<_BugReportDialog> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = e is BugReportException && e.code == 'rate_limited' ? l.feedbackRateLimited : l.reportFailed;
+        _error = switch (e) {
+          BugReportException(code: 'rate_limited') => l.feedbackRateLimited,
+          BugReportException(code: 'rejected') => l.reportRejected,
+          _ => l.reportFailed,
+        };
       });
     }
   }

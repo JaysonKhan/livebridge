@@ -53,8 +53,34 @@ List<String> _sourceNames(SetupState s) => [
     if (s.sourcePids.contains(p.pid)) p.name,
 ];
 
+/// The most the site accepts as a report's `devices`, measured by [siteJsonBytes].
+const int kReportDevicesLimit = 16 * 1024;
+
+/// The length the site measures for [value]: Python's `json.dumps` (", " and ": " between items, every character
+/// outside printable ASCII as `\uXXXX`, so a Cyrillic letter counts six). Only the JSON types a report holds.
+int siteJsonBytes(Object? value) {
+  // The brackets and ", " between the items: two characters an item, two for an empty one.
+  int items(List<int> lengths) => lengths.isEmpty ? 2 : lengths.fold(2 * lengths.length, (n, l) => n + l);
+  return switch (value) {
+    null || true => 4,
+    false => 5,
+    num() => '$value'.length,
+    String() => value.codeUnits.fold(2, (n, c) => n + _escapedLength(c)),
+    List() => items([for (final v in value) siteJsonBytes(v)]),
+    Map() => items([for (final e in value.entries) siteJsonBytes('${e.key}') + 2 + siteJsonBytes(e.value)]),
+    _ => throw ArgumentError.value(value, 'value', 'not a JSON value'),
+  };
+}
+
+int _escapedLength(int unit) => switch (unit) {
+  0x22 || 0x5C || 0x08 || 0x0C || 0x0A || 0x0D || 0x09 => 2, // \" \\ \b \f \n \r \t
+  >= 0x20 && < 0x7F => 1,
+  _ => 6, // \uXXXX, a character outside the BMP as two of them
+};
+
 /// What a problem report sends as `devices`: the chosen microphone, headphones and virtual microphone, the meeting
-/// apps, mode and languages, and the whole device list. Device ids stay out.
+/// apps, mode and languages, and the device list. Device ids stay out. A list too long for the site's limit (dozens
+/// of endpoints, names outside ASCII) keeps its first entries, and `devicesOmitted` says how many were left out.
 Map<String, Object?> describeDevices(SetupState s) {
   Map<String, Object?>? device(AudioDevice? d) => d == null
       ? null
@@ -67,7 +93,7 @@ Map<String, Object?> describeDevices(SetupState s) {
           'isDefaultInput': d.isDefaultInput,
           'isDefaultOutput': d.isDefaultOutput,
         };
-  return {
+  final head = {
     'mic': device(s.deviceByUid(s.micUid)),
     'headphones': device(s.deviceByUid(s.headphonesUid)),
     'virtualMic': device(s.virtualMic),
@@ -76,8 +102,18 @@ Map<String, Object?> describeDevices(SetupState s) {
     'myLang': s.myLang,
     'targetLang': s.targetLang,
     'outCommit': s.outCommit.wire,
-    'devices': [for (final d in s.devices) device(d)],
   };
+  final all = [for (final d in s.devices) device(d)];
+  Map<String, Object?> withFirst(int kept) => {
+    ...head,
+    'devices': all.sublist(0, kept),
+    if (kept < all.length) 'devicesOmitted': all.length - kept,
+  };
+  var kept = all.length;
+  while (kept > 0 && siteJsonBytes(withFirst(kept)) > kReportDevicesLimit) {
+    kept--;
+  }
+  return withFirst(kept);
 }
 
 /// One line for a Start: how it connects and where, and what it captures and plays — never a token or a key.

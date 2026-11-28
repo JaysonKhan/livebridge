@@ -482,11 +482,17 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
   }
 
   /// Back to onboarding, after stopping a running session; the saved keys, token and refresh token are kept, and the
-  /// mode left is remembered for [restorePrevious]. Throws the bridge's error when the choice could not be saved.
+  /// mode left is remembered for [restorePrevious]. When the choice cannot be saved the mode stays and the error strip
+  /// says so (the buttons that call this have no place of their own to show it).
   Future<void> changeConnection() async {
     final left = state.mode;
     await _stopRunningSession();
-    await _bridge.savePreferences({'connectionMode': 'none'});
+    try {
+      await _bridge.savePreferences({'connectionMode': 'none'});
+    } on Exception catch (e) {
+      if (ref.mounted) ref.read(sessionProvider.notifier).reportException(e, 'saveSettings');
+      return;
+    }
     _signInRun++;
     state = state.copyWith(mode: null, signIn: const SignInIdle(), notice: null, previous: left);
   }
@@ -731,6 +737,8 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     if (_startRetried) return;
     _startRetried = true;
     ref.read(sessionProvider.notifier).dismissError();
+    // The refused session has ended, so Start would show; it stays off until the retry starts or fails.
+    state = state.copyWith(startPending: true);
     final String token;
     try {
       token = await _keeper.accessToken(force: true);
@@ -740,6 +748,8 @@ class ConnectionNotifier extends Notifier<ConnectionState> {
     } on Exception catch (e) {
       if (ref.mounted) _reportStartFailure(e);
       return;
+    } finally {
+      if (ref.mounted) state = state.copyWith(startPending: false);
     }
     // A new Start or a sign-out while refreshing wins.
     if (!ref.mounted || !identical(_accountStart, refused)) return;

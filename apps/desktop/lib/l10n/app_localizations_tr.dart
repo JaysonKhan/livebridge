@@ -80,6 +80,9 @@ class AppLocalizationsTr extends AppLocalizations {
       'Gateway\'e ulaşılamıyor. Gateway adresini ve internet bağlantınızı kontrol edin.';
 
   @override
+  String get errServiceUnreachable => 'Hizmete ulaşılamıyor. İnternet bağlantınızı kontrol edin.';
+
+  @override
   String get errUnauthorized =>
       'Gateway erişim jetonunu reddetti. Kontrol etmek için bağlantının yanındaki \"Değiştir\" düğmesine basın.';
 
@@ -171,10 +174,20 @@ class AppLocalizationsTr extends AppLocalizations {
   String get blockEnterToken => 'Erişim jetonunu girin: bağlantının yanındaki \"Değiştir\" düğmesine basın.';
 
   @override
-  String get blockEnterKeys => 'ElevenLabs ve Gemini anahtarlarınızı girin.';
+  String get blockEnterKeys =>
+      'ElevenLabs ve Gemini anahtarlarınızı girin: bağlantının yanındaki \"Değiştir\" düğmesine basın, ardından \"Kendi API anahtarlarım var\" bölümünü açın.';
 
   @override
   String get blockBalanceEmpty => 'Bakiyeniz boş. Başlamak için bakiye yükleyin.';
+
+  @override
+  String get warnBluetoothMicWindows =>
+      'Bluetooth mikrofon: Windows bu durumda kulaklığı Hands-Free moduna geçirir — stereo ses kesilir, görüşme telefon kalitesine düşer. Dizüstü bilgisayarın dahili mikrofonunu veya bir USB mikrofon seçin; kulaklığı yalnızca dinlemek için kullanın.';
+
+  @override
+  String warnHeadphonesNotSystemOutput(String headphones, String output) {
+    return 'Çeviri \"$headphones\" cihazında çalacak, sistem ise sesi \"$output\" cihazına gönderiyor. Mikrofonun yanındaki hoparlörler yankı yapar.';
+  }
 
   @override
   String noticeMicLost(String name) {
@@ -1180,4 +1193,8 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get reportFailed => 'Rapor gönderilemedi. Bağlantıyı kontrol edip tekrar deneyin.';
+
+  @override
+  String get reportRejected =>
+      'Site raporu kabul etmedi. E-posta adresini kontrol edin veya \"Tanılama günlüğünü ekle\" işaretini kaldırıp tekrar gönderin.';
 }

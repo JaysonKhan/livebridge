@@ -77,7 +77,11 @@ extension AppLocalizationsLabels on AppLocalizations {
     'playback_overflow' => errPlaybackOverflow,
     'source_gone' => errSourceGone,
     'device_removed' => errDeviceRemoved,
-    'gateway_unreachable' => errGatewayUnreachable,
+    // The hosted service's address is built in: only the own gateway's can be wrong.
+    'gateway_unreachable' =>
+      connection == ConnectionMode.account || connection == ConnectionMode.keys
+          ? errServiceUnreachable
+          : errGatewayUnreachable,
     'unauthorized' || 'invalid_token' => switch (connection) {
       ConnectionMode.account => errSignInRefused,
       ConnectionMode.keys => errServiceRefused,

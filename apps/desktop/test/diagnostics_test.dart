@@ -172,6 +172,58 @@ void main() {
     }
   });
 
+  test('siteJsonBytes measures like the site: json.dumps with ", " and ": " and ASCII escapes', () {
+    // Python: len(json.dumps(o).encode()) == 95 for this object.
+    const o = {
+      'a': 'é',
+      'b': [1, true, null],
+      'c': '"\n\u0001\u007f😀\\/',
+      'd': <String, Object?>{},
+      'e': <Object?>[],
+    };
+    expect(siteJsonBytes(o), 95);
+  });
+
+  group('a long device list stays under the site\'s 16 KB devices cap', () {
+    // 80 endpoints with Cyrillic names: each letter counts as six bytes (\uXXXX) where the site measures.
+    final many = [
+      for (var i = 0; i < 80; i++)
+        AudioDevice(
+          uid: 'dev$i',
+          name: 'Динамики (Аудиоустройство высокой четкости) №$i',
+          inputChannels: i.isEven ? 2 : 0,
+          outputChannels: i.isOdd ? 2 : 0,
+          transport: i % 3 == 0 ? 'bluetooth' : 'usb',
+          isDefaultInput: i == 0,
+          isDefaultOutput: i == 1,
+        ),
+    ];
+
+    test('the list keeps its first entries and says how many were left out', () {
+      final d = describeDevices(SetupState(devices: many, micUid: 'dev0', headphonesUid: 'dev1'));
+      expect(siteJsonBytes(d), lessThanOrEqualTo(kReportDevicesLimit));
+      final kept = d['devices']! as List;
+      expect(kept.length + (d['devicesOmitted']! as int), 80);
+      expect(kept, isNotEmpty);
+      expect((kept.first as Map)['name'], many.first.name);
+      expect((d['mic']! as Map)['name'], many[0].name, reason: 'the chosen devices are always there');
+      expect((d['headphones']! as Map)['name'], many[1].name);
+      // One more entry would not have fitted.
+      final more = {
+        ...d,
+        'devices': [...kept, kept.first],
+        'devicesOmitted': (d['devicesOmitted']! as int) - 1,
+      };
+      expect(siteJsonBytes(more), greaterThan(kReportDevicesLimit));
+    });
+
+    test('a list that fits is sent whole, with no note', () {
+      final d = describeDevices(SetupState(devices: many.take(10).toList()));
+      expect((d['devices']! as List).length, 10);
+      expect(d.containsKey('devicesOmitted'), isFalse);
+    });
+  });
+
   group('never holds what was said, keys or tokens', () {
     testWidgets('account mode', (tester) async {
       final log = await exercise(tester, {'connectionMode': 'account', 'accountRefreshToken': refreshToken});

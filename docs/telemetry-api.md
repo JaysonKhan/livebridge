@@ -147,7 +147,7 @@ sending; "Include the diagnostic log" (on by default) leaves out both when untic
 | `email` | optional, ≤ 254; in account mode the form starts with the account's address, which the user may change or remove |
 | `app_version` ≤ 32, `os_version` ≤ 64, `platform` ≤ 32 (`macos_arm64`, `windows_x64`, …), `ui_language` | optional; a value that breaks the rule is stored empty |
 | `connection_mode` | optional: `account`, `keys` (own provider keys), `gateway` (own gateway) or `none`; anything else is stored empty |
-| `devices` | optional JSON object, ≤ 16 KB encoded: the chosen microphone, headphones and virtual microphone (name, transport, sample rate, channels, default flags), the chosen meeting-app process names, mode, languages, turn mode, and the device list. No device ids |
+| `devices` | optional JSON object, ≤ 16 KB encoded (as Python's `json.dumps` writes it: ASCII escapes, so a non-ASCII letter counts six bytes): the chosen microphone, headphones and virtual microphone (name, transport, sample rate, channels, default flags), the chosen meeting-app process names, mode, languages, turn mode, and the device list. A list that would not fit keeps its first entries and `devicesOmitted` gives the number left out. No device ids |
 | `log` | optional string, ≤ 256 KB (UTF-8); the client sends at most 200 KB: the end of earlier runs, then this run |
 
 The **diagnostic log** holds, one line per event: the app and OS version, platform and system language; the

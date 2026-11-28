@@ -165,6 +165,19 @@ void main() {
       expect(fakeReports.sent, hasLength(2));
     });
 
+    testWidgets('a report the site refuses (400) is not worded as a connection problem', (tester) async {
+      await pumpApp(tester);
+      await _open(tester);
+      await _describe(tester, 'Crash on start');
+      fakeReports.error = const BugReportException('rejected');
+      await tester.tap(_send);
+      await tester.pumpAndSettle();
+      expect(find.text(en.reportRejected), findsOneWidget);
+      expect(find.text(en.reportFailed), findsNothing);
+      expect(en.reportRejected, contains(en.reportIncludeLog), reason: 'names the box to untick');
+      expect(_field(tester, _message), 'Crash on start');
+    });
+
     testWidgets('fields are locked while sending', (tester) async {
       await pumpApp(tester);
       await _open(tester);

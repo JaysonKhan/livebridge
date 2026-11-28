@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide ConnectionState;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livebridge/bridge/account_client.dart';
@@ -349,6 +350,8 @@ void main() {
       ('keys', 'rate_limited', () => ru.errRateLimited),
       ('keys', 'session_limit', () => ru.bannerSessionLimit),
       ('keys', 'gateway_error', () => ru.errGatewayError),
+      ('keys', 'gateway_unreachable', () => ru.errServiceUnreachable),
+      ('account', 'gateway_unreachable', () => ru.errServiceUnreachable),
       ('account', 'unauthorized', () => ru.errSignInRefused),
       ('account', 'invalid_token', () => ru.errSignInRefused),
       ('account', 'accounts_unavailable', () => ru.errAccountsUnavailable),
@@ -383,6 +386,25 @@ void main() {
       expect(c.read(connectionProvider).mode, isNull);
       expect(find.byType(OnboardingScreen), findsOneWidget);
       expect(find.byType(HomeScreen), findsNothing);
+    });
+
+    testWidgets('a Change that cannot be saved stays here and says so on the error strip', (tester) async {
+      final (c, _, _) = await pumpAccount(
+        tester,
+        mode: 'keys',
+        settings: {'elevenlabsApiKey': 'k', 'geminiApiKey': 'g'},
+      );
+      fake.savePreferencesError = PlatformException(code: 'settings_failed', message: 'keychain refused');
+      await tester.tap(find.byKey(const Key('connection-change')));
+      await tester.pumpAndSettle();
+      expect(c.read(connectionProvider).mode, ConnectionMode.keys);
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.textContaining(en.errSettingsFailed), findsOneWidget);
+
+      fake.savePreferencesError = null;
+      await tester.tap(find.byKey(const Key('connection-change')));
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
     });
 
     testWidgets('keys: Own keys', (tester) async {

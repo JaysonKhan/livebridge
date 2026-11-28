@@ -79,6 +79,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errGatewayUnreachable => 'Не удаётся связаться со шлюзом. Проверьте адрес шлюза и интернет.';
 
   @override
+  String get errServiceUnreachable => 'Не удаётся связаться с сервисом. Проверьте подключение к интернету.';
+
+  @override
   String get errUnauthorized => 'Шлюз отклонил токен доступа. Проверьте его: нажмите «Изменить» рядом с подключением.';
 
   @override
@@ -170,10 +173,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get blockEnterToken => 'Укажите токен доступа: нажмите «Изменить» рядом с подключением.';
 
   @override
-  String get blockEnterKeys => 'Введите свои ключи ElevenLabs и Gemini.';
+  String get blockEnterKeys =>
+      'Введите свои ключи ElevenLabs и Gemini: нажмите «Изменить» рядом с подключением, затем откройте «У меня есть свои API-ключи».';
 
   @override
   String get blockBalanceEmpty => 'Баланс пуст. Пополните его, чтобы начать.';
+
+  @override
+  String get warnBluetoothMicWindows =>
+      'Bluetooth-микрофон: Windows переводит гарнитуру в режим Hands-Free — стереозвук пропадает, а звонок звучит с телефонным качеством. Выберите встроенный микрофон ноутбука или USB-микрофон, а гарнитуру оставьте только для прослушивания.';
+
+  @override
+  String warnHeadphonesNotSystemOutput(String headphones, String output) {
+    return 'Перевод будет звучать на устройстве «$headphones», а система выводит звук на «$output». Динамики рядом с микрофоном дают эхо.';
+  }
 
   @override
   String noticeMicLost(String name) {
@@ -1177,4 +1190,8 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get reportFailed => 'Сообщение не отправлено. Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get reportRejected =>
+      'Сайт не принял сообщение. Проверьте адрес e-mail или снимите отметку «Приложить журнал диагностики» и отправьте снова.';
 }

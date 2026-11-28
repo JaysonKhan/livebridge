@@ -79,6 +79,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get errGatewayUnreachable => 'Gateway\'ga ulanib bo\'lmadi. Gateway manzilini va internetni tekshiring.';
 
   @override
+  String get errServiceUnreachable => 'Xizmatga ulanib bo\'lmadi. Internet aloqasini tekshiring.';
+
+  @override
   String get errUnauthorized =>
       'Gateway kirish tokenini qabul qilmadi. Uni tekshiring: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
 
@@ -170,10 +173,20 @@ class AppLocalizationsUz extends AppLocalizations {
   String get blockEnterToken => 'Kirish tokenini kiriting: ulanish yonidagi «O\'zgartirish» tugmasini bosing.';
 
   @override
-  String get blockEnterKeys => 'ElevenLabs va Gemini kalitlaringizni kiriting.';
+  String get blockEnterKeys =>
+      'ElevenLabs va Gemini kalitlaringizni kiriting: ulanish yonidagi «O\'zgartirish» tugmasini bosing, so\'ng «Menda o\'z API kalitlarim bor» bo\'limini oching.';
 
   @override
   String get blockBalanceEmpty => 'Balansingiz bo\'sh. Boshlash uchun hisobni to\'ldiring.';
+
+  @override
+  String get warnBluetoothMicWindows =>
+      'Bluetooth mikrofon: bunda Windows naushnikni Hands-Free rejimiga o\'tkazadi — stereo ovoz o\'chadi, qo\'ng\'iroq sifati telefon darajasiga tushadi. Noutbukning o\'z mikrofonini yoki USB mikrofonni tanlang, naushnikni faqat tinglash uchun qoldiring.';
+
+  @override
+  String warnHeadphonesNotSystemOutput(String headphones, String output) {
+    return 'Tarjima \"$headphones\" qurilmasida yangraydi, tizim esa ovozni \"$output\" qurilmasiga chiqaradi. Mikrofon yonidagi karnaylar aks-sado beradi.';
+  }
 
   @override
   String noticeMicLost(String name) {
@@ -1180,4 +1193,8 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get reportFailed => 'Xabar yuborilmadi. Internetni tekshirib, qayta urinib ko\'ring.';
+
+  @override
+  String get reportRejected =>
+      'Sayt xabarni qabul qilmadi. E-pochta manzilini tekshiring yoki «Diagnostika jurnalini qo\'shish» belgisini olib tashlab, qayta yuboring.';
 }

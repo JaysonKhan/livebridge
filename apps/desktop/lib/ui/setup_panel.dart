@@ -306,7 +306,8 @@ class _DevicesSection extends ConsumerWidget {
     final s = ref.watch(setupProvider);
     final notifier = ref.read(setupProvider.notifier);
     final virtualMic = s.virtualMic;
-    final windows = ref.watch(hostPlatformProvider) == HostPlatform.windows;
+    final platform = ref.watch(hostPlatformProvider);
+    final windows = platform == HostPlatform.windows;
     final l = context.l10n;
     final t = context.tokens;
     return SectionCard(
@@ -330,6 +331,13 @@ class _DevicesSection extends ConsumerWidget {
             onChanged: notifier.setHeadphones,
           ),
           const SizedBox(height: 12),
+          for (final warning in routeWarnings(s, l, platform)) ...[
+            _CautionBox(
+              icon: Icons.warning_amber_rounded,
+              child: Text(warning, style: TextStyle(color: t.textPrimary)),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (virtualMic != null)
             Row(
               // The Windows sentence runs over several lines; the icon stays with the first.
@@ -343,40 +351,53 @@ class _DevicesSection extends ConsumerWidget {
               ],
             )
           else
-            Container(
+            _CautionBox(
               key: const Key('blackhole-missing'),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: t.caution.background,
-                borderRadius: BorderRadius.circular(t.isWindows ? t.controlRadius : t.cardRadius - 2),
-                border: Border.all(color: t.cardStroke),
-              ),
-              child: Row(
+              icon: Icons.info_outline,
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, color: t.caution.foreground),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          windows ? l.vbCableMissingNotice : l.blackHoleMissingNotice,
-                          style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          windows
-                              ? l.vbCableDownloadFrom(vbCableDownloadUrl)
-                              : l.blackHoleInstallWith(blackHoleInstallHint),
-                          style: TextStyle(color: t.textPrimary),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    windows ? l.vbCableMissingNotice : l.blackHoleMissingNotice,
+                    style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    windows ? l.vbCableDownloadFrom(vbCableDownloadUrl) : l.blackHoleInstallWith(blackHoleInstallHint),
+                    style: TextStyle(color: t.textPrimary),
                   ),
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A caution-coloured note under the device fields: the missing virtual cable, a device choice to reconsider.
+class _CautionBox extends StatelessWidget {
+  const _CautionBox({super.key, required this.icon, required this.child});
+
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.caution.background,
+        borderRadius: BorderRadius.circular(t.isWindows ? t.controlRadius : t.cardRadius - 2),
+        border: Border.all(color: t.cardStroke),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: t.caution.foreground),
+          const SizedBox(width: 8),
+          Expanded(child: child),
         ],
       ),
     );

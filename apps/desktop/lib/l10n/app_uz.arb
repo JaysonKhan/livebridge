@@ -23,6 +23,7 @@
   "errSourceGone": "Uchrashuv ilovasi ovoz chiqarishni to'xtatdi yoki yopildi.",
   "errDeviceRemoved": "Audio qurilma uzildi.",
   "errGatewayUnreachable": "Gateway'ga ulanib bo'lmadi. Gateway manzilini va internetni tekshiring.",
+  "errServiceUnreachable": "Xizmatga ulanib bo'lmadi. Internet aloqasini tekshiring.",
   "errUnauthorized": "Gateway kirish tokenini qabul qilmadi. Uni tekshiring: ulanish yonidagi «O'zgartirish» tugmasini bosing.",
   "errSessionLimit": "Gateway sessiyalar chegarasiga yetdi. Keyinroq urinib ko'ring.",
   "errSessionExpired": "Sessiya muddati tugadi. Yangisini boshlang.",
@@ -50,8 +51,10 @@
   "blockSameLanguages": "Ikki xil til tanlang.",
   "blockEnterGateway": "Gateway manzilini kiriting: ulanish yonidagi «O'zgartirish» tugmasini bosing.",
   "blockEnterToken": "Kirish tokenini kiriting: ulanish yonidagi «O'zgartirish» tugmasini bosing.",
-  "blockEnterKeys": "ElevenLabs va Gemini kalitlaringizni kiriting.",
+  "blockEnterKeys": "ElevenLabs va Gemini kalitlaringizni kiriting: ulanish yonidagi «O'zgartirish» tugmasini bosing, so'ng «Menda o'z API kalitlarim bor» bo'limini oching.",
   "blockBalanceEmpty": "Balansingiz bo'sh. Boshlash uchun hisobni to'ldiring.",
+  "warnBluetoothMicWindows": "Bluetooth mikrofon: bunda Windows naushnikni Hands-Free rejimiga o'tkazadi — stereo ovoz o'chadi, qo'ng'iroq sifati telefon darajasiga tushadi. Noutbukning o'z mikrofonini yoki USB mikrofonni tanlang, naushnikni faqat tinglash uchun qoldiring.",
+  "warnHeadphonesNotSystemOutput": "Tarjima \"{headphones}\" qurilmasida yangraydi, tizim esa ovozni \"{output}\" qurilmasiga chiqaradi. Mikrofon yonidagi karnaylar aks-sado beradi.",
   "noticeMicLost": "\"{name}\" mikrofoni endi mavjud emas. Boshqa mikrofon tanlang.",
   "noticeHeadphonesLost": "\"{name}\" naushnigi endi mavjud emas. Boshqa naushnik tanlang.",
   "startSession": "Sessiyani boshlash",
@@ -366,5 +369,6 @@
   "reportShowLog": "Nima yuborilishini ko'rish",
   "reportPreviewTitle": "Nima yuboriladi",
   "reportSent": "Xabar yuborildi. Rahmat!",
-  "reportFailed": "Xabar yuborilmadi. Internetni tekshirib, qayta urinib ko'ring."
+  "reportFailed": "Xabar yuborilmadi. Internetni tekshirib, qayta urinib ko'ring.",
+  "reportRejected": "Sayt xabarni qabul qilmadi. E-pochta manzilini tekshiring yoki «Diagnostika jurnalini qo'shish» belgisini olib tashlab, qayta yuboring."
 }

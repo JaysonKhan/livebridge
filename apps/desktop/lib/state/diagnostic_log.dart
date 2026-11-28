@@ -33,11 +33,15 @@ final List<(RegExp, String)> _secretPatterns = [
     '[secret]',
   ),
 ];
-final RegExp _lineBreaks = RegExp(r'[\r\n\t]+');
+
+/// The C0 and C1 control characters (line breaks and tabs among them), DEL, and the Unicode line and paragraph
+/// separators: a device name can carry any of them.
+final RegExp _controlCharacters = RegExp(r'[\x00-\x1F\x7F-\x9F\u2028\u2029]+');
 
 /// Makes [text] safe for the diagnostic log: each of the given [secrets] (6 characters or more), bearer tokens, JWTs,
-/// provider keys and any token-shaped run of 32+ characters become `[secret]`; line breaks and tabs become spaces;
-/// the result is at most 400 characters (then `…`).
+/// provider keys and any token-shaped run of 32+ characters become `[secret]`; control characters (line breaks and
+/// tabs among them) and the Unicode line and paragraph separators become spaces; the result is at most 400 characters
+/// (then `…`).
 String redact(String text, {Iterable<String> secrets = const []}) {
   var out = text;
   final known = secrets.where((s) => s.length >= 6).toList()..sort((a, b) => b.length.compareTo(a.length));
@@ -47,7 +51,7 @@ String redact(String text, {Iterable<String> secrets = const []}) {
   for (final (pattern, replacement) in _secretPatterns) {
     out = out.replaceAll(pattern, replacement);
   }
-  out = out.replaceAll(_lineBreaks, ' ').trim();
+  out = out.replaceAll(_controlCharacters, ' ').trim();
   final runes = out.runes;
   return runes.length > _messageLimit ? '${String.fromCharCodes(runes.take(_messageLimit))}…' : out;
 }

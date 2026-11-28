@@ -79,6 +79,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errGatewayUnreachable => 'Cannot reach the gateway. Check the gateway URL and your internet connection.';
 
   @override
+  String get errServiceUnreachable => 'Cannot reach the service. Check your internet connection.';
+
+  @override
   String get errUnauthorized => 'The gateway rejected the access token. Check it: press Change beside the connection.';
 
   @override
@@ -169,10 +172,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockEnterToken => 'Enter the access token: press Change beside the connection.';
 
   @override
-  String get blockEnterKeys => 'Enter your ElevenLabs and Gemini keys.';
+  String get blockEnterKeys =>
+      'Enter your ElevenLabs and Gemini keys: press Change beside the connection, then open \"I have my own API keys\".';
 
   @override
   String get blockBalanceEmpty => 'Your balance is empty. Top up to start.';
+
+  @override
+  String get warnBluetoothMicWindows =>
+      'Bluetooth microphone: Windows then switches the headset to Hands-Free — its stereo sound stops and the call drops to phone quality. Use the laptop\'s built-in or a USB microphone; keep the headset for listening.';
+
+  @override
+  String warnHeadphonesNotSystemOutput(String headphones, String output) {
+    return 'The translation will play on \"$headphones\", but the system sends sound to \"$output\". Speakers next to the microphone cause echo.';
+  }
 
   @override
   String noticeMicLost(String name) {
@@ -1174,4 +1187,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportFailed => 'The report was not sent. Check the connection and try again.';
+
+  @override
+  String get reportRejected =>
+      'The site did not accept the report. Check the e-mail address, or uncheck \"Include the diagnostic log\" and send it again.';
 }

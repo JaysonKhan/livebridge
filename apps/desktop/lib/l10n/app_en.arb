@@ -23,6 +23,7 @@
   "errSourceGone": "The meeting app stopped playing audio or was closed.",
   "errDeviceRemoved": "An audio device was disconnected.",
   "errGatewayUnreachable": "Cannot reach the gateway. Check the gateway URL and your internet connection.",
+  "errServiceUnreachable": "Cannot reach the service. Check your internet connection.",
   "errUnauthorized": "The gateway rejected the access token. Check it: press Change beside the connection.",
   "errSessionLimit": "The gateway's session limit is reached. Try again later.",
   "errSessionExpired": "The session expired. Start a new one.",
@@ -71,8 +72,20 @@
   "blockSameLanguages": "Choose two different languages.",
   "blockEnterGateway": "Enter the gateway address: press Change beside the connection.",
   "blockEnterToken": "Enter the access token: press Change beside the connection.",
-  "blockEnterKeys": "Enter your ElevenLabs and Gemini keys.",
+  "blockEnterKeys": "Enter your ElevenLabs and Gemini keys: press Change beside the connection, then open \"I have my own API keys\".",
   "blockBalanceEmpty": "Your balance is empty. Top up to start.",
+  "warnBluetoothMicWindows": "Bluetooth microphone: Windows then switches the headset to Hands-Free — its stereo sound stops and the call drops to phone quality. Use the laptop's built-in or a USB microphone; keep the headset for listening.",
+  "warnHeadphonesNotSystemOutput": "The translation will play on \"{headphones}\", but the system sends sound to \"{output}\". Speakers next to the microphone cause echo.",
+  "@warnHeadphonesNotSystemOutput": {
+    "placeholders": {
+      "headphones": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
   "noticeMicLost": "Microphone \"{name}\" is no longer available. Choose another microphone.",
   "@noticeMicLost": {
     "placeholders": {
@@ -667,5 +680,6 @@
   "reportShowLog": "Show what will be sent",
   "reportPreviewTitle": "What will be sent",
   "reportSent": "Report sent. Thank you!",
-  "reportFailed": "The report was not sent. Check the connection and try again."
+  "reportFailed": "The report was not sent. Check the connection and try again.",
+  "reportRejected": "The site did not accept the report. Check the e-mail address, or uncheck \"Include the diagnostic log\" and send it again."
 }

@@ -55,3 +55,26 @@ List<String> startBlockers(
   }
   return reasons;
 }
+
+/// Device choices that work but are probably not what the person wants. Unlike [startBlockers] they never keep Start
+/// off.
+List<String> routeWarnings(SetupState s, AppLocalizations l, HostPlatform platform) {
+  final warnings = <String>[];
+  final mic = s.deviceByUid(s.micUid);
+  final phones = s.deviceByUid(s.headphonesUid);
+
+  // Recording from a Bluetooth headset makes Windows switch it to the Hands-Free profile (the AirPods case).
+  if (platform == HostPlatform.windows && mic?.transport == 'bluetooth') warnings.add(l.warnBluetoothMicWindows);
+
+  // Captions only play nothing, so where the headphones are does not matter then. A virtual cable as the system
+  // output is a routing of its own, not where the person listens.
+  final systemOutput = s.outputDevices.where((d) => d.isDefaultOutput).firstOrNull;
+  if (s.mode != SessionMode.captions &&
+      phones != null &&
+      !phones.isVirtual &&
+      systemOutput != null &&
+      systemOutput.uid != phones.uid) {
+    warnings.add(l.warnHeadphonesNotSystemOutput(phones.name, systemOutput.name));
+  }
+  return warnings;
+}

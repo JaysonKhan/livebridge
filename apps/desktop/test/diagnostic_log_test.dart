@@ -47,6 +47,20 @@ void main() {
       expect(redact('state ready', secrets: ['', 'a', 'ready']), 'state ready');
     });
 
+    test('every control character and the Unicode line and paragraph separators become spaces', () {
+      final controls = [for (var c = 0; c < 0x20; c++) c, for (var c = 0x7F; c <= 0x9F; c++) c, 0x2028, 0x2029];
+      for (final c in controls) {
+        expect(redact('AirPods${String.fromCharCode(c)}Pro'), 'AirPods Pro', reason: 'U+${c.toRadixString(16)}');
+      }
+      expect(redact('a\u0000\u001b[31m\u0085b\u2028c'), 'a [31m b c');
+      expect(redact('ok ñ é 🎧 «»'), 'ok ñ é 🎧 «»', reason: 'printable characters stay');
+    });
+
+    test('redaction still applies to a device name with control characters', () {
+      final out = redact('device "Head\u0007set $elevenLabsKey\u2029x"', secrets: ['dev-token-1']);
+      expect(out, 'device "Head set [secret] x"');
+    });
+
     test('one line per entry, capped', () {
       final out = redact('line one\nline two\ttab "quoted" 🎧\r\n');
       expect(out, 'line one line two tab "quoted" 🎧');

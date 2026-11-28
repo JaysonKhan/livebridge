@@ -23,6 +23,7 @@
   "errSourceGone": "Toplantı uygulaması ses çalmayı bıraktı veya kapatıldı.",
   "errDeviceRemoved": "Bir ses cihazının bağlantısı kesildi.",
   "errGatewayUnreachable": "Gateway'e ulaşılamıyor. Gateway adresini ve internet bağlantınızı kontrol edin.",
+  "errServiceUnreachable": "Hizmete ulaşılamıyor. İnternet bağlantınızı kontrol edin.",
   "errUnauthorized": "Gateway erişim jetonunu reddetti. Kontrol etmek için bağlantının yanındaki \"Değiştir\" düğmesine basın.",
   "errSessionLimit": "Gateway oturum sınırına ulaştı. Daha sonra tekrar deneyin.",
   "errSessionExpired": "Oturumun süresi doldu. Yeni bir oturum başlatın.",
@@ -50,8 +51,10 @@
   "blockSameLanguages": "İki farklı dil seçin.",
   "blockEnterGateway": "Gateway adresini girin: bağlantının yanındaki \"Değiştir\" düğmesine basın.",
   "blockEnterToken": "Erişim jetonunu girin: bağlantının yanındaki \"Değiştir\" düğmesine basın.",
-  "blockEnterKeys": "ElevenLabs ve Gemini anahtarlarınızı girin.",
+  "blockEnterKeys": "ElevenLabs ve Gemini anahtarlarınızı girin: bağlantının yanındaki \"Değiştir\" düğmesine basın, ardından \"Kendi API anahtarlarım var\" bölümünü açın.",
   "blockBalanceEmpty": "Bakiyeniz boş. Başlamak için bakiye yükleyin.",
+  "warnBluetoothMicWindows": "Bluetooth mikrofon: Windows bu durumda kulaklığı Hands-Free moduna geçirir — stereo ses kesilir, görüşme telefon kalitesine düşer. Dizüstü bilgisayarın dahili mikrofonunu veya bir USB mikrofon seçin; kulaklığı yalnızca dinlemek için kullanın.",
+  "warnHeadphonesNotSystemOutput": "Çeviri \"{headphones}\" cihazında çalacak, sistem ise sesi \"{output}\" cihazına gönderiyor. Mikrofonun yanındaki hoparlörler yankı yapar.",
   "noticeMicLost": "\"{name}\" mikrofonu artık kullanılamıyor. Başka bir mikrofon seçin.",
   "noticeHeadphonesLost": "\"{name}\" kulaklığı artık kullanılamıyor. Başka bir kulaklık seçin.",
   "startSession": "Oturumu başlat",
@@ -366,5 +369,6 @@
   "reportShowLog": "Gönderilecekleri göster",
   "reportPreviewTitle": "Gönderilecekler",
   "reportSent": "Rapor gönderildi. Teşekkürler!",
-  "reportFailed": "Rapor gönderilemedi. Bağlantıyı kontrol edip tekrar deneyin."
+  "reportFailed": "Rapor gönderilemedi. Bağlantıyı kontrol edip tekrar deneyin.",
+  "reportRejected": "Site raporu kabul etmedi. E-posta adresini kontrol edin veya \"Tanılama günlüğünü ekle\" işaretini kaldırıp tekrar gönderin."
 }

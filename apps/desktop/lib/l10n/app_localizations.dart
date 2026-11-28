@@ -232,6 +232,12 @@ abstract class AppLocalizations {
   /// **'Cannot reach the gateway. Check the gateway URL and your internet connection.'**
   String get errGatewayUnreachable;
 
+  /// No description provided for @errServiceUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the service. Check your internet connection.'**
+  String get errServiceUnreachable;
+
   /// No description provided for @errUnauthorized.
   ///
   /// In en, this message translates to:
@@ -397,7 +403,7 @@ abstract class AppLocalizations {
   /// No description provided for @blockEnterKeys.
   ///
   /// In en, this message translates to:
-  /// **'Enter your ElevenLabs and Gemini keys.'**
+  /// **'Enter your ElevenLabs and Gemini keys: press Change beside the connection, then open \"I have my own API keys\".'**
   String get blockEnterKeys;
 
   /// No description provided for @blockBalanceEmpty.
@@ -405,6 +411,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your balance is empty. Top up to start.'**
   String get blockBalanceEmpty;
+
+  /// No description provided for @warnBluetoothMicWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth microphone: Windows then switches the headset to Hands-Free — its stereo sound stops and the call drops to phone quality. Use the laptop\'s built-in or a USB microphone; keep the headset for listening.'**
+  String get warnBluetoothMicWindows;
+
+  /// No description provided for @warnHeadphonesNotSystemOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'The translation will play on \"{headphones}\", but the system sends sound to \"{output}\". Speakers next to the microphone cause echo.'**
+  String warnHeadphonesNotSystemOutput(String headphones, String output);
 
   /// No description provided for @noticeMicLost.
   ///
@@ -2211,6 +2229,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The report was not sent. Check the connection and try again.'**
   String get reportFailed;
+
+  /// No description provided for @reportRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'The site did not accept the report. Check the e-mail address, or uncheck \"Include the diagnostic log\" and send it again.'**
+  String get reportRejected;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
